@@ -1,0 +1,15 @@
+{
+  "name": "potracheno",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "dev": "wrangler dev",
+    "deploy": "wrangler d1 migrations apply potracheno --remote && wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply potracheno --remote"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

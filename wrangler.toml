@@ -1,0 +1,24 @@
+name = "potracheno"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+# Статика мини-аппа (public/) отдаётся напрямую, всё остальное идёт в src/index.js
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "potracheno"
+database_id = "REPLACE_WITH_DATABASE_ID"
+migrations_dir = "migrations"
+
+# Каждый час: регулярные платежи, у которых наступил день. 1-го и 2-го числа каждые 10 минут: рассылка итогов прошлого месяца порциями
+[triggers]
+crons = ["7 * * * *", "*/10 * 1,2 * *"]
+
+[vars]
+CLAUDE_MODEL = "claude-haiku-5-5"
+FREE_SCANS_PER_MONTH = "60"
+FREE_SUGGESTS_PER_MONTH = "400"
+REPORT_BATCH = "40"
