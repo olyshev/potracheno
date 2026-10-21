@@ -544,19 +544,23 @@ async function handleUpdate(env, update) {
 
 // ---------- админка ----------
 
+// Подключает вебхук бота, если он не указывает на приложение. Вызывается при публикации и раз в час (самовосстановление).
+async function ensureWebhook(env, origin, force = false) {
+  const info = await tg(env, 'getWebhookInfo', {});
+  const hookUrl = `${origin}/bot/webhook`;
+  const before = info.ok ? { url: info.result.url, pending: info.result.pending_update_count, last_error: info.result.last_error_message } : info;
+  if (info.ok && info.result.url === hookUrl && !force) return { ok: true, result: 'unchanged', before };
+  const r = await tg(env, 'setWebhook', { url: hookUrl, secret_token: await webhookSecret(env), allowed_updates: ['message', 'my_chat_member'] });
+  return { ...r, before };
+}
+
 async function handleAdmin(request, env, url) {
   if (!env.ADMIN_KEY || url.searchParams.get('key') !== env.ADMIN_KEY) return fail(403, 'forbidden');
   const origin = url.origin;
   if (url.pathname === '/admin/setup') {
-    const secret = await webhookSecret(env);
     const results = {};
     // Вебхук переставляем, только если он не указывает на нас: так публикация не сбрасывает сообщения в очереди
-    const info = await tg(env, 'getWebhookInfo', {});
-    const hookUrl = `${origin}/bot/webhook`;
-    const force = url.searchParams.get('force') === '1';
-    results.webhook = info.ok && info.result.url === hookUrl && !force
-      ? { ok: true, result: 'unchanged' }
-      : await tg(env, 'setWebhook', { url: hookUrl, secret_token: secret, allowed_updates: ['message', 'my_chat_member'] });
+    results.webhook = await ensureWebhook(env, origin, url.searchParams.get('force') === '1');
     results.menu = await tg(env, 'setChatMenuButton', { menu_button: { type: 'web_app', text: 'Открыть', web_app: { url: origin } } });
     results.commands_ru = await tg(env, 'setMyCommands', {
       commands: [{ command: 'start', description: 'Начать' }, { command: 'report', description: 'Итоги текущего месяца' }], language_code: 'ru',
@@ -566,8 +570,7 @@ async function handleAdmin(request, env, url) {
     });
     await env.DB.prepare(`INSERT OR REPLACE INTO settings (key, value) VALUES ('app_url', ?)`).bind(origin).run();
     const ok = Object.values(results).every((r) => r.ok);
-    const hook = info.ok ? { url: info.result.url, pending: info.result.pending_update_count, last_error: info.result.last_error_message, last_error_date: info.result.last_error_date } : info;
-    return json({ ok, app_url: origin, hook_before: hook, results }, ok ? 200 : 500);
+    return json({ ok, app_url: origin, results }, ok ? 200 : 500);
   }
   if (url.pathname === '/admin/stats') {
     const q = (sql, ...b) => env.DB.prepare(sql).bind(...b).first();
@@ -620,6 +623,11 @@ export default {
       }
       if (created) console.log('recurring created', created);
       await env.DB.prepare(`DELETE FROM processed_updates WHERE at < datetime('now', '-3 days')`).run();
+      const appUrl = (await env.DB.prepare(`SELECT value FROM settings WHERE key = 'app_url'`).first())?.value;
+      if (appUrl && env.BOT_TOKEN) {
+        const w = await ensureWebhook(env, appUrl);
+        if (w.result !== 'unchanged') console.log('webhook', JSON.stringify(w).slice(0, 300));
+      }
       const day = new Date().getUTCDate();
       if (day === 1 || day === 2) console.log('reports', JSON.stringify(await runMonthlyReports(env)));
     })());
