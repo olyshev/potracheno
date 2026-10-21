@@ -409,7 +409,8 @@ async function handleApi(request, env, url) {
 
 const BOT_TEXT = {
   ru: {
-    start: (name) => `Привет${name ? `, ${name}` : ''}! Я помогаю вести учёт расходов.\n\n📷 Пришлите фото чека — я разберу его по категориям. Скриншот из банковского приложения или выписку в PDF — внесу все операции.\n✏️ Или напишите сумму и что купили, например: <code>4,50 кофе</code> или <code>120 USD отель</code>.\n💰 Доход — с плюсом: <code>+2500 зарплата</code>.\n📊 1-го числа пришлю итоги месяца.\n\nВсё подробно — в приложении:`,
+    start: (name) => `Привет${name ? `, ${name}` : ''}! Это приложение поможет вести учёт расходов и доходов.\n\nМожно указывать покупки вручную, а можно прислать фото чека, скрин из банка или выписку — алгоритм разберёт операции по категориям и включит в список.\n\nДобавьте постоянные расходы на аренду, подписки или страховку — приложение запомнит дату и сумму, чтобы вам не пришлось вводить их из раза в раз.\n\nКаждого 1-го числа бот будет присылать итоги месяца.\n\nЗапускайте приложение, чтобы перестать жить от зарплаты до зарплаты:`,
+    startBtn: 'Вперёд!',
     open: 'Открыть',
     reading: '🔍 Читаю…',
     savedTx: (n, exp, inc, skipped) => `✅ Внёс ${n} ${n % 10 === 1 && n % 100 !== 11 ? 'операцию' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) ? 'операции' : 'операций'}${exp ? `\n💸 Расходы: ${exp}` : ''}${inc ? `\n💰 Доходы: ${inc}` : ''}${skipped ? `\n\nПропустил ${skipped} — уже были в учёте или это переводы между своими счетами. Проверить можно в приложении.` : ''}`,
@@ -425,7 +426,8 @@ const BOT_TEXT = {
     fix: 'Поправить',
   },
   en: {
-    start: (name) => `Hi${name ? `, ${name}` : ''}! I help you track your spending.\n\n📷 Send a photo of a receipt and I'll split it into categories. A screenshot from your banking app or a PDF statement — I'll add all the transactions.\n✏️ Or type an amount and what it was, e.g. <code>4.50 coffee</code> or <code>120 USD hotel</code>.\n💰 Income starts with a plus: <code>+2500 salary</code>.\n📊 On the 1st I'll send you a monthly wrap-up.\n\nEverything else is in the app:`,
+    start: (name) => `Hi${name ? `, ${name}` : ''}! This app helps you keep track of your expenses and income.\n\nYou can add purchases manually, or send a photo of a receipt, a screenshot from your banking app or a statement — the algorithm will sort the transactions into categories and add them to your list.\n\nAdd your regular expenses like rent, subscriptions or insurance — the app will remember the date and amount, so you don't have to enter them again and again.\n\nOn the 1st of every month the bot will send you a monthly summary.\n\nOpen the app and stop living paycheck to paycheck:`,
+    startBtn: 'Let’s go!',
     open: 'Open',
     reading: '🔍 Reading…',
     savedTx: (n, exp, inc, skipped) => `✅ Added ${n} transaction${n === 1 ? '' : 's'}${exp ? `\n💸 Expenses: ${exp}` : ''}${inc ? `\n💰 Income: ${inc}` : ''}${skipped ? `\n\nSkipped ${skipped} — already recorded or transfers between your own accounts. You can review them in the app.` : ''}`,
@@ -480,7 +482,7 @@ async function handleUpdate(env, update) {
   const reply = (text, extra = {}) => tg(env, 'sendMessage', { chat_id: msg.chat.id, text, parse_mode: 'HTML', ...extra });
 
   const text = (msg.text || '').trim();
-  if (text.startsWith('/start')) return reply(L.start(msg.from.first_name), { reply_markup: kb });
+  if (text.startsWith('/start')) return reply(L.start((msg.from.first_name || '').replace(/[<&>]/g, '')), { reply_markup: appUrl ? openAppKeyboard(appUrl, L.startBtn) : undefined });
   if (text.startsWith('/report')) {
     const s = await monthSummary(env, user.id, thisMonth(), user.base_currency || 'EUR');
     return reply(s.count ? reportText(s, user.lang) : L.empty, { reply_markup: kb });
