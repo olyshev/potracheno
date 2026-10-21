@@ -8,6 +8,7 @@
 import { verifyInitData, webhookSecret } from './auth.js';
 import { CATEGORIES, INCOME_CATEGORIES, isCategory, isCategoryFor, categorizeByRules, categorizeIncome, catLabel } from './categories.js';
 import { materialize, upcoming, listRules, createRule, dueDate } from './recurring.js';
+import { normalizeMerchant } from './brands.js';
 import { shiftMonth } from './report.js';
 const prevMonth = (m) => shiftMonth(m, -1);
 import { getRates, isCurrency, toEur, fromEur, round2, CURRENCIES } from './rates.js';
@@ -355,7 +356,7 @@ async function handleApi(request, env, url) {
       .filter((g) => isCategory(g.category) && validAmount(g.amount));
     if (!groups.length || groups.length > 20) return fail(400, 'bad_groups');
     const date = validDate(body.date) ? body.date : today();
-    const merchant = String(body.merchant || '').trim().slice(0, 60);
+    const merchant = normalizeMerchant(body.merchant).slice(0, 60);
     const receipt_id = crypto.randomUUID();
     await insertEntries(env, user.id, groups.map((g) => ({
       date, amount: g.amount, currency, category: g.category, note: g.note || merchant, merchant, receipt_id, source: 'receipt',
@@ -370,7 +371,7 @@ async function handleApi(request, env, url) {
       return {
         kind, amount: Number(i.amount), currency: i.currency,
         category: isCategoryFor(kind, i.category) ? i.category : (kind === 'income' ? 'other_income' : 'other'),
-        note: String(i.note || '').trim().slice(0, 120), date: validDate(i.date) ? i.date : today(), source: 'statement',
+        note: normalizeMerchant(i.note).slice(0, 120), date: validDate(i.date) ? i.date : today(), source: 'statement',
       };
     }).filter((i) => validAmount(i.amount) && isCurrency(i.currency, rates));
     if (!items.length) return fail(400, 'bad_items');
@@ -542,6 +543,37 @@ async function handleUpdate(env, update) {
   return reply(L.help, { reply_markup: kb });
 }
 
+// ---------- разовые задачи обслуживания (запускаются при публикации, каждая — один раз) ----------
+const MAINTENANCE = {
+  // Переименовать уже внесённые записи из чеков и выписок в бренды крупных сетей
+  brands_v1: async (env) => {
+    const { results } = await env.DB.prepare(
+      `SELECT id, note, merchant FROM entries WHERE source IN ('receipt', 'statement') AND (note IS NOT NULL OR merchant IS NOT NULL)`
+    ).all();
+    const stmts = [];
+    for (const e of results) {
+      const note = e.note ? normalizeMerchant(e.note) : e.note;
+      const merchant = e.merchant ? normalizeMerchant(e.merchant) : e.merchant;
+      if (note !== e.note || merchant !== e.merchant) {
+        stmts.push(env.DB.prepare('UPDATE entries SET note = ?, merchant = ? WHERE id = ?').bind(note, merchant, e.id));
+      }
+    }
+    for (let i = 0; i < stmts.length; i += 100) await env.DB.batch(stmts.slice(i, i + 100));
+    return { renamed: stmts.length };
+  },
+};
+
+async function runMaintenance(env) {
+  const done = {};
+  for (const [key, job] of Object.entries(MAINTENANCE)) {
+    const flag = `job:${key}`;
+    if (await env.DB.prepare('SELECT 1 FROM settings WHERE key = ?').bind(flag).first()) continue;
+    done[key] = await job(env);
+    await env.DB.prepare(`INSERT OR REPLACE INTO settings (key, value) VALUES (?, datetime('now'))`).bind(flag).run();
+  }
+  return { ok: true, done };
+}
+
 // ---------- админка ----------
 
 // Подключает вебхук бота, если он не указывает на приложение. Вызывается при публикации и раз в час (самовосстановление).
@@ -585,6 +617,7 @@ async function handleAdmin(request, env, url) {
     });
   }
   if (url.pathname === '/admin/run-reports') return json(await runMonthlyReports(env));
+  if (url.pathname === '/admin/maintenance') return json(await runMaintenance(env));
   return fail(404, 'not_found');
 }
 

@@ -1,6 +1,7 @@
 // Нейросеть: распознавание чеков, скриншотов из банковских приложений и выписок, подсказка категории.
 // Используется Claude API с принудительным вызовом инструмента — так ответ всегда приходит строгим JSON.
 import { CATEGORY_IDS, CATEGORIES, INCOME_CATEGORIES, INCOME_IDS } from './categories.js';
+import { normalizeMerchant } from './brands.js';
 
 const API = 'https://api.anthropic.com/v1/messages';
 
@@ -18,7 +19,7 @@ const DOCUMENT_TOOL = {
         description: 'receipt = one purchase with line items (paper receipt, invoice, bill). transactions = a list of operations from a bank app, card history, account statement or certificate. other = neither, or unreadable.',
       },
       // --- чек
-      merchant: { type: 'string', description: 'receipt only: store or company name as printed, short' },
+      merchant: { type: 'string', description: 'receipt only: store name. For a well-known chain or brand — just the brand (Lidl, Mercadona, Zara, Пятёрочка), never the legal entity; for small independent shops — the name as printed' },
       date: { type: 'string', description: 'receipt only: purchase date YYYY-MM-DD, empty string if not visible' },
       currency: { type: 'string', description: 'ISO 4217 code. Infer from symbols, country, language (€ in Spain → EUR, ₽/руб → RUB)' },
       total: { type: 'number', description: 'receipt only: final amount actually paid, after discounts' },
@@ -44,7 +45,7 @@ const DOCUMENT_TOOL = {
           type: 'object',
           properties: {
             date: { type: 'string', description: 'YYYY-MM-DD' },
-            description: { type: 'string', description: 'Merchant or counterparty, cleaned up and short (e.g. "Mercadona", "Glovo", "Перевод от Анны"). No card numbers, no long reference codes.' },
+            description: { type: 'string', description: 'Merchant or counterparty, cleaned up and short. For a well-known chain or brand — just the brand (e.g. "Mercadona", "Glovo", "Uber"); for people and small shops — a short readable name ("Перевод от Анны", "Panadería La Espiga"). No card numbers, store numbers, cities or reference codes.' },
             amount: { type: 'number', description: 'Positive number: amount charged or received in the account currency' },
             currency: { type: 'string', description: 'ISO 4217 code of that amount' },
             kind: { type: 'string', enum: ['expense', 'income', 'transfer'], description: 'transfer = moving money between the user’s own accounts/cards/savings, card top-ups, investment account funding, ATM cash withdrawal' },
@@ -78,6 +79,8 @@ For transactions (doc_type=transactions):
 - Money out → expense; money in → income (salary → salary, refunds and cashback → refund, transfers from other people → transfer_in, interest/dividends → investments).
 - Moving money between the user's own accounts, cards or savings, topping up a card or wallet, funding a brokerage account, ATM cash withdrawals → kind=transfer, category=other.
 - Amounts are positive; the kind carries the direction.
+
+Merchant names: for well-known chains and brands write only the consumer brand as people say it — "LIDL SUPERMERCADOS S.A.U" → "Lidl", "MERCADONA, S.A." → "Mercadona", "PYATEROCHKA 1123" → "Пятёрочка", "AMZN Mktp ES" → "Amazon". Drop legal forms (S.A., S.L., S.A.U., ООО, АО, GmbH, Ltd), store numbers and addresses. For small independent shops and people keep the name as printed.
 
 Never invent numbers you cannot read. If the content is neither a receipt nor transactions, set doc_type=other.`;
 
@@ -176,7 +179,7 @@ export function receiptToDraft(parsed, fallbackCurrency) {
   const date = /^\d{4}-\d{2}-\d{2}$/.test(parsed.date || '') ? parsed.date : null;
   const currency = /^[A-Z]{3}$/.test(parsed.currency || '') ? parsed.currency : fallbackCurrency;
   return {
-    merchant: String(parsed.merchant || '').slice(0, 60),
+    merchant: normalizeMerchant(parsed.merchant).slice(0, 60),
     date,
     currency,
     total: Math.round(list.reduce((s, g) => s + g.amount, 0) * 100) / 100,
@@ -215,7 +218,7 @@ export function transactionsToDraft(parsed, fallbackCurrency, today) {
     const date = /^\d{4}-\d{2}-\d{2}$/.test(t.date || '') && t.date <= today ? t.date : today;
     return {
       date, kind, category,
-      note: String(t.description || '').trim().slice(0, 80),
+      note: normalizeMerchant(t.description).slice(0, 80),
       amount: Math.round(Math.abs(Number(t.amount) || 0) * 100) / 100,
       currency: /^[A-Z]{3}$/.test(t.currency || '') ? t.currency : (/^[A-Z]{3}$/.test(parsed.currency || '') ? parsed.currency : fallbackCurrency),
     };

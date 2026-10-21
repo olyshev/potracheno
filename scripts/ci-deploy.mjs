@@ -89,4 +89,11 @@ for (let i = 0; i < 8; i++) {
 // Приложение уже опубликовано; сбой здесь обычно временный на стороне Telegram — предупреждаем, но не валим публикацию
 if (!res.ok) console.log(`::warning::Бот не переподключился (приложение опубликовано, следующая публикация попробует снова): ${JSON.stringify(res).slice(0, 400)}`);
 
+// 6. Разовые задачи обслуживания (например, переименование старых записей)
+step('Обслуживание');
+const mt = await fetch(`${url}/admin/maintenance?key=${adminKey}`).then((r) => r.json()).catch((e) => ({ ok: false, error: e.message }));
+console.log(JSON.stringify(mt));
+if (!mt.ok) console.log(`::warning::Задачи обслуживания не выполнились: ${JSON.stringify(mt).slice(0, 300)}`);
+else if (Object.keys(mt.done || {}).length) console.log(`::notice::Обслуживание: ${JSON.stringify(mt.done)}`);
+
 console.log(`\n✔ Готово: ${url}`);
