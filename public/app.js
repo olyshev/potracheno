@@ -337,7 +337,7 @@
         </button>`).join('')}</div>`;
     };
     $('#categoriesSection').innerHTML = s.categories.length
-      ? `<div class="section-title"><span>${t('expenses')}</span><span class="num">${money(s.total, base)}</span></div>${catList(s.categories, s.total, 'expense')}` : '';
+      ? `<div class="section-title"><span>${t('spent')}</span><span class="num">${money(s.total, base)}</span></div>${catList(s.categories, s.total, 'expense')}` : '';
     $('#incomeSection').innerHTML = s.incomeCategories.length
       ? `<div class="section-title"><span>${t('income')}</span><span class="num">${money(s.income, base)}</span></div>${catList(s.incomeCategories, s.income, 'income')}` : '';
     document.querySelectorAll('#categoriesSection [data-cat], #incomeSection [data-cat]').forEach((b) => b.addEventListener('click', () => {
