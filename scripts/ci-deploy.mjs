@@ -81,11 +81,12 @@ try { wrangler(['secret', 'bulk', secretsFile]); } finally { unlinkSync(secretsF
 // 5. Бот: вебхук, кнопка меню, команды
 step('Подключение бота');
 let res;
-for (let i = 0; i < 6; i++) {
+for (let i = 0; i < 8; i++) {
   await new Promise((r) => setTimeout(r, 5000)); // новые ключи применяются за несколько секунд
   res = await fetch(`${url}/admin/setup?key=${adminKey}`).then((r) => r.json()).catch((e) => ({ ok: false, error: e.message }));
   if (res.ok) break;
 }
-if (!res.ok) fail(`Бот не подключился: ${JSON.stringify(res).slice(0, 500)}`);
+// Приложение уже опубликовано; сбой здесь обычно временный на стороне Telegram — предупреждаем, но не валим публикацию
+if (!res.ok) console.log(`::warning::Бот не переподключился (приложение опубликовано, следующая публикация попробует снова): ${JSON.stringify(res).slice(0, 400)}`);
 
 console.log(`\n✔ Готово: ${url}`);

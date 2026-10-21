@@ -550,9 +550,13 @@ async function handleAdmin(request, env, url) {
   if (url.pathname === '/admin/setup') {
     const secret = await webhookSecret(env);
     const results = {};
-    results.webhook = await tg(env, 'setWebhook', {
-      url: `${origin}/bot/webhook`, secret_token: secret, allowed_updates: ['message', 'my_chat_member'], drop_pending_updates: true,
-    });
+    // Вебхук переставляем, только если он не указывает на нас: так публикация не сбрасывает сообщения в очереди
+    const info = await tg(env, 'getWebhookInfo', {});
+    const hookUrl = `${origin}/bot/webhook`;
+    const force = url.searchParams.get('force') === '1';
+    results.webhook = info.ok && info.result.url === hookUrl && !force
+      ? { ok: true, result: 'unchanged' }
+      : await tg(env, 'setWebhook', { url: hookUrl, secret_token: secret, allowed_updates: ['message', 'my_chat_member'] });
     results.menu = await tg(env, 'setChatMenuButton', { menu_button: { type: 'web_app', text: 'Открыть', web_app: { url: origin } } });
     results.commands_ru = await tg(env, 'setMyCommands', {
       commands: [{ command: 'start', description: 'Начать' }, { command: 'report', description: 'Итоги текущего месяца' }], language_code: 'ru',
