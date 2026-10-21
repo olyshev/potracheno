@@ -566,7 +566,8 @@ async function handleAdmin(request, env, url) {
     });
     await env.DB.prepare(`INSERT OR REPLACE INTO settings (key, value) VALUES ('app_url', ?)`).bind(origin).run();
     const ok = Object.values(results).every((r) => r.ok);
-    return json({ ok, app_url: origin, results }, ok ? 200 : 500);
+    const hook = info.ok ? { url: info.result.url, pending: info.result.pending_update_count, last_error: info.result.last_error_message, last_error_date: info.result.last_error_date } : info;
+    return json({ ok, app_url: origin, hook_before: hook, results }, ok ? 200 : 500);
   }
   if (url.pathname === '/admin/stats') {
     const q = (sql, ...b) => env.DB.prepare(sql).bind(...b).first();
