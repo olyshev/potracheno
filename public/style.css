@@ -253,3 +253,12 @@ main { padding: 4px 16px 0; }
 .row.muted { opacity: .55; }
 
 .amount-field .sign.pos-text { color: var(--pos); }
+
+/* ---------- проверка операций из выписки ---------- */
+.tx-row { grid-template-columns: 22px 38px 1fr auto; gap: 10px; cursor: pointer; }
+.tx-row + .tx-row::before { left: 84px; }
+.tx-row.off .row-main, .tx-row.off .row-amount, .tx-row.off .emoji { opacity: .45; }
+.tx-check { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+button.emoji { cursor: pointer; }
+.tag { color: var(--link); }
+.tx-list { max-height: none; }

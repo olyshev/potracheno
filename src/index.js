@@ -11,7 +11,7 @@ import { materialize, upcoming, listRules, createRule, dueDate } from './recurri
 import { shiftMonth } from './report.js';
 const prevMonth = (m) => shiftMonth(m, -1);
 import { getRates, isCurrency, toEur, fromEur, round2, CURRENCIES } from './rates.js';
-import { parseReceipt, receiptToDraft, suggestCategory } from './ai.js';
+import { parseDocument, receiptToDraft, transactionsToDraft, suggestCategory } from './ai.js';
 import { monthSummary, reportText, runMonthlyReports, MONTH_RE, money } from './report.js';
 import { tg, sendDocument, downloadFile, openAppKeyboard } from './telegram.js';
 
@@ -76,7 +76,7 @@ async function insertEntries(env, userId, rows) {
     ).bind(r.id || crypto.randomUUID(), userId, r.date, round2(r.amount), r.currency, toEur(r.amount, r.currency, rates),
       r.category, r.note || null, r.merchant || null, r.receipt_id || null, r.source || 'manual', kindOf(r.kind), r.recurring_id || null)
   );
-  if (stmts.length) await env.DB.batch(stmts);
+  for (let i = 0; i < stmts.length; i += 100) await env.DB.batch(stmts.slice(i, i + 100));
 }
 
 async function deleteRule(env, userId, ruleId) {
@@ -102,23 +102,70 @@ async function pickCategory(env, userId, text) {
   }
 }
 
-async function scanReceipt(env, user, base64, mediaType) {
+const MEDIA = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+// Проверка присланных файлов: до 8 картинок или один PDF, в сумме не больше ~10 МБ
+function validFiles(files) {
+  if (!Array.isArray(files) || !files.length || files.length > 8) return null;
+  const out = files.map((f) => ({ data: String(f?.data || ''), media_type: MEDIA.includes(f?.media_type) ? f.media_type : 'image/jpeg' }));
+  if (out.some((f) => f.data.length < 100)) return null;
+  if (out.filter((f) => f.media_type === 'application/pdf').length > 1) return null;
+  if (out.reduce((a, f) => a + f.data.length, 0) > 14_000_000) return 'too_big';
+  return out;
+}
+
+// Отмечаем операции, которые уже есть в учёте: та же сумма, валюта и вид, дата ±2 дня.
+// Чек, разложенный по категориям, сравниваем по общей сумме.
+async function markDuplicates(env, userId, items) {
+  const dates = items.map((i) => i.date).sort();
+  const { results } = await env.DB.prepare(
+    `SELECT date, kind, currency, amount, receipt_id FROM entries WHERE user_id = ? AND date >= ? AND date <= ?`
+  ).bind(userId, addDays(dates[0], -2), addDays(dates.at(-1), 2)).all();
+  const candidates = [];
+  const receipts = {};
+  for (const e of results) {
+    candidates.push({ date: e.date, kind: e.kind, currency: e.currency, amount: e.amount });
+    if (e.receipt_id) {
+      const r = (receipts[e.receipt_id] ||= { date: e.date, kind: e.kind, currency: e.currency, amount: 0, parts: 0 });
+      r.amount += e.amount; r.parts++;
+    }
+  }
+  for (const r of Object.values(receipts)) if (r.parts > 1) candidates.push(r);
+  const dayDiff = (a, b) => Math.abs((Date.parse(a) - Date.parse(b)) / 86400000);
+  for (const it of items) {
+    if (it.kind === 'transfer') continue;
+    const i = candidates.findIndex((c) => !c.used && c.kind === it.kind && c.currency === it.currency
+      && Math.abs(c.amount - it.amount) < 0.01 && dayDiff(c.date, it.date) <= 2);
+    if (i >= 0) { candidates[i].used = true; it.duplicate = true; }
+  }
+  return items;
+}
+
+async function scanDocument(env, user, files) {
   const usage = await getUsage(env, user.id);
   if (usage.scans >= scanLimit(env)) return { error: 'limit' };
   let parsed;
   try {
-    parsed = await parseReceipt(env, base64, mediaType);
+    parsed = await parseDocument(env, files, today());
   } catch (e) {
-    console.error('receipt parse failed', e.message);
+    console.error('document parse failed', e.message);
     return { error: 'ai' };
   }
   await bumpUsage(env, user.id, 'scans');
-  const draft = receiptToDraft(parsed, user.base_currency || 'EUR');
-  if (!draft) return { error: 'not_receipt' };
   const rates = await getRates(env);
-  if (!isCurrency(draft.currency, rates)) draft.currency = user.base_currency || 'EUR';
+  const base = user.base_currency || 'EUR';
+  const scansLeft = Math.max(0, scanLimit(env) - usage.scans - 1);
+  if (parsed?.doc_type === 'transactions') {
+    const draft = transactionsToDraft(parsed, base, today());
+    if (!draft) return { error: 'not_receipt' };
+    draft.items.forEach((i) => { if (!isCurrency(i.currency, rates)) i.currency = base; });
+    await markDuplicates(env, user.id, draft.items);
+    return { type: 'transactions', draft, scansLeft };
+  }
+  const draft = receiptToDraft(parsed, base);
+  if (!draft) return { error: 'not_receipt' };
+  if (!isCurrency(draft.currency, rates)) draft.currency = base;
   if (!draft.date || !validDate(draft.date)) draft.date = today();
-  return { draft, scansLeft: Math.max(0, scanLimit(env) - usage.scans - 1) };
+  return { type: 'receipt', draft, scansLeft };
 }
 
 // ---------- API мини-аппа ----------
@@ -287,11 +334,12 @@ async function handleApi(request, env, url) {
     return json(await pickCategory(env, user.id, String(body.text || '').slice(0, 120)));
   }
 
-  if (path === '/receipt/scan' && method === 'POST') {
-    const mediaType = ['image/jpeg', 'image/png', 'image/webp'].includes(body.media_type) ? body.media_type : 'image/jpeg';
-    if (typeof body.image !== 'string' || body.image.length < 100) return fail(400, 'no_image');
-    if (body.image.length > 6_500_000) return fail(413, 'too_big');
-    const r = await scanReceipt(env, user, body.image, mediaType);
+  if ((path === '/scan' || path === '/receipt/scan') && method === 'POST') {
+    // /receipt/scan — старый формат с одной картинкой, оставлен для совместимости
+    const files = validFiles(body.files || (body.image ? [{ data: body.image, media_type: body.media_type }] : null));
+    if (files === 'too_big') return fail(413, 'too_big');
+    if (!files) return fail(400, 'no_image');
+    const r = await scanDocument(env, user, files);
     if (r.error === 'limit') return fail(429, 'limit', `Monthly limit of ${scanLimit(env)} receipts reached`);
     if (r.error === 'not_receipt') return fail(422, 'not_receipt');
     if (r.error) return fail(502, 'ai_error');
@@ -313,6 +361,21 @@ async function handleApi(request, env, url) {
       date, amount: g.amount, currency, category: g.category, note: g.note || merchant, merchant, receipt_id, source: 'receipt',
     })));
     return json({ ok: true, receipt_id });
+  }
+
+  if (path === '/transactions/save' && method === 'POST') {
+    const rates = await getRates(env);
+    const items = (Array.isArray(body.items) ? body.items : []).slice(0, 300).map((i) => {
+      const kind = kindOf(i.kind);
+      return {
+        kind, amount: Number(i.amount), currency: i.currency,
+        category: isCategoryFor(kind, i.category) ? i.category : (kind === 'income' ? 'other_income' : 'other'),
+        note: String(i.note || '').trim().slice(0, 120), date: validDate(i.date) ? i.date : today(), source: 'statement',
+      };
+    }).filter((i) => validAmount(i.amount) && isCurrency(i.currency, rates));
+    if (!items.length) return fail(400, 'bad_items');
+    await insertEntries(env, user.id, items);
+    return json({ ok: true, saved: items.length });
   }
 
   if (path === '/export' && method === 'POST') {
@@ -345,13 +408,15 @@ async function handleApi(request, env, url) {
 
 const BOT_TEXT = {
   ru: {
-    start: (name) => `Привет${name ? `, ${name}` : ''}! Я помогаю вести учёт расходов.\n\n📷 Пришлите фото чека — я разберу его по категориям.\n✏️ Или напишите сумму и что купили, например: <code>4,50 кофе</code> или <code>120 USD отель</code>.\n💰 Доход — с плюсом: <code>+2500 зарплата</code>.\n📊 1-го числа пришлю итоги месяца.\n\nВсё подробно — в приложении:`,
+    start: (name) => `Привет${name ? `, ${name}` : ''}! Я помогаю вести учёт расходов.\n\n📷 Пришлите фото чека — я разберу его по категориям. Скриншот из банковского приложения или выписку в PDF — внесу все операции.\n✏️ Или напишите сумму и что купили, например: <code>4,50 кофе</code> или <code>120 USD отель</code>.\n💰 Доход — с плюсом: <code>+2500 зарплата</code>.\n📊 1-го числа пришлю итоги месяца.\n\nВсё подробно — в приложении:`,
     open: 'Открыть',
-    reading: '🔍 Читаю чек…',
+    reading: '🔍 Читаю…',
+    savedTx: (n, exp, inc, skipped) => `✅ Внёс ${n} ${n % 10 === 1 && n % 100 !== 11 ? 'операцию' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) ? 'операции' : 'операций'}${exp ? `\n💸 Расходы: ${exp}` : ''}${inc ? `\n💰 Доходы: ${inc}` : ''}${skipped ? `\n\nПропустил ${skipped} — уже были в учёте или это переводы между своими счетами. Проверить можно в приложении.` : ''}`,
+    nothingNew: 'Все операции отсюда уже есть в учёте 👌',
     saved: (d) => `✅ Записал чек${d.merchant ? ` «${d.merchant}»` : ''} на ${d.total}:\n${d.lines}`,
     savedManual: (sum, cat) => `✅ ${sum} — ${cat}`,
     savedIncome: (sum, cat) => `💰 Доход ${sum} — ${cat}`,
-    notReceipt: 'Не похоже на чек. Попробуйте сфотографировать ровнее и при хорошем свете.',
+    notReceipt: 'Не нашёл здесь ни чека, ни операций. Попробуйте снять ровнее и при хорошем свете.',
     limit: (n) => `В этом месяце уже распознано ${n} чеков — это лимит. Суммы можно вносить вручную.`,
     aiError: 'Не получилось распознать чек, попробуйте ещё раз чуть позже.',
     help: 'Пришлите фото чека или напишите сумму с описанием, например: <code>12,90 продукты</code>. Доход — с плюсом: <code>+2500 зарплата</code>',
@@ -359,13 +424,15 @@ const BOT_TEXT = {
     fix: 'Поправить',
   },
   en: {
-    start: (name) => `Hi${name ? `, ${name}` : ''}! I help you track your spending.\n\n📷 Send a photo of a receipt and I'll split it into categories.\n✏️ Or type an amount and what it was, e.g. <code>4.50 coffee</code> or <code>120 USD hotel</code>.\n💰 Income starts with a plus: <code>+2500 salary</code>.\n📊 On the 1st I'll send you a monthly wrap-up.\n\nEverything else is in the app:`,
+    start: (name) => `Hi${name ? `, ${name}` : ''}! I help you track your spending.\n\n📷 Send a photo of a receipt and I'll split it into categories. A screenshot from your banking app or a PDF statement — I'll add all the transactions.\n✏️ Or type an amount and what it was, e.g. <code>4.50 coffee</code> or <code>120 USD hotel</code>.\n💰 Income starts with a plus: <code>+2500 salary</code>.\n📊 On the 1st I'll send you a monthly wrap-up.\n\nEverything else is in the app:`,
     open: 'Open',
-    reading: '🔍 Reading the receipt…',
+    reading: '🔍 Reading…',
+    savedTx: (n, exp, inc, skipped) => `✅ Added ${n} transaction${n === 1 ? '' : 's'}${exp ? `\n💸 Expenses: ${exp}` : ''}${inc ? `\n💰 Income: ${inc}` : ''}${skipped ? `\n\nSkipped ${skipped} — already recorded or transfers between your own accounts. You can review them in the app.` : ''}`,
+    nothingNew: 'Everything here is already recorded 👌',
     saved: (d) => `✅ Saved${d.merchant ? ` “${d.merchant}”` : ''}, ${d.total}:\n${d.lines}`,
     savedManual: (sum, cat) => `✅ ${sum} — ${cat}`,
     savedIncome: (sum, cat) => `💰 Income ${sum} — ${cat}`,
-    notReceipt: "That doesn't look like a receipt. Try a straighter photo in good light.",
+    notReceipt: "I couldn't find a receipt or transactions here. Try a straighter photo in good light.",
     limit: (n) => `You've scanned ${n} receipts this month — that's the limit. You can still add amounts manually.`,
     aiError: "Couldn't read the receipt, please try again a bit later.",
     help: 'Send a photo of a receipt or type an amount with a note, e.g. <code>12.90 groceries</code>. Income starts with a plus: <code>+2500 salary</code>',
@@ -418,21 +485,33 @@ async function handleUpdate(env, update) {
     return reply(s.count ? reportText(s, user.lang) : L.empty, { reply_markup: kb });
   }
 
-  // Фото чека: как фото или как файл-картинка
+  // Фото чека, скриншот банка или выписка: как фото, картинка-файл или PDF
   const photo = msg.photo?.length ? msg.photo[msg.photo.length - 1] : null;
-  const doc = msg.document && /^image\/(jpeg|png|webp)$/.test(msg.document.mime_type || '') ? msg.document : null;
+  const doc = msg.document && /^(image\/(jpeg|png|webp)|application\/pdf)$/.test(msg.document.mime_type || '') ? msg.document : null;
   if (photo || doc) {
     const fileSize = (photo || doc).file_size || 0;
-    if (fileSize > 4_800_000) return reply(L.aiError);
+    if (fileSize > 9_500_000) return reply(L.aiError);
     const status = await reply(L.reading);
     const { base64 } = await downloadFile(env, (photo || doc).file_id);
     const mediaType = doc ? doc.mime_type : 'image/jpeg';
-    const r = await scanReceipt(env, user, base64, mediaType);
+    const r = await scanDocument(env, user, [{ data: base64, media_type: mediaType }]);
     let out;
     if (r.error === 'limit') out = L.limit(scanLimit(env));
     else if (r.error === 'not_receipt') out = L.notReceipt;
     else if (r.error) out = L.aiError;
-    else {
+    else if (r.type === 'transactions') {
+      // без экрана проверки вносим только новые расходы и доходы; дубли и переводы между своими счетами пропускаем
+      const items = r.draft.items;
+      const take = items.filter((i) => !i.duplicate && i.kind !== 'transfer');
+      await insertEntries(env, user.id, take.map((i) => ({ ...i, source: 'statement' })));
+      const base = user.base_currency || 'EUR';
+      const rates = await getRates(env);
+      const sum = (k) => take.filter((i) => i.kind === k).reduce((a, i) => a + fromEur(toEur(i.amount, i.currency, rates), base, rates), 0);
+      const exp = sum('expense'), inc = sum('income');
+      out = take.length
+        ? L.savedTx(take.length, exp ? money(exp, base, user.lang) : '', inc ? money(inc, base, user.lang) : '', items.length - take.length)
+        : L.nothingNew;
+    } else {
       const d = r.draft;
       const receipt_id = crypto.randomUUID();
       await insertEntries(env, user.id, d.groups.map((g) => ({
@@ -509,8 +588,13 @@ export default {
       if (url.pathname === '/bot/webhook' && request.method === 'POST') {
         if (request.headers.get('x-telegram-bot-api-secret-token') !== (await webhookSecret(env))) return fail(403, 'forbidden');
         const update = await request.json();
-        // Отвечаем Telegram сразу, а чек обрабатываем в фоне — иначе он будет слать повторы.
-        ctx.waitUntil(handleUpdate(env, update).catch((e) => console.error('update failed', e.stack || e.message)));
+        // Длинная выписка читается дольше, чем живёт фоновая задача, поэтому обрабатываем сразу,
+        // а от повторов Telegram защищаемся по update_id.
+        if (update.update_id) {
+          const ins = await env.DB.prepare('INSERT OR IGNORE INTO processed_updates (update_id) VALUES (?)').bind(update.update_id).run();
+          if (!ins.meta.changes) return json({ ok: true });
+        }
+        try { await handleUpdate(env, update); } catch (e) { console.error('update failed', e.stack || e.message); }
         return json({ ok: true });
       }
       if (url.pathname.startsWith('/admin/')) return await handleAdmin(request, env, url);
@@ -530,6 +614,7 @@ export default {
         if (n === 0) break;
       }
       if (created) console.log('recurring created', created);
+      await env.DB.prepare(`DELETE FROM processed_updates WHERE at < datetime('now', '-3 days')`).run();
       const day = new Date().getUTCDate();
       if (day === 1 || day === 2) console.log('reports', JSON.stringify(await runMonthlyReports(env)));
     })());

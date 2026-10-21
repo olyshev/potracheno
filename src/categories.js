@@ -2,7 +2,10 @@
 export const CATEGORIES = [
   { id: 'groceries',     emoji: '🛒', ru: 'Продукты',        en: 'Groceries' },
   { id: 'cafe',          emoji: '☕', ru: 'Кафе и рестораны', en: 'Cafes & restaurants' },
+  { id: 'delivery',      emoji: '🛵', ru: 'Доставка',        en: 'Delivery' },
   { id: 'transport',     emoji: '🚇', ru: 'Транспорт',       en: 'Transport' },
+  { id: 'taxi',          emoji: '🚕', ru: 'Такси',           en: 'Taxi' },
+  { id: 'carsharing',    emoji: '🔑', ru: 'Каршеринг',       en: 'Car sharing' },
   { id: 'car',           emoji: '🚗', ru: 'Авто и топливо',  en: 'Car & fuel' },
   { id: 'housing',       emoji: '🏠', ru: 'Жильё',           en: 'Housing' },
   { id: 'utilities',     emoji: '💡', ru: 'Связь и ЖКУ',     en: 'Utilities & phone' },
@@ -30,9 +33,12 @@ export const catLabel = (id, lang) => {
 
 // Быстрые правила для ручного ввода: если подпись совпала, нейросеть не нужна.
 const RULES = {
+  delivery: ['доставк', 'курьер', 'glovo', 'uber eats', 'ubereats', 'just eat', 'justeat', 'deliveroo', 'wolt', 'яндекс еда', 'яндекс.еда', 'яндекс лавк', 'деливери', 'delivery club', 'kuper', 'купер', 'сбермаркет', 'getir', 'gorillas', 'delivery', 'envío', 'envio', 'domicilio'],
+  carsharing: ['каршеринг', 'делимобиль', 'яндекс драйв', 'ситидрайв', 'белкакар', 'zity', 'share now', 'sharenow', 'free2move', 'wible', 'getaround', 'miles mobility', 'ubeeqo', 'car sharing', 'carsharing', 'carshare'],
+  taxi: ['такси', 'uber', 'cabify', 'bolt', 'yango', 'яндекс го', 'freenow', 'free now', 'ситимобил', 'indrive', 'taxi', 'lyft', 'careem'],
   groceries: ['продукт', 'магазин', 'пятёрочк', 'пятерочк', 'перекрёст', 'перекрест', 'вкусвилл', 'ашан', 'лента', 'магнит', 'супермаркет', 'mercadona', 'carrefour', 'lidl', 'aldi', 'dia ', 'alcampo', 'eroski', 'supermercado', 'grocer', 'supermarket', 'фрукт', 'овощ', 'хлеб', 'молоко', 'мясо', 'рыба'],
-  cafe: ['кафе', 'кофе', 'ресторан', 'обед', 'ужин', 'завтрак', ' бар ', 'пицц', 'суши', 'бургер', 'доставка еды', 'coffee', 'cafe', 'café', 'restaurant', 'bar ', 'cerveza', 'cañas', 'menú', 'glovo', 'uber eats', 'just eat', 'deliveroo', 'starbucks', 'mcdonald', 'kfc', 'lunch', 'dinner', 'breakfast'],
-  transport: ['метро', 'автобус', 'такси', 'электричк', 'поезд', 'проездн', 'uber', 'cabify', 'bolt', 'renfe', 'metro', 'bus', 'taxi', 'abono', 'yango', 'яндекс го', 'самокат'],
+  cafe: ['кафе', 'кофе', 'ресторан', 'обед', 'ужин', 'завтрак', ' бар ', 'пицц', 'суши', 'бургер', 'coffee', 'cafe', 'café', 'restaurant', 'bar ', 'cerveza', 'cañas', 'menú', 'starbucks', 'mcdonald', 'kfc', 'lunch', 'dinner', 'breakfast'],
+  transport: ['метро', 'автобус', 'трамва', 'электричк', 'поезд', 'проездн', 'renfe', 'metro', 'bus', 'abono', 'emt ', 'cercan', 'тройка', 'электросамокат', 'lime', 'whoosh', 'urent', 'dott', 'tier '],
   car: ['бензин', 'заправк', 'топливо', 'парковк', 'мойка', 'шиномонтаж', 'автосервис', 'gasolina', 'repsol', 'cepsa', 'galp', 'parking', 'fuel', 'petrol', 'itv', 'peaje'],
   housing: ['аренд', 'ипотек', 'квартир', 'alquiler', 'rent', 'mortgage', 'hipoteca', 'comunidad'],
   utilities: ['свет', 'электричеств', 'газ ', 'вода', 'интернет', 'связь', 'телефон', 'мобильн', 'жкх', 'жку', 'iberdrola', 'endesa', 'naturgy', 'movistar', 'vodafone', 'orange', 'digi', 'internet', 'electricity', 'water bill'],

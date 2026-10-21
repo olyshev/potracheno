@@ -14,16 +14,20 @@
   // ---------- тексты ----------
   const T = {
     ru: {
-      addManual: 'Вручную', addReceipt: 'Чек', spent: 'Потрачено', entries: (n) => `${n} ${plural(n, ['запись', 'записи', 'записей'])}`,
+      addManual: 'Вручную', addReceipt: 'Скан', spent: 'Потрачено', entries: (n) => `${n} ${plural(n, ['запись', 'записи', 'записей'])}`,
       vs: (m) => `к ${m}`, same: 'как в прошлом месяце', categories: 'Категории', history: 'История', showAll: 'Все',
       today: 'Сегодня', yesterday: 'Вчера', emptyTitle: 'Пока пусто',
       emptyText: 'Сфотографируйте чек или внесите сумму вручную. Ещё можно просто отправить фото чека боту в чат.',
       emptyPast: 'В этом месяце записей нет.',
       newExpense: 'Новая трата', amount: 'Сумма', note: 'Что купили', notePh: 'Например, кофе', date: 'Дата',
       category: 'Категория', save: 'Сохранить', cancel: 'Отмена', close: 'Закрыть', done: 'Готово',
-      reading: 'Читаю чек…', readingSub: 'Обычно это 5–15 секунд', receipt: 'Чек', merchant: 'Магазин', currency: 'Валюта',
+      reading: 'Читаю…', readingSub: 'Чек — 5–15 секунд, выписка — до минуты', receipt: 'Чек', merchant: 'Магазин', currency: 'Валюта',
       total: 'Итого', addGroup: '+ Добавить категорию', mismatch: (d) => `Сумма отличается от чека на ${d}`,
-      notReceipt: 'Не похоже на чек. Попробуйте снять ровнее и при хорошем свете.',
+      notReceipt: 'Не нашёл здесь ни чека, ни операций. Попробуйте снять ровнее и при хорошем свете.',
+      onePdf: 'Выберите один PDF или несколько картинок', tooBig: 'Файл слишком большой — до 9 МБ',
+      txTitle: 'Операции', txFound: (a, b) => `Найдено ${a}, выбрано ${b}. Снимите галочку с лишнего, нажмите на значок, чтобы сменить категорию.`,
+      txDup: 'уже есть', txTransfer: 'перевод между своими', txTransferShort: 'Перевод',
+      txSave: (n) => `Добавить ${n} ${plural(n, ['операцию', 'операции', 'операций'])}`,
       limit: 'Лимит распознавания чеков на этот месяц исчерпан. Суммы можно вносить вручную.',
       aiError: 'Не получилось распознать чек. Попробуйте ещё раз.', netError: 'Нет связи с сервером',
       saved: 'Сохранено', deleted: 'Удалено', edit: 'Изменить трату', delete: 'Удалить',
@@ -50,20 +54,24 @@
       ruleNote: 'Изменения действуют на следующие месяцы. Уже внесённые записи не меняются.',
       applyToRule: 'Сумма изменилась. Обновить её и для следующих месяцев?', onlyThis: 'Только здесь', alsoNext: 'И дальше',
       editIncome: 'Изменить доход', confirmDeleteIncome: 'Удалить этот доход?',
-      emptyTextIncome: 'Начните с дохода: внесите зарплату и отметьте, что она повторяется. Дальше добавляйте траты или фотографируйте чеки — приложение покажет, сколько осталось.',
+      emptyTextIncome: 'Начните с дохода: внесите зарплату и отметьте, что она повторяется. Дальше добавляйте траты, фотографируйте чеки или загружайте скриншоты из банка и выписки — приложение покажет, сколько осталось.',
       auto: 'внесено автоматически',
     },
     en: {
-      addManual: 'Manual', addReceipt: 'Receipt', spent: 'Spent', entries: (n) => `${n} ${n === 1 ? 'entry' : 'entries'}`,
+      addManual: 'Manual', addReceipt: 'Scan', spent: 'Spent', entries: (n) => `${n} ${n === 1 ? 'entry' : 'entries'}`,
       vs: (m) => `vs ${m}`, same: 'same as last month', categories: 'Categories', history: 'History', showAll: 'All',
       today: 'Today', yesterday: 'Yesterday', emptyTitle: 'Nothing here yet',
       emptyText: 'Snap a receipt or add an amount manually. You can also just send a receipt photo to the bot.',
       emptyPast: 'No entries this month.',
       newExpense: 'New expense', amount: 'Amount', note: 'What was it', notePh: 'e.g. coffee', date: 'Date',
       category: 'Category', save: 'Save', cancel: 'Cancel', close: 'Close', done: 'Done',
-      reading: 'Reading the receipt…', readingSub: 'Usually takes 5–15 seconds', receipt: 'Receipt', merchant: 'Store', currency: 'Currency',
+      reading: 'Reading…', readingSub: 'A receipt takes 5–15 seconds, a statement up to a minute', receipt: 'Receipt', merchant: 'Store', currency: 'Currency',
       total: 'Total', addGroup: '+ Add category', mismatch: (d) => `Differs from the receipt by ${d}`,
-      notReceipt: "That doesn't look like a receipt. Try a straighter photo in good light.",
+      notReceipt: "I couldn't find a receipt or transactions here. Try a straighter photo in good light.",
+      onePdf: 'Pick one PDF or several images', tooBig: 'The file is too large — up to 9 MB',
+      txTitle: 'Transactions', txFound: (a, b) => `Found ${a}, selected ${b}. Untick what you don't need; tap an icon to change the category.`,
+      txDup: 'already recorded', txTransfer: 'between your accounts', txTransferShort: 'Transfer',
+      txSave: (n) => `Add ${n} transaction${n === 1 ? '' : 's'}`,
       limit: "You've reached this month's receipt limit. You can still add amounts manually.",
       aiError: "Couldn't read the receipt. Please try again.", netError: 'No connection to the server',
       saved: 'Saved', deleted: 'Deleted', edit: 'Edit expense', delete: 'Delete',
@@ -90,7 +98,7 @@
       ruleNote: 'Changes apply to future months. Entries already added stay as they are.',
       applyToRule: 'The amount changed. Update it for future months too?', onlyThis: 'Just this one', alsoNext: 'Future too',
       editIncome: 'Edit income', confirmDeleteIncome: 'Delete this income?',
-      emptyTextIncome: 'Start with your income: add your salary and mark it as recurring. Then add expenses or snap receipts — the app will show how much is left.',
+      emptyTextIncome: 'Start with your income: add your salary and mark it as recurring. Then add expenses, snap receipts or upload banking-app screenshots and statements — the app will show how much is left.',
       auto: 'added automatically',
     },
   };
@@ -576,42 +584,139 @@
     });
   }
 
-  // ---------- чек ----------
-  async function compressImage(file) {
+  // ---------- чек, скриншоты банка, выписки ----------
+  const loadImage = (file) => new Promise((res, rej) => {
     const url = URL.createObjectURL(file);
-    try {
-      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
-      const maxSide = 1800;
-      const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
-      const c = document.createElement('canvas');
-      c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
-      const ctx = c.getContext('2d');
-      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
-      ctx.drawImage(img, 0, 0, c.width, c.height);
-      const dataUrl = c.toDataURL('image/jpeg', 0.85);
-      return { base64: dataUrl.split(',')[1], preview: dataUrl };
-    } finally { URL.revokeObjectURL(url); }
+    const i = new Image();
+    i.onload = () => { URL.revokeObjectURL(url); res(i); };
+    i.onerror = (e) => { URL.revokeObjectURL(url); rej(e); };
+    i.src = url;
+  });
+  function toJpeg(img, sx, sy, sw, sh, maxSide) {
+    const scale = Math.min(1, maxSide / Math.max(sw, sh));
+    const c = document.createElement('canvas');
+    c.width = Math.round(sw * scale); c.height = Math.round(sh * scale);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', 0.85);
   }
+  // Длинный скриншот (прокрутка истории операций) режем на куски с нахлёстом, чтобы текст не стал мелким
+  async function prepareImage(file) {
+    const img = await loadImage(file);
+    const w = img.naturalWidth, h = img.naturalHeight;
+    if (h / w <= 2.4) return [toJpeg(img, 0, 0, w, h, 1800)];
+    const part = Math.round(w * 2), step = Math.round(part * 0.88), out = [];
+    for (let y = 0; y < h && out.length < 6; y += step) out.push(toJpeg(img, 0, y, w, Math.min(part, h - y), 1600));
+    return out;
+  }
+  const readBase64 = (file) => new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
 
-  async function onReceiptFile(file) {
-    if (!file) return;
+  async function onScanFiles(fileList) {
+    const files = [...(fileList || [])];
+    if (!files.length) return;
     const sh = openSheet(`<div class="loading" id="rBody"><div class="spinner"></div><b>${t('reading')}</b><div>${t('readingSub')}</div></div>`);
-    let img;
-    try {
-      img = await compressImage(file);
-      const body = $('#rBody', sh.sheet);
-      if (body) body.insertAdjacentHTML('afterbegin', `<img class="receipt-preview" src="${img.preview}" alt="">`);
-      const r = await api('/receipt/scan', { method: 'POST', body: { image: img.base64, media_type: 'image/jpeg' } });
-      if (!sheets.includes(sh)) return; // пользователь закрыл, пока ждали
-      state.me.scansUsed = (state.me.scansUsed || 0) + 1;
-      renderReceiptReview(sh, r.draft);
-    } catch (e) {
+    const showError = (msg) => {
       haptic('error');
-      const msg = e.code === 'not_receipt' ? t('notReceipt') : e.code === 'limit' ? t('limit') : e.status ? t('aiError') : t('netError');
       sh.sheet.innerHTML = `<div class="sheet-grip"></div><div class="empty"><div class="big">🤔</div><b>${esc(msg)}</b></div>
         <button class="btn btn-secondary btn-block" id="rClose">${t('close')}</button>`;
       $('#rClose', sh.sheet).addEventListener('click', () => closeSheet(sh));
+    };
+    try {
+      const pdfs = files.filter((f) => f.type === 'application/pdf');
+      const images = files.filter((f) => f.type !== 'application/pdf');
+      if (pdfs.length > 1 || (pdfs.length && images.length)) return showError(t('onePdf'));
+      const payload = [];
+      let preview = null;
+      if (pdfs.length) {
+        if (pdfs[0].size > 9_000_000) return showError(t('tooBig'));
+        payload.push({ data: await readBase64(pdfs[0]), media_type: 'application/pdf' });
+      } else {
+        for (const f of images.slice(0, 5)) {
+          for (const dataUrl of await prepareImage(f)) {
+            preview ||= dataUrl;
+            payload.push({ data: dataUrl.split(',')[1], media_type: 'image/jpeg' });
+          }
+        }
+        if (payload.length > 8) payload.length = 8;
+      }
+      const body = $('#rBody', sh.sheet);
+      if (body) body.insertAdjacentHTML('afterbegin', preview ? `<img class="receipt-preview" src="${preview}" alt="">` : `<div class="big" style="font-size:44px;margin-bottom:8px">📄</div>`);
+      const r = await api('/scan', { method: 'POST', body: { files: payload } });
+      if (!sheets.includes(sh)) return; // пользователь закрыл, пока ждали
+      state.me.scansUsed = (state.me.scansUsed || 0) + 1;
+      if (r.type === 'transactions') renderTxReview(sh, r.draft);
+      else renderReceiptReview(sh, r.draft);
+    } catch (e) {
+      showError(e.code === 'not_receipt' ? t('notReceipt') : e.code === 'limit' ? t('limit') : e.code === 'too_big' ? t('tooBig') : e.status ? t('aiError') : t('netError'));
     }
+  }
+
+  // Экран проверки операций из выписки: новые отмечены, дубли и переводы между своими счетами — нет
+  function renderTxReview(sh, draft) {
+    const items = draft.items.map((it, i) => ({ ...it, i, on: !it.duplicate && it.kind !== 'transfer' }));
+    const S = sh.sheet;
+    const sumLine = () => {
+      const on = items.filter((x) => x.on);
+      const curs = [...new Set(on.map((x) => x.currency))];
+      if (curs.length !== 1) return '';
+      const exp = on.filter((x) => x.kind !== 'income').reduce((a, x) => a + x.amount, 0);
+      const inc = on.filter((x) => x.kind === 'income').reduce((a, x) => a + x.amount, 0);
+      return [exp ? signed(-exp, curs[0]) : '', inc ? `<span class="pos-text">${signed(inc, curs[0])}</span>` : ''].filter(Boolean).join(' · ');
+    };
+    const draw = () => {
+      const n = items.filter((x) => x.on).length;
+      S.innerHTML = `<div class="sheet-grip"></div>
+        <div class="sheet-head"><h2>${t('txTitle')}${draft.source ? ` · ${esc(draft.source)}` : ''}</h2><button class="close">${t('cancel')}</button></div>
+        <div class="note" style="margin:-6px 4px 12px">${esc(t('txFound', items.length, n))}</div>
+        <div class="card list tx-list">${items.map((x) => {
+          const inc = x.kind === 'income';
+          const tag = x.duplicate ? t('txDup') : x.kind === 'transfer' ? t('txTransfer') : '';
+          return `
+          <div class="row tx-row ${x.on ? '' : 'off'}" data-i="${x.i}">
+            <input type="checkbox" class="tx-check" ${x.on ? 'checked' : ''} aria-label="${esc(x.note)}">
+            <button class="emoji ${inc ? 'inc' : ''}" data-act="cat" aria-label="${t('category')}">${cat(x.category).emoji}</button>
+            <div class="row-main" data-act="toggle">
+              <div class="row-title">${esc(x.note || catName(x.category))}</div>
+              <div class="row-sub">${esc(dayMonth(x.date))} · ${esc(x.kind === 'transfer' ? t('txTransferShort') : catName(x.category))}</div>${tag ? `<div class="row-sub tag">${esc(tag)}</div>` : ''}
+            </div>
+            <div class="row-amount num ${inc ? 'pos-text' : ''}">${inc ? '+' : '−'}${money(x.amount, x.currency)}</div>
+          </div>`;
+        }).join('')}</div>
+        <div class="receipt-total"><span>${t('total')}</span><span class="num">${sumLine() || '—'}</span></div>
+        <button class="btn btn-primary btn-block" id="txSave" ${n ? '' : 'disabled'}>${esc(t('txSave', n))}</button>`;
+      $('.close', S).addEventListener('click', () => closeSheet(sh));
+      S.querySelectorAll('.tx-row').forEach((row) => {
+        const x = items[Number(row.dataset.i)];
+        const toggle = () => { x.on = !x.on; haptic('select'); draw(); };
+        $('.tx-check', row).addEventListener('change', toggle);
+        $('[data-act="toggle"]', row).addEventListener('click', toggle);
+        $('[data-act="cat"]', row).addEventListener('click', async () => {
+          const c = await pickCategory(x.category, x.kind === 'income' ? 'income' : 'expense');
+          if (c) { x.category = c; if (x.kind === 'transfer') x.kind = 'expense'; x.on = true; draw(); }
+        });
+      });
+      $('#txSave', S).addEventListener('click', async () => {
+        const chosen = items.filter((x) => x.on).map((x) => ({
+          date: x.date, amount: x.amount, currency: x.currency, note: x.note,
+          kind: x.kind === 'income' ? 'income' : 'expense', category: x.category,
+        }));
+        if (!chosen.length) return;
+        const btn = $('#txSave', S); btn.disabled = true;
+        try {
+          await api('/transactions/save', { method: 'POST', body: { items: chosen } });
+          haptic('success'); toast(t('saved')); closeSheet(sh);
+          state.month = chosen.map((x) => x.date).sort().at(-1).slice(0, 7);
+          loadMonth();
+        } catch { btn.disabled = false; haptic('error'); toast(t('netError')); }
+      });
+    };
+    draw();
   }
 
   function renderReceiptReview(sh, draft) {
@@ -952,7 +1057,7 @@
     $('#addManual').addEventListener('click', () => openManual('expense'));
     $('#addIncome').addEventListener('click', () => openManual('income'));
     $('#addReceipt').addEventListener('click', () => { const f = $('#fileInput'); f.value = ''; f.click(); });
-    $('#fileInput').addEventListener('change', (e) => onReceiptFile(e.target.files[0]));
+    $('#fileInput').addEventListener('change', (e) => onScanFiles(e.target.files));
 
     await loadMonth();
     if (!me.hasEntries && !store.get('welcomed')) await openWelcome();
