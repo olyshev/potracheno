@@ -46,9 +46,12 @@
       balance: 'Остаток', balanceOf: (m) => `Остаток за ${m}`, income: 'Доходы', expenses: 'Расходы',
       spentOf: (a, b) => `потрачено ${a} из ${b}`, overspent: (x) => `Перерасход ${x}`,
       projected: 'Прогноз на конец месяца', addIncomeHint: 'Добавьте доход — и здесь будет видно, сколько осталось',
-      repeat: 'Повторять каждый месяц', repeatDay: 'Число месяца', everyDay: (d) => `каждое ${d}-е`,
+      repeat: 'Повторять', repeatDay: 'Число месяца',
+      pWeek: 'Каждую неделю', p2weeks: 'Каждые 2 недели', pMonth: 'Раз в месяц',
+      weekdays: ['по воскресеньям', 'по понедельникам', 'по вторникам', 'по средам', 'по четвергам', 'по пятницам', 'по субботам'],
+      weekHint: (wd) => `Начиная с даты записи, ${wd}`, everyDay: (d) => `каждое ${d}-е`,
       lastDayHint: 'Если в месяце нет такого числа — в последний день',
-      upcoming: 'Ожидается в этом месяце', recurring: 'Регулярные платежи', recurringEmpty: 'Пока нет регулярных платежей. Отметьте «Повторять каждый месяц», когда добавляете зарплату, аренду или подписку — дальше приложение будет вносить их само.',
+      upcoming: 'Ожидается в этом месяце', recurring: 'Регулярные платежи', recurringEmpty: 'Пока нет регулярных платежей. Выберите, как часто повторять, когда добавляете зарплату, аренду или подписку — дальше приложение будет вносить их само.',
       recIncome: 'Регулярные доходы', recExpense: 'Регулярные расходы', next: (d) => `→ ${d}`, paused: 'на паузе',
       editRule: 'Регулярный платёж', pause: 'Поставить на паузу', resume: 'Возобновить', deleteRule: 'Больше не повторять',
       confirmDeleteRule: 'Больше не повторять этот платёж? Уже внесённые записи останутся.',
@@ -91,9 +94,12 @@
       balance: 'Left over', balanceOf: (m) => `Left over in ${m}`, income: 'Income', expenses: 'Expenses',
       spentOf: (a, b) => `spent ${a} of ${b}`, overspent: (x) => `Overspent by ${x}`,
       projected: 'End-of-month forecast', addIncomeHint: 'Add your income to see how much is left',
-      repeat: 'Repeat every month', repeatDay: 'Day of month', everyDay: (d) => `monthly on ${d}`,
+      repeat: 'Repeat', repeatDay: 'Day of month',
+      pWeek: 'Every week', p2weeks: 'Every 2 weeks', pMonth: 'Every month',
+      weekdays: ['on Sundays', 'on Mondays', 'on Tuesdays', 'on Wednesdays', 'on Thursdays', 'on Fridays', 'on Saturdays'],
+      weekHint: (wd) => `Starting from the entry date, ${wd}`, everyDay: (d) => `monthly on ${d}`,
       lastDayHint: "If a month is shorter, it's the last day",
-      upcoming: 'Coming up this month', recurring: 'Recurring payments', recurringEmpty: 'No recurring payments yet. Turn on “Repeat every month” when adding your salary, rent or a subscription — the app will add them for you from then on.',
+      upcoming: 'Coming up this month', recurring: 'Recurring payments', recurringEmpty: 'No recurring payments yet. Pick how often to repeat when adding your salary, rent or a subscription — the app will add them for you from then on.',
       recIncome: 'Recurring income', recExpense: 'Recurring expenses', next: (d) => `→ ${d}`, paused: 'paused',
       editRule: 'Recurring payment', pause: 'Pause', resume: 'Resume', deleteRule: 'Stop repeating',
       confirmDeleteRule: 'Stop repeating this payment? Entries already added will stay.',
@@ -462,27 +468,54 @@
     });
   }
 
-  // ---------- переключатель «повторять каждый месяц» ----------
+  // ---------- выбор повторения: каждую неделю / каждые 2 недели / раз в месяц ----------
+  // Ни одна кнопка не выбрана — запись разовая; повторное нажатие на выбранную снимает выбор.
   // Возвращает HTML блока и функцию, которая привязывает события и отдаёт текущее значение.
-  function repeatBlock(prefix, { on = false, day = 1 } = {}) {
+  const weekdayOf = (date) => new Date(`${date}T00:00:00Z`).getUTCDay();
+  function periodText(period, day, weekday) {
+    if (period === 'month') return t('everyDay', day);
+    const wd = weekday === null || weekday === undefined ? '' : `, ${t('weekdays')[weekday]}`;
+    return `${t(period === 'week' ? 'pWeek' : 'p2weeks').toLowerCase()}${wd}`;
+  }
+  function repeatBlock(prefix, { period = null, day = 1, date, ruleMode = false }) {
     const html = `
       <div class="field toggle-field">
-        <label class="switch-row" for="${prefix}Rep"><span>🔁 ${t('repeat')}</span>
-          <input type="checkbox" id="${prefix}Rep" class="switch" ${on ? 'checked' : ''}></label>
-        <div class="rep-day" id="${prefix}RepDay" ${on ? '' : 'hidden'}>
+        <div class="rep-title">🔁 ${t('repeat')}</div>
+        <div class="periods" id="${prefix}Periods" role="radiogroup">
+          ${['week', '2weeks', 'month'].map((p) => `<button type="button" class="chip ${p === period ? 'active' : ''}" data-p="${p}" role="radio" aria-checked="${p === period}">${t({ week: 'pWeek', '2weeks': 'p2weeks', month: 'pMonth' }[p])}</button>`).join('')}
+        </div>
+        <div class="rep-day" id="${prefix}RepDay" ${period === 'month' ? '' : 'hidden'}>
           <label for="${prefix}Day">${t('repeatDay')}</label>
           <select id="${prefix}Day">${Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}" ${i + 1 === day ? 'selected' : ''}>${i + 1}</option>`).join('')}</select>
           <div class="rep-hint" id="${prefix}Hint" ${day > 28 ? '' : 'hidden'}>${t('lastDayHint')}</div>
         </div>
+        <div class="rep-hint rep-week" id="${prefix}WeekHint" ${period === 'week' || period === '2weeks' ? '' : 'hidden'}></div>
       </div>`;
     const bind = (S, onDateChange) => {
-      const box = $(`#${prefix}Rep`, S), wrap = $(`#${prefix}RepDay`, S), sel = $(`#${prefix}Day`, S), hint = $(`#${prefix}Hint`, S);
-      let touched = false;
-      box.addEventListener('change', () => { wrap.hidden = !box.checked; haptic('select'); });
+      let cur = period, touched = false, d = date;
+      const sel = $(`#${prefix}Day`, S), hint = $(`#${prefix}Hint`, S), wrap = $(`#${prefix}RepDay`, S), wk = $(`#${prefix}WeekHint`, S);
+      const draw = () => {
+        S.querySelectorAll(`#${prefix}Periods [data-p]`).forEach((b) => { b.classList.toggle('active', b.dataset.p === cur); b.setAttribute('aria-checked', String(b.dataset.p === cur)); });
+        wrap.hidden = cur !== 'month';
+        wk.hidden = !(cur === 'week' || cur === '2weeks');
+        if (!wk.hidden && d) {
+          const wd = t('weekdays')[weekdayOf(d)];
+          wk.textContent = ruleMode ? wd.charAt(0).toUpperCase() + wd.slice(1) : t('weekHint', wd);
+        }
+      };
+      S.querySelectorAll(`#${prefix}Periods [data-p]`).forEach((b) => b.addEventListener('click', () => {
+        cur = cur === b.dataset.p && !ruleMode ? null : b.dataset.p; haptic('select'); draw();
+      }));
       sel.addEventListener('change', () => { touched = true; hint.hidden = Number(sel.value) <= 28; });
-      // число по умолчанию следует за датой записи, пока пользователь не выбрал его сам
-      if (onDateChange) onDateChange((date) => { if (!touched && date) { sel.value = String(Number(date.slice(8, 10))); hint.hidden = Number(sel.value) <= 28; } });
-      return () => ({ on: box.checked, day: Number(sel.value) });
+      // число и день недели по умолчанию следуют за датой записи, пока пользователь не выбрал число сам
+      if (onDateChange) onDateChange((nd) => {
+        if (!nd) return;
+        d = nd;
+        if (!touched) { sel.value = String(Number(nd.slice(8, 10))); hint.hidden = Number(sel.value) <= 28; }
+        draw();
+      });
+      draw();
+      return () => ({ on: !!cur, period: cur, day: Number(sel.value) });
     };
     return { html, bind };
   }
@@ -492,7 +525,7 @@
     let kind = startKind;
     let currency = state.lastCurrency || state.me.base_currency;
     let category = null, suggested = null, userPicked = false, timer = null, seq = 0;
-    const rep = repeatBlock('m', { day: Number(state.today.slice(8, 10)) });
+    const rep = repeatBlock('m', { day: Number(state.today.slice(8, 10)), date: state.today });
     const sh = openSheet(`
       <div class="sheet-head"><h2 id="mTitle"></h2><button class="close">${t('cancel')}</button></div>
       <div class="segmented" role="tablist">
@@ -574,7 +607,7 @@
       try {
         await api('/entries', {
           method: 'POST',
-          body: { kind, amount, currency, note: noteEl.value.trim(), category, date, recurring: repeat.on ? { day: repeat.day } : null },
+          body: { kind, amount, currency, note: noteEl.value.trim(), category, date, recurring: repeat.on ? { period: repeat.period, day: repeat.day } : null },
         });
         state.lastCurrency = currency; store.set('lastCurrency', currency);
         haptic('success'); toast(t('saved')); closeSheet(sh);
@@ -802,7 +835,7 @@
     const inc = e.kind === 'income';
     let category = e.category, currency = e.currency;
     const hadRule = !!(e.recurring_id && e.rec_active !== null && e.rec_active !== undefined);
-    const rep = repeatBlock('e', { on: hadRule, day: e.rec_day || Number(e.date.slice(8, 10)) });
+    const rep = repeatBlock('e', { period: hadRule ? (e.rec_period || 'month') : null, day: e.rec_day || Number(e.date.slice(8, 10)), date: e.date });
     const sh = openSheet(`
       <div class="sheet-head"><h2>${inc ? t('editIncome') : t('edit')}</h2><button class="close">${t('cancel')}</button></div>
       <div class="field amount-field">
@@ -830,7 +863,7 @@
       if (!(amount > 0)) { haptic('error'); return; }
       const repeat = getRepeat();
       const body = { amount, currency, category, note: $('#eNote', S).value, date: $('#eDate', S).value };
-      if (repeat.on) body.recurring = { day: repeat.day };
+      if (repeat.on) body.recurring = { period: repeat.period, day: repeat.day };
       else if (hadRule) body.recurring = false;
       // если у регулярного платежа поменялась сумма — спросить, менять ли её в следующих месяцах
       if (hadRule && repeat.on && (amount !== e.amount || currency !== e.currency)) {
@@ -859,12 +892,12 @@
     const base = state.me.base_currency;
     const block = (list, title, kind) => !list.length ? '' : `
       <div class="section-title"><span>${title}</span><span class="num">${signed((kind === 'income' ? 1 : -1) * list.filter((r) => r.active).reduce((a, r) => a + r.amount_base, 0), base)}</span></div>
-      <div class="card list">${list.map((r) => `
+      <div class="card list rules-list">${list.map((r) => `
         <button class="row ${r.active ? '' : 'muted'}" data-rule="${r.id}">
           <div class="emoji ${kind === 'income' ? 'inc' : ''}">${cat(r.category).emoji}</div>
           <div class="row-main">
             <div class="row-title">${esc(r.note || catName(r.category))}</div>
-            <div class="row-sub">${esc(t('everyDay', r.day))} · ${r.active ? esc(t('next', dayMonth(r.next))) : t('paused')}</div>
+            <div class="row-sub">${esc(periodText(r.period || 'month', r.day, r.weekday))} · ${r.active ? esc(t('next', dayMonth(r.next))) : t('paused')}</div>
           </div>
           <div class="row-amount num ${kind === 'income' ? 'pos-text' : ''}">${kind === 'income' ? '+' : ''}${money(r.amount, r.currency)}${r.currency !== base ? `<small>≈ ${money(r.amount_base, base)}</small>` : ''}</div>
         </button>`).join('')}</div>`;
@@ -882,6 +915,7 @@
   function openRuleEditor(r, onChange) {
     const inc = r.kind === 'income';
     let category = r.category, currency = r.currency;
+    const rep = repeatBlock('r', { period: r.period || 'month', day: r.day, date: r.next || state.today, ruleMode: true });
     const sh = openSheet(`
       <div class="sheet-head"><h2>${t('editRule')}</h2><button class="close">${t('cancel')}</button></div>
       <div class="field amount-field">
@@ -891,14 +925,14 @@
       </div>
       <div class="field"><label>${inc ? t('incomeNote') : t('note')}</label><input id="rNote" value="${esc(r.note || '')}" maxlength="120"></div>
       <div class="field" style="padding:12px 14px"><button class="group-cat" id="rCat" style="width:100%"><span>${cat(category).emoji}</span><span>${esc(catName(category))}</span></button></div>
-      <div class="field"><label for="rDay">${t('repeatDay')}</label>
-        <select id="rDay">${Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}" ${i + 1 === r.day ? 'selected' : ''}>${i + 1}</option>`).join('')}</select></div>
+      ${rep.html}
       <div class="note">${t('ruleNote')}</div>
       <button class="btn btn-primary btn-block" id="rSave">${t('save')}</button>
       <button class="btn btn-secondary btn-block" id="rPause" style="margin-top:8px">${r.active ? t('pause') : t('resume')}</button>
       <button class="btn btn-danger btn-block" id="rDel" style="margin-top:6px">${t('deleteRule')}</button>`);
     const S = sh.sheet;
     const done = () => { closeSheet(sh); loadMonth(); onChange && onChange(); };
+    const getRepeat = rep.bind(S);
     $('.close', S).addEventListener('click', () => closeSheet(sh));
     $('#rCat', S).addEventListener('click', async () => {
       const c = await pickCategory(category, r.kind);
@@ -909,7 +943,7 @@
       const amount = parseAmount($('#rAmount', S).value);
       if (!(amount > 0)) { haptic('error'); return; }
       try {
-        await api(`/recurring/${r.id}`, { method: 'PATCH', body: { amount, currency, category, note: $('#rNote', S).value, day: Number($('#rDay', S).value) } });
+        await api(`/recurring/${r.id}`, { method: 'PATCH', body: { amount, currency, category, note: $('#rNote', S).value, period: getRepeat().period, day: getRepeat().day } });
         haptic('success'); toast(t('saved')); done();
       } catch { toast(t('netError')); }
     });

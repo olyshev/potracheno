@@ -7,7 +7,7 @@
 //   cron            — регулярные платежи (каждый час) и рассылка итогов месяца (1–2 числа)
 import { verifyInitData, webhookSecret } from './auth.js';
 import { CATEGORIES, INCOME_CATEGORIES, isCategory, isCategoryFor, categorizeByRules, categorizeIncome, catLabel } from './categories.js';
-import { materialize, upcoming, listRules, createRule, dueDate } from './recurring.js';
+import { materialize, upcoming, listRules, createRule, dueDate, periodOf, resumeState } from './recurring.js';
 import { normalizeMerchant } from './brands.js';
 import { runNudges } from './nudges.js';
 import { shiftMonth } from './report.js';
@@ -223,7 +223,7 @@ async function handleApi(request, env, url) {
       monthSummary(env, user.id, month, base),
       env.DB.prepare(
         `SELECT e.id, e.date, e.amount, e.currency, e.amount_eur, e.category, e.note, e.merchant, e.receipt_id, e.source, e.kind,
-                e.recurring_id, r.day AS rec_day, r.active AS rec_active
+                e.recurring_id, r.day AS rec_day, r.active AS rec_active, r.period AS rec_period
          FROM entries e LEFT JOIN recurring r ON r.id = e.recurring_id
          WHERE e.user_id = ? AND e.date >= ? AND e.date <= ? ORDER BY e.date DESC, e.created_at DESC LIMIT 1000`
       ).bind(user.id, `${month}-01`, `${month}-31`).all(),
@@ -253,8 +253,8 @@ async function handleApi(request, env, url) {
     let recurring_id = null;
     if (body.recurring) {
       const day = validDay(Number(body.recurring.day)) ? Number(body.recurring.day) : Number(date.slice(8, 10));
-      // запись этого месяца создаём сейчас, правило подхватит следующие месяцы
-      recurring_id = await createRule(env, user.id, { kind, amount, currency, category, note, day, lastMonth: date.slice(0, 7) });
+      // эту запись создаём сейчас, правило подхватит следующие
+      recurring_id = await createRule(env, user.id, { kind, amount, currency, category, note, day, period: periodOf(body.recurring.period), date });
     }
     await insertEntries(env, user.id, [{ date, amount, currency, category, note, kind, recurring_id, source: 'manual' }]);
     return json({ ok: true, category, recurring_id });
@@ -273,15 +273,18 @@ async function handleApi(request, env, url) {
     if (!validAmount(amount)) return fail(400, 'bad_amount');
     if (!isCurrency(currency, rates)) return fail(400, 'bad_currency');
     const day = validDay(Number(body.day)) ? Number(body.day) : r.day;
+    const period = body.period !== undefined ? periodOf(body.period) : r.period;
     const active = typeof body.active === 'boolean' ? (body.active ? 1 : 0) : r.active;
-    let last = r.last_month;
-    // После паузы задним числом ничего не создаём: если в этом месяце день платежа уже прошёл,
-    // следующий платёж будет в следующем месяце, иначе — в этом.
-    if (active && !r.active) last = dueDate(thisMonth(), day) < today() ? thisMonth() : prevMonth(thisMonth());
+    let st = { last_month: r.last_month, last_date: r.last_date };
+    // После паузы или смены периода задним числом ничего не создаём: следующий платёж — в будущем
+    if ((active && !r.active) || period !== r.period) {
+      const last = r.last_date || (await env.DB.prepare('SELECT MAX(date) AS d FROM entries WHERE recurring_id = ? AND user_id = ?').bind(r.id, user.id).first())?.d || today();
+      st = resumeState({ period, day, lastDate: last });
+    }
     await env.DB.prepare(
-      `UPDATE recurring SET amount = ?, currency = ?, category = ?, note = ?, day = ?, active = ?, last_month = ? WHERE id = ? AND user_id = ?`
+      `UPDATE recurring SET amount = ?, currency = ?, category = ?, note = ?, day = ?, active = ?, period = ?, last_month = ?, last_date = ? WHERE id = ? AND user_id = ?`
     ).bind(round2(amount), currency, isCategoryFor(r.kind, body.category) ? body.category : r.category,
-      body.note !== undefined ? String(body.note).trim().slice(0, 120) : r.note, day, active, last, r.id, user.id).run();
+      body.note !== undefined ? String(body.note).trim().slice(0, 120) : r.note, day, active, period, st.last_month, st.last_date, r.id, user.id).run();
     return json({ ok: true });
   }
   if (ruleMatch && method === 'DELETE') {
@@ -312,12 +315,22 @@ async function handleApi(request, env, url) {
       recurringId = null;
     } else if (body.recurring && typeof body.recurring === 'object') {
       const day = validDay(Number(body.recurring.day)) ? Number(body.recurring.day) : Number(date.slice(8, 10));
-      const rule = recurringId ? await env.DB.prepare('SELECT id FROM recurring WHERE id = ? AND user_id = ?').bind(recurringId, user.id).first() : null;
+      const period = periodOf(body.recurring.period);
+      const rule = recurringId ? await env.DB.prepare('SELECT * FROM recurring WHERE id = ? AND user_id = ?').bind(recurringId, user.id).first() : null;
       if (rule) {
-        stmts.push(env.DB.prepare('UPDATE recurring SET day = ? WHERE id = ?').bind(day, rule.id));
-      } else {
+        if (period !== rule.period || (period === 'month' && day !== rule.day)) {
+          // последняя уже внесённая запись правила — опора для следующего платежа
+          const last = (await env.DB.prepare('SELECT MAX(date) AS d FROM entries WHERE recurring_id = ? AND user_id = ?').bind(rule.id, user.id).first())?.d || date;
+          const st = period === 'month'
+            ? { last_month: last.slice(0, 7) >= thisMonth() ? thisMonth() : (period === rule.period ? rule.last_month : last.slice(0, 7)), last_date: null }
+            : resumeState({ period, day, lastDate: last });
+          stmts.push(env.DB.prepare('UPDATE recurring SET day = ?, period = ?, last_month = ?, last_date = ? WHERE id = ?').bind(day, period, st.last_month, st.last_date, rule.id));
+        }
+      } else if (period === 'month') {
         const lastMonth = date.slice(0, 7) > thisMonth() ? thisMonth() : (date.slice(0, 7) < thisMonth() && dueDate(thisMonth(), day) <= today() ? prevMonth(thisMonth()) : date.slice(0, 7));
-        recurringId = await createRule(env, user.id, { kind: e.kind, amount, currency, category, note, day, lastMonth });
+        recurringId = await createRule(env, user.id, { kind: e.kind, amount, currency, category, note, day, period, date, lastMonth });
+      } else {
+        recurringId = await createRule(env, user.id, { kind: e.kind, amount, currency, category, note, day, period, date, lastDate: resumeState({ period, day, lastDate: date }).last_date });
       }
     }
     if (body.apply_to_rule && recurringId) {

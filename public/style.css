@@ -262,3 +262,11 @@ main { padding: 4px 16px 0; }
 button.emoji { cursor: pointer; }
 .tag { color: var(--link); }
 .tx-list { max-height: none; }
+
+/* ---------- выбор повторения ---------- */
+.rep-title { padding: 12px 0 10px; font-size: 16px; }
+.periods { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding-bottom: 12px; }
+.periods .chip { justify-content: center; text-align: center; padding: 9px 6px; font-size: 13.5px; line-height: 1.2; background: var(--bg); }
+.periods .chip.active { background: var(--soft); }
+.rep-week { padding: 0 0 12px; }
+.rules-list .row-sub { white-space: normal; }
