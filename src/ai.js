@@ -63,7 +63,7 @@ const documentSystem = (today) => `You read photos of shopping receipts, screens
 Expense categories: ${CATEGORY_GUIDE}.
 Income categories: ${INCOME_GUIDE}.
 
-Category hints: food or grocery delivery services (Glovo, Uber Eats, Just Eat, Deliveroo, Wolt, Яндекс Еда, Самокат, Купер) → delivery; ride-hailing and taxis (Uber rides, Cabify, Bolt, FreeNow, Yango, Яндекс Go) → taxi; per-minute car rental (Zity, Share Now, Free2Move, WiBLE, Делимобиль, Яндекс Драйв, Ситидрайв) → carsharing; public transport, trains, e-scooters → transport; fuel, parking, tolls, car service → car; supermarkets → groceries; restaurants, bars, coffee shops → cafe; streaming, apps, gym memberships → subscriptions.
+Category hints: food or grocery delivery services (Glovo, Uber Eats, Just Eat, Deliveroo, Wolt, Яндекс Еда, Самокат, Купер) → delivery; ride-hailing and taxis (Uber rides, Cabify, Bolt, FreeNow, Yango, Яндекс Go) → taxi; per-minute car rental (Zity, Share Now, Free2Move, WiBLE, Делимобиль, Яндекс Драйв, Ситидрайв) → carsharing; public transport, trains, e-scooters → transport; fuel, parking, tolls, car service → car; supermarkets → groceries; restaurants, bars, coffee shops → cafe; gyms, fitness clubs, pools, sports classes and coaches, sports equipment and stores (Decathlon), padel/tennis courts, ski passes → sport; streaming and apps → subscriptions.
 
 For a receipt (doc_type=receipt):
 - Categorize each line item on its own: in a supermarket, food → groceries, detergent → household, shampoo → beauty, pet food → pets.
