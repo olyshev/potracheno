@@ -13,7 +13,11 @@ if (missing.length === need.length) {
 }
 if (missing.length) fail(`В настройках репозитория (Settings → Secrets and variables → Actions) не хватает секретов: ${missing.join(', ')}`);
 
-function fail(msg) { console.error(`\n✘ ${msg}\n`); process.exit(1); }
+// Ошибки дублируются аннотацией GitHub (::error::) — их видно на странице запуска и через API
+const annotate = (msg) => console.log(`::error::${String(msg).slice(-3000).replace(/%/g, '%25').replace(/\r/g, '').replace(/\n/g, '%0A')}`);
+function fail(msg) { console.error(`\n✘ ${msg}\n`); annotate(msg); process.exit(1); }
+process.on('uncaughtException', (e) => fail(`${e.message}\n${e.stdout || ''}\n${e.stderr || ''}`));
+process.on('unhandledRejection', (e) => fail(`${e && e.message}\n${(e && e.stdout) || ''}\n${(e && e.stderr) || ''}`));
 function wrangler(args, { input, quiet } = {}) {
   try {
     return execFileSync('npx', ['wrangler', ...args], {
@@ -29,7 +33,7 @@ function wrangler(args, { input, quiet } = {}) {
       fail('Cloudflare не принял токен. Проверьте, что у токена есть права Workers Scripts: Edit и D1: Edit для вашего аккаунта, и что CLOUDFLARE_ACCOUNT_ID верный.');
     }
     process.stdout.write(out);
-    throw e;
+    fail(`wrangler ${args.join(' ')} завершился с ошибкой:\n${out}`);
   }
 }
 const step = (t) => console.log(`\n▶ ${t}`);
