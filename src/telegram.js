@@ -1,10 +1,16 @@
 // Тонкая обёртка над Telegram Bot API.
 export async function tg(env, method, payload) {
-  const r = await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/${method}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(payload || {}),
-  });
+  let r;
+  try {
+    r = await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/${method}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+    });
+  } catch (e) {
+    console.warn(`tg ${method} network error:`, e.message);
+    return { ok: false, description: `network: ${e.message}` };
+  }
   const j = await r.json().catch(() => ({ ok: false, description: `HTTP ${r.status}` }));
   if (!j.ok) console.warn(`tg ${method} failed:`, j.description);
   return j;

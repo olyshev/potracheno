@@ -9,6 +9,7 @@ import { verifyInitData, webhookSecret } from './auth.js';
 import { CATEGORIES, INCOME_CATEGORIES, isCategory, isCategoryFor, categorizeByRules, categorizeIncome, catLabel } from './categories.js';
 import { materialize, upcoming, listRules, createRule, dueDate } from './recurring.js';
 import { normalizeMerchant } from './brands.js';
+import { runNudges } from './nudges.js';
 import { shiftMonth } from './report.js';
 const prevMonth = (m) => shiftMonth(m, -1);
 import { getRates, isCurrency, toEur, fromEur, round2, CURRENCIES } from './rates.js';
@@ -39,7 +40,7 @@ async function upsertUser(env, tgUser, extra = {}) {
   await env.DB.prepare(
     `INSERT INTO users (id, first_name, username, lang, last_seen, can_message)
      VALUES (?1, ?2, ?3, ?4, datetime('now'), ?5)
-     ON CONFLICT(id) DO UPDATE SET first_name = ?2, username = ?3, last_seen = datetime('now'),
+     ON CONFLICT(id) DO UPDATE SET first_name = ?2, username = ?3, last_seen = datetime('now'), nudge_stage = 0,
        can_message = MAX(can_message, ?5)`
   ).bind(tgUser.id, tgUser.first_name || '', tgUser.username || '', langOf(tgUser.language_code), extra.canMessage ? 1 : 0).run();
   return env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(tgUser.id).first();
@@ -185,7 +186,7 @@ async function handleApi(request, env, url) {
       env.DB.prepare('SELECT COUNT(*) AS n FROM entries WHERE user_id = ?').bind(user.id).first(),
     ]);
     return json({
-      user: { id: user.id, first_name: user.first_name, lang: user.lang, base_currency: user.base_currency, can_message: !!user.can_message },
+      user: { id: user.id, first_name: user.first_name, lang: user.lang, base_currency: user.base_currency, can_message: !!user.can_message, nudges: user.nudges !== 0 },
       categories: CATEGORIES,
       income_categories: INCOME_CATEGORIES,
       currencies: CURRENCIES,
@@ -203,6 +204,9 @@ async function handleApi(request, env, url) {
     }
     if (body.lang === 'ru' || body.lang === 'en') {
       await env.DB.prepare('UPDATE users SET lang = ? WHERE id = ?').bind(body.lang, user.id).run();
+    }
+    if (typeof body.nudges === 'boolean') {
+      await env.DB.prepare('UPDATE users SET nudges = ? WHERE id = ?').bind(body.nudges ? 1 : 0, user.id).run();
     }
     if (typeof body.can_message === 'boolean') {
       await env.DB.prepare('UPDATE users SET can_message = ? WHERE id = ?').bind(body.can_message ? 1 : 0, user.id).run();
@@ -620,6 +624,7 @@ async function handleAdmin(request, env, url) {
   }
   if (url.pathname === '/admin/run-reports') return json(await runMonthlyReports(env));
   if (url.pathname === '/admin/maintenance') return json(await runMaintenance(env));
+  if (url.pathname === '/admin/run-nudges') return json(await runNudges(env, { anyHour: url.searchParams.get('any_hour') === '1' }));
   return fail(404, 'not_found');
 }
 
@@ -665,6 +670,11 @@ export default {
       }
       const day = new Date().getUTCDate();
       if (day === 1 || day === 2) console.log('reports', JSON.stringify(await runMonthlyReports(env)));
+      else {
+        // в дни ежемесячной рассылки напоминания не шлём, чтобы не заваливать сообщениями
+        const n = await runNudges(env);
+        if (n.sent) console.log('nudges', JSON.stringify(n));
+      }
     })());
   },
 };

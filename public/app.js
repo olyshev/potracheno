@@ -40,6 +40,7 @@
       openInTg: 'Откройте приложение из Telegram', ai: 'ИИ', from: 'из', receiptFrom: (m) => `Чек ${m}`,
       allowReports: 'Разрешите боту писать вам — 1-го числа он пришлёт итоги месяца.',
       maxDay: (x) => `макс. ${x} в день`,
+      nudges: 'Напоминания, если давно не заходили',
       addIncome: 'Доход', addExpense: 'Расход', expense: 'Расход', incomeKind: 'Доход',
       newIncome: 'Новый доход', incomeNote: 'Откуда', incomeNotePh: 'Например, зарплата',
       balance: 'Остаток', balanceOf: (m) => `Остаток за ${m}`, income: 'Доходы', expenses: 'Расходы',
@@ -84,6 +85,7 @@
       openInTg: 'Open the app from Telegram', ai: 'AI', from: 'of', receiptFrom: (m) => `Receipt ${m}`,
       allowReports: 'Let the bot message you — it will send a wrap-up on the 1st of each month.',
       maxDay: (x) => `max ${x} a day`,
+      nudges: "Reminders when you've been away",
       addIncome: 'Income', addExpense: 'Expense', expense: 'Expense', incomeKind: 'Income',
       newIncome: 'New income', incomeNote: 'Source', incomeNotePh: 'e.g. salary',
       balance: 'Left over', balanceOf: (m) => `Left over in ${m}`, income: 'Income', expenses: 'Expenses',
@@ -938,6 +940,7 @@
       <div class="card list settings-list">
         <div class="row"><span>${t('scans')}</span><span class="settings-value num">${me.scansUsed} ${t('from')} ${me.scans}</span></div>
         <button class="row" id="sReports"><span>${t('reports')}</span><span class="settings-value">${me.can_message ? t('reportsOn') : t('reportsOff')} ›</span></button>
+        <button class="row" id="sNudges"><span>${t('nudges')}</span><span class="settings-value">${me.nudges ? t('reportsOn') : t('reportsOff')} ›</span></button>
       </div>
       <div class="card list settings-list">
         <button class="row" id="sExport"><span style="color:var(--link)">${t('export')}</span><span></span></button>
@@ -966,6 +969,12 @@
       } else {
         requestWriteAccess(true).then(() => { closeSheet(sh); openSettings(); });
       }
+    });
+    $('#sNudges', S).addEventListener('click', async () => {
+      const v = !me.nudges;
+      if (v && !me.can_message) await requestWriteAccess(true);
+      await api('/settings', { method: 'POST', body: { nudges: v } }).catch(() => toast(t('netError')));
+      me.nudges = v; closeSheet(sh); openSettings();
     });
     $('#sExport', S).addEventListener('click', async () => {
       try { await api('/export', { method: 'POST' }); toast(t('exported')); haptic('success'); }
