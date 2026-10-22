@@ -270,3 +270,26 @@ button.emoji { cursor: pointer; }
 .periods .chip.active { background: var(--soft); }
 .rep-week { padding: 0 0 12px; }
 .rules-list .row-sub { white-space: normal; }
+
+/* ---------- истории ---------- */
+.stories { display: flex; gap: 10px; overflow-x: auto; padding: 2px 2px 14px; margin: 0 -2px; scrollbar-width: none; }
+.stories::-webkit-scrollbar { display: none; }
+.story-tile { flex: none; width: 108px; height: 124px; border-radius: 18px; padding: 3px; position: relative;
+  background: linear-gradient(135deg, #5a9cf0, #2a78d6 55%, #4cc38a); }
+.story-tile.seen { background: var(--sep); }
+.story-img { position: absolute; inset: 3px; border-radius: 15px; background-size: cover; background-position: center; background-color: #0e0e10; border: 2px solid var(--bg); }
+.story-title { position: absolute; left: 3px; right: 3px; bottom: 3px; padding: 18px 7px 7px; border-radius: 0 0 15px 15px;
+  background: linear-gradient(to top, rgba(0,0,0,.85), transparent); color: #fff; font-size: 11.5px; font-weight: 800; line-height: 1.15; text-align: left; }
+
+.story-viewer { position: fixed; inset: 0; z-index: 60; background: #0e0e10; opacity: 0; transition: opacity .2s; touch-action: none; user-select: none; -webkit-user-select: none; }
+.story-viewer.open { opacity: 1; }
+.sv-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; -webkit-user-drag: none; }
+.sv-bars { position: absolute; top: calc(10px + var(--tg-content-safe-area-inset-top, 0px)); left: 10px; right: 10px; display: flex; gap: 4px; z-index: 2; }
+.sv-bars div { flex: 1; height: 3px; border-radius: 3px; background: rgba(255,255,255,.3); overflow: hidden; }
+.sv-bars i { display: block; height: 100%; width: 0; background: #fff; }
+.sv-close { position: absolute; top: calc(20px + var(--tg-content-safe-area-inset-top, 0px)); right: 10px; z-index: 3; width: 40px; height: 40px; font-size: 30px; line-height: 1; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.5); }
+.sv-touch { position: absolute; inset: 0; z-index: 1; }
+
+.sv-bg { position: absolute; inset: -40px; width: calc(100% + 80px); height: calc(100% + 80px); object-fit: cover; filter: blur(28px) brightness(.75); pointer-events: none; }
+/* на телефонах слайд заполняет экран (поля слайдов рассчитаны на обрезку по бокам); на широких экранах — целиком, с размытым фоном */
+@media (min-aspect-ratio: 9/16) { .sv-img { object-fit: contain; } }

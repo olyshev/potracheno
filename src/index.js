@@ -181,9 +181,10 @@ async function handleApi(request, env, url) {
   const body = method === 'POST' || method === 'PATCH' ? await request.json().catch(() => ({})) : {};
 
   if (path === '/me' && method === 'GET') {
-    const [usage, cnt] = await Promise.all([
+    const [usage, cnt, views] = await Promise.all([
       getUsage(env, user.id),
       env.DB.prepare('SELECT COUNT(*) AS n FROM entries WHERE user_id = ?').bind(user.id).first(),
+      env.DB.prepare('SELECT story_id FROM story_views WHERE user_id = ?').bind(user.id).all(),
     ]);
     return json({
       user: { id: user.id, first_name: user.first_name, lang: user.lang, base_currency: user.base_currency, can_message: !!user.can_message, nudges: user.nudges !== 0 },
@@ -192,6 +193,7 @@ async function handleApi(request, env, url) {
       currencies: CURRENCIES,
       limits: { scans: scanLimit(env), scansUsed: usage.scans },
       hasEntries: cnt.n > 0,
+      seenStories: views.results.map((v) => v.story_id),
       today: today(),
     });
   }
@@ -348,6 +350,13 @@ async function handleApi(request, env, url) {
     return json({ ok: true });
   }
 
+  if (path === '/stories/seen' && method === 'POST') {
+    const id = String(body.id || '');
+    if (!/^[a-z0-9-]{1,40}$/.test(id)) return fail(400, 'bad_id');
+    await env.DB.prepare('INSERT OR IGNORE INTO story_views (user_id, story_id) VALUES (?, ?)').bind(user.id, id).run();
+    return json({ ok: true });
+  }
+
   if (path === '/suggest' && method === 'POST') {
     return json(await pickCategory(env, user.id, String(body.text || '').slice(0, 120)));
   }
@@ -412,6 +421,7 @@ async function handleApi(request, env, url) {
     await env.DB.batch([
       env.DB.prepare('DELETE FROM entries WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM recurring WHERE user_id = ?').bind(user.id),
+      env.DB.prepare('DELETE FROM story_views WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM usage WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM reports_sent WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM users WHERE id = ?').bind(user.id),

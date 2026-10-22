@@ -230,6 +230,111 @@
   }
   if (tg && tg.BackButton) tg.BackButton.onClick(() => closeSheet());
 
+  // ---------- истории ----------
+  // Каждая история — набор картинок 1080×1920 в public/stories/<папка>/. langs — для каких языков показывать
+  // (текст «зашит» в картинки). Новую историю достаточно добавить в этот список.
+  const STORIES = [
+    {
+      id: 'howto-v1', langs: ['ru'], duration: 6000,
+      title: { ru: 'Как пользоваться', en: 'How it works' },
+      cover: 'stories/howto/cover.webp',
+      slides: [1, 2, 3, 4, 5, 6, 7].map((n) => `stories/howto/${n}.webp`),
+    },
+  ];
+  const seenStory = (id) => (state.me.seenStories || []).includes(id);
+  const visibleStories = () => STORIES.filter((s) => !s.langs || s.langs.includes(state.lang));
+
+  function renderStories() {
+    const el = $('#storiesRow');
+    const list = visibleStories().sort((a, b) => Number(seenStory(a.id)) - Number(seenStory(b.id)));
+    if (!list.length) { el.innerHTML = ''; return; }
+    el.innerHTML = `<div class="stories">${list.map((s) => `
+      <button class="story-tile ${seenStory(s.id) ? 'seen' : ''}" data-story="${s.id}" aria-label="${esc(s.title[state.lang] || s.title.ru)}">
+        <span class="story-img" style="background-image:url('${s.cover}')"></span>
+        <span class="story-title">${esc(s.title[state.lang] || s.title.ru)}</span>
+      </button>`).join('')}</div>`;
+    el.querySelectorAll('[data-story]').forEach((b) => b.addEventListener('click', () => {
+      haptic('select');
+      openStory(STORIES.find((s) => s.id === b.dataset.story));
+    }));
+  }
+
+  function markStorySeen(story) {
+    if (seenStory(story.id)) return;
+    state.me.seenStories = [...(state.me.seenStories || []), story.id];
+    api('/stories/seen', { method: 'POST', body: { id: story.id } }).catch(() => {});
+    renderStories();
+  }
+
+  // Полноэкранный просмотр: полоски прогресса, тап справа — дальше, слева — назад,
+  // удержание — пауза, свайп вниз или крестик — закрыть. Возвращает промис, который выполнится при закрытии.
+  function openStory(story, start = 0) {
+    return new Promise((resolve) => {
+      if (!story) return resolve();
+      const n = story.slides.length, dur = story.duration || 6000;
+      let i = start, elapsed = 0, paused = false, last = performance.now(), raf = 0, closed = false;
+      story.slides.forEach((src) => { const im = new Image(); im.src = src; }); // заранее подгружаем все слайды
+
+      const v = document.createElement('div');
+      v.className = 'story-viewer';
+      v.innerHTML = `
+        <img class="sv-bg" alt=""><img class="sv-img" alt="">
+        <div class="sv-bars">${story.slides.map(() => '<div><i></i></div>').join('')}</div>
+        <button class="sv-close" aria-label="${t('close')}">×</button>
+        <div class="sv-touch"></div>`;
+      const img = $('.sv-img', v), bars = [...v.querySelectorAll('.sv-bars i')];
+      const entry = { sheet: v, backdrop: document.createElement('div'), onClose: () => { closed = true; cancelAnimationFrame(raf); resolve(); } };
+      document.body.append(v);
+      sheets.push(entry); updateBackButton();
+      requestAnimationFrame(() => v.classList.add('open'));
+      markStorySeen(story);
+
+      const bg = $('.sv-bg', v);
+      const show = () => {
+        img.src = story.slides[i]; bg.src = story.slides[i];
+        bars.forEach((b, k) => { b.style.width = k < i ? '100%' : '0%'; });
+      };
+      const next = () => { if (i < n - 1) { i++; elapsed = 0; show(); } else closeSheet(entry); };
+      const prev = () => { if (i > 0) i--; elapsed = 0; show(); };
+      const loop = (now) => {
+        if (closed) return;
+        if (!paused && img.complete) elapsed += now - last;
+        last = now;
+        bars[i].style.width = `${Math.min(100, (elapsed / dur) * 100)}%`;
+        if (elapsed >= dur) next();
+        raf = requestAnimationFrame(loop);
+      };
+
+      // касания: короткий тап — листать, удержание — пауза, свайп вниз — закрыть
+      const touch = $('.sv-touch', v);
+      let down = null;
+      touch.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; paused = true; });
+      touch.addEventListener('pointermove', (e) => {
+        if (!down) return;
+        const dy = e.clientY - down.y;
+        if (dy > 0) { v.style.transform = `translateY(${dy}px)`; v.style.opacity = String(Math.max(0.4, 1 - dy / 600)); }
+      });
+      const up = (e) => {
+        if (!down) return;
+        const dy = e.clientY - down.y, dt = performance.now() - down.t, dx = Math.abs(e.clientX - down.x);
+        paused = false; v.style.transform = ''; v.style.opacity = '';
+        if (dy > 90) closeSheet(entry);
+        else if (dt < 300 && dx < 20 && Math.abs(dy) < 20) { haptic('select'); (e.clientX < innerWidth * 0.3 ? prev : next)(); }
+        down = null;
+      };
+      touch.addEventListener('pointerup', up);
+      touch.addEventListener('pointercancel', () => { down = null; paused = false; v.style.transform = ''; v.style.opacity = ''; });
+      $('.sv-close', v).addEventListener('click', () => closeSheet(entry));
+      document.addEventListener('keydown', function onKey(e) {
+        if (closed) return document.removeEventListener('keydown', onKey);
+        if (e.key === 'ArrowRight') next(); else if (e.key === 'ArrowLeft') prev(); else if (e.key === 'Escape') closeSheet(entry);
+      });
+
+      show();
+      raf = requestAnimationFrame(loop);
+    });
+  }
+
   // ---------- главный экран ----------
   function monthTitle(m) {
     const [y, mm] = m.split('-').map(Number);
@@ -988,7 +1093,7 @@
     $('#sLang', S).addEventListener('click', async () => {
       state.lang = state.lang === 'ru' ? 'en' : 'ru';
       await api('/settings', { method: 'POST', body: { lang: state.lang } }).catch(() => {});
-      applyStatic(); closeSheet(sh); loadMonth(); openSettings();
+      applyStatic(); closeSheet(sh); loadMonth(); renderStories(); openSettings();
     });
     $('#sReports', S).addEventListener('click', async () => {
       if (me.can_message) {
@@ -1076,7 +1181,7 @@
       document.body.innerHTML = `<div class="blocker"><div class="big">⚠️</div><p>${e.status === 401 ? `${T.ru.openInTg}<br>${T.en.openInTg}` : 'Network error'}</p></div>`;
       return;
     }
-    state.me = { ...me.user, scans: me.limits.scans, scansUsed: me.limits.scansUsed };
+    state.me = { ...me.user, scans: me.limits.scans, scansUsed: me.limits.scansUsed, seenStories: me.seenStories || [] };
     state.lang = me.user.lang === 'en' ? 'en' : 'ru';
     state.cats = me.categories;
     state.incomeCats = me.income_categories || [];
@@ -1097,7 +1202,11 @@
     $('#fileInput').addEventListener('change', (e) => onScanFiles(e.target.files));
 
     await loadMonth();
+    renderStories();
     if (!me.hasEntries && !store.get('welcomed')) await openWelcome();
+    // новичкам сразу показываем историю «Как пользоваться»
+    const howto = visibleStories().find((s) => s.id === 'howto-v1');
+    if (howto && !me.hasEntries && !seenStory(howto.id)) await openStory(howto);
     if (!state.me.can_message) requestWriteAccess(false);
   }
 
