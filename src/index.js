@@ -442,7 +442,8 @@ async function handleApi(request, env, url) {
       env.DB.prepare('DELETE FROM recurring WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM story_views WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM share_images WHERE user_id = ?').bind(user.id),
-      env.DB.prepare('DELETE FROM usage WHERE user_id = ?').bind(user.id),
+      // счётчики текущего месяца оставляем: иначе удаление данных обнуляло бы лимит сканов и бонус за шеринг
+      env.DB.prepare('DELETE FROM usage WHERE user_id = ? AND month != ?').bind(user.id, thisMonth()),
       env.DB.prepare('DELETE FROM reports_sent WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM users WHERE id = ?').bind(user.id),
     ]);
