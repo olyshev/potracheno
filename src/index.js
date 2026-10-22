@@ -7,7 +7,7 @@
 //   cron            — регулярные платежи (каждый час) и рассылка итогов месяца (1–2 числа)
 import { verifyInitData, webhookSecret } from './auth.js';
 import { CATEGORIES, INCOME_CATEGORIES, isCategory, isCategoryFor, categorizeByRules, categorizeIncome, catLabel } from './categories.js';
-import { materialize, upcoming, listRules, createRule, dueDate, periodOf, resumeState } from './recurring.js';
+import { materialize, upcoming, listRules, createRule, dueDate, periodOf, resumeState, datesInRange } from './recurring.js';
 import { normalizeMerchant } from './brands.js';
 import { runNudges } from './nudges.js';
 import { shiftMonth } from './report.js';
@@ -367,6 +367,57 @@ async function handleApi(request, env, url) {
     ).bind(user.id, thisMonth(), SHARE_BONUS).run();
     const usage = await getUsage(env, user.id);
     return json({ ok: true, granted: res.meta.changes > 0, bonus: SHARE_BONUS, scans: scanLimit(env, usage), scansUsed: usage.scans });
+  }
+
+  if (path === '/weekly' && method === 'GET') {
+    // Недели — с понедельника по воскресенье (UTC). Итоги — за прошлую неделю, план — на текущую.
+    const base = user.base_currency || 'EUR';
+    const rates = await getRates(env);
+    const now = today();
+    const dow = (new Date(`${now}T00:00:00Z`).getUTCDay() + 6) % 7; // 0 = понедельник
+    const weekStart = addDays(now, -dow), weekEnd = addDays(weekStart, 6);
+    const lastStart = addDays(weekStart, -7), lastEnd = addDays(weekStart, -1), histStart = addDays(weekStart, -35);
+    const conv = (eur) => round2(fromEur(eur, base, rates));
+
+    // повседневные траты: без регулярных платежей (аренда, подписки и т. п.)
+    const { results: daily } = await env.DB.prepare(
+      `SELECT date, category, amount_eur FROM entries
+       WHERE user_id = ? AND kind = 'expense' AND recurring_id IS NULL AND date >= ? AND date <= ?`
+    ).bind(user.id, histStart, lastEnd).all();
+    const last = daily.filter((e) => e.date >= lastStart);
+    let summary = null;
+    if (last.length >= 3) {
+      const byCat = {};
+      for (const e of last) byCat[e.category] = (byCat[e.category] || 0) + e.amount_eur;
+      const top = Object.entries(byCat).sort((a, b) => b[1] - a[1])[0];
+      // «обычно» — средняя неделя из четырёх предыдущих, в которых были траты
+      const weeks = [];
+      for (let k = 1; k <= 4; k++) {
+        const ws = addDays(lastStart, -7 * k), we = addDays(ws, 6);
+        const list = daily.filter((e) => e.date >= ws && e.date <= we);
+        if (list.length) weeks.push(list.reduce((a, e) => a + e.amount_eur, 0));
+      }
+      const avg = weeks.length ? weeks.reduce((a, b) => a + b, 0) / weeks.length : 0;
+      summary = {
+        from: lastStart, to: lastEnd, count: last.length,
+        spent: conv(last.reduce((a, e) => a + e.amount_eur, 0)), avg: avg ? conv(avg) : null,
+        top: { category: top[0], amount: conv(top[1]) },
+      };
+    }
+
+    // план: платежи по регулярным правилам с сегодняшнего дня до конца недели
+    const { results: rules } = await env.DB.prepare('SELECT * FROM recurring WHERE user_id = ? AND active = 1').bind(user.id).all();
+    const plan = { expenses: [], incomes: [] };
+    for (const r of rules) {
+      for (const date of datesInRange(r, now, weekEnd)) {
+        (r.kind === 'income' ? plan.incomes : plan.expenses).push({
+          date, amount: r.amount, currency: r.currency, category: r.category, note: r.note,
+          amount_base: conv(toEur(r.amount, r.currency, rates)),
+        });
+      }
+    }
+    for (const k of ['expenses', 'incomes']) plan[k] = plan[k].sort((a, b) => b.amount_base - a.amount_base).slice(0, 3);
+    return json({ today: now, week: { from: weekStart, to: weekEnd }, base, summary, plan });
   }
 
   if (path === '/stories/seen' && method === 'POST') {

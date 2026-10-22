@@ -324,3 +324,20 @@ button.emoji { cursor: pointer; }
   font-family: WrM, sans-serif; font-weight: 800; font-size: 58px; box-shadow: 10px 12px 0 rgba(0,0,0,.35); }
 .wr-action:active { transform: translate(4px, 5px); box-shadow: 6px 7px 0 rgba(0,0,0,.35); }
 .share-preview { display: block; width: 62%; max-width: 280px; margin: 0 auto 14px; border-radius: 18px; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+
+/* ---------- недельные истории ---------- */
+.wk-rows { display: flex; flex-direction: column; gap: 26px; margin-top: 70px; }
+.wk-row { display: flex; align-items: center; gap: 30px; padding: 34px 38px; border-radius: 40px; background: rgba(255,255,255,.1);
+  border: 3px solid rgba(255,255,255,.16); box-shadow: 8px 10px 0 rgba(0,0,0,.28); }
+.wk-row img { flex: none; }
+.wk-amt { font-family: WrU; font-size: 64px; letter-spacing: -1px; white-space: nowrap; }
+.wk-what { font-weight: 800; font-size: 42px; line-height: 1.2; margin-top: 8px; }
+.wk-day { opacity: .75; }
+.wk-pill { display: inline-flex; align-items: center; gap: 16px; margin-top: 54px; padding: 22px 32px; border-radius: 99px;
+  background: rgba(255,255,255,.14); border: 3px solid rgba(255,255,255,.18); font-weight: 800; font-size: 46px; }
+.wk-top { display: flex; align-items: center; gap: 28px; margin-top: 70px; padding-top: 60px; border-top: 3px solid rgba(255,255,255,.18); }
+.wk-top img { flex: none; }
+.wk-k { font-weight: 700; font-size: 40px; opacity: .75; }
+.wk-v { font-weight: 800; font-size: 60px; margin-top: 4px; }
+.wk-cover { display: block; }
+.wk-cover img { position: absolute; right: 10px; top: 8px; transform: rotate(-8deg); filter: drop-shadow(2px 3px 0 rgba(0,0,0,.35)); }

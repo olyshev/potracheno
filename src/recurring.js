@@ -172,3 +172,19 @@ export function resumeState({ period, day, lastDate }, now = today()) {
   const prev = new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 7);
   return { last_month: dueDate(cur, day) < now ? cur : prev, last_date: null };
 }
+
+// Плановые платежи правила в промежутке [from, to] по расписанию (включая сегодняшний, даже если запись уже создана)
+export function datesInRange(rule, from, to) {
+  const out = [];
+  if (STEP[rule.period]) {
+    if (!rule.last_date) return out;
+    let d = rule.last_date;
+    while (d < from) d = addDays(d, STEP[rule.period]);
+    while (d > from && addDays(d, -STEP[rule.period]) >= from) d = addDays(d, -STEP[rule.period]);
+    for (; d <= to; d = addDays(d, STEP[rule.period])) if (d >= from) out.push(d);
+    return out;
+  }
+  const months = [...new Set([from.slice(0, 7), to.slice(0, 7)])];
+  for (const m of months) { const d = dueDate(m, rule.day); if (d >= from && d <= to) out.push(d); }
+  return out;
+}

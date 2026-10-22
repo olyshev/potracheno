@@ -252,7 +252,7 @@
 
   function renderStories() {
     const el = $('#storiesRow');
-    const list = visibleStories().sort((a, b) => Number(seenStory(a.id)) - Number(seenStory(b.id)));
+    const list = visibleStories().map((s, k) => [s, k]).sort((a, b) => (Number(seenStory(a[0].id)) - Number(seenStory(b[0].id))) || (a[1] - b[1])).map((x) => x[0]);
     if (!list.length) { el.innerHTML = ''; return; }
     el.innerHTML = `<div class="stories">${list.map((s) => `
       <button class="story-tile ${seenStory(s.id) ? 'seen' : ''}" data-story="${s.id}" aria-label="${esc(s.title[state.lang] || s.title.ru)}">
@@ -463,7 +463,7 @@
       id: `month-${s.month}`, langs: ['ru'], duration: 5000,
       title: { ru: `Ваш ${name}`, en: `Your ${MONTHS.en[mi]}` },
       coverHtml: `<span class="story-img wr-cover">${emojiImg('1f4b8', 40)}</span>`,
-      slides: out, dynamic: true,
+      slides: out, dynamic: 'month',
     };
   }
 
@@ -634,6 +634,88 @@
     });
   }
 
+  // ---------- недельные истории: «План на неделю» и «Итоги недели» ----------
+  const WEEKDAYS_ACC = ['в воскресенье', 'в понедельник', 'во вторник', 'в среду', 'в четверг', 'в пятницу', 'в субботу'];
+  const dayWord = (date, today) => {
+    if (date === today) return 'сегодня';
+    const tm = new Date(`${today}T00:00:00Z`); tm.setUTCDate(tm.getUTCDate() + 1);
+    if (date === tm.toISOString().slice(0, 10)) return 'завтра';
+    return WEEKDAYS_ACC[new Date(`${date}T00:00:00Z`).getUTCDay()];
+  };
+  const isCyr = (w) => /^[а-яё]/i.test(w);
+  const lowerFirst = (w) => (isCyr(w) ? w.charAt(0).toLowerCase() + w.slice(1) : w);
+  // «Аренда» → «на аренду». Склоняем только одно слово; составные названия идут через тире
+  function accusative(word) {
+    const w = lowerFirst(word);
+    if (/[^аеёиоуыэюяй]а$/i.test(w)) return w.slice(0, -1) + 'у';
+    if (/[^аеёиоуыэюя]я$/i.test(w)) return w.slice(0, -1) + 'ю';
+    return w;
+  }
+  function planLine(it, income, today) {
+    const day = `<span class="wk-day">${dayWord(it.date, today)}</span>`;
+    const note = (it.note || '').trim();
+    if (income) return `${esc(note ? lowerFirst(note) : catName(it.category).toLowerCase())} ${day}`;
+    if (!note) return `на ${esc(CAT_ACC[it.category] || catName(it.category).toLowerCase())} ${day}`;
+    if (/^\S+$/.test(note) && !/\d/.test(note)) return `на ${esc(accusative(note))} ${day}`;
+    return `— ${esc(note)} ${day}`;
+  }
+  const wkPage = (bg, tag, body) => `<div class="wr" style="background:${bg}"><div class="wr-tag">${tag}</div>${body}
+    <div class="wr-logo">потрачено<span>БЮДЖЕТ-БОТ</span></div></div>`;
+
+  function buildPlanStory(w) {
+    const slides = [];
+    const rows = (list, income) => list.map((it) => `<div class="wk-row">${emojiImg(twemoji(cat(it.category).emoji), 84)}
+      <div><div class="wk-amt">${wrMoney(it.amount, it.currency)}</div><div class="wk-what">${planLine(it, income, w.today)}</div></div></div>`).join('');
+    if (w.plan.expenses.length) {
+      slides.push({ html: wkPage('linear-gradient(170deg,#1f7a8c 0%,#123f4a 50%,#0e0e10 100%)', 'План на неделю',
+        `<div class="wr-wrap" style="top:400px"><div class="wr-cap" style="margin-top:0">Запланированные расходы</div><div class="wk-rows">${rows(w.plan.expenses, false)}</div></div>`) });
+    }
+    if (w.plan.incomes.length) {
+      slides.push({ html: wkPage('linear-gradient(170deg,#1f9d63 0%,#10533a 50%,#0e0e10 100%)', 'План на неделю',
+        `<div class="wr-wrap" style="top:400px"><div class="wr-cap" style="margin-top:0">Запланированные доходы</div><div class="wk-rows">${rows(w.plan.incomes, true)}</div></div>`) });
+    }
+    if (!slides.length) return null;
+    return {
+      id: `week-plan-${w.week.from}`, langs: ['ru'], duration: 6000, dynamic: 'week',
+      title: { ru: 'План на неделю', en: 'Week plan' },
+      coverHtml: `<span class="story-img wk-cover" style="background:linear-gradient(165deg,#1f7a8c,#1f9d63)">${emojiImg('1f5d3', 40)}</span>`,
+      slides,
+    };
+  }
+
+  function buildWeekSummaryStory(w) {
+    const s = w.summary;
+    if (!s) return null;
+    let pill = '';
+    if (s.avg) {
+      const pct = Math.round(Math.abs(s.spent - s.avg) / s.avg * 100);
+      const less = s.spent <= s.avg;
+      pill = pct === 0 ? `<div class="wk-pill">как обычно</div>`
+        : `<div class="wk-pill">${emojiImg(less ? '1f4c9' : '1f4c8', 56)} на ${pct}% ${less ? 'меньше' : 'больше'}, чем обычно</div>`;
+    }
+    return {
+      id: `week-sum-${w.week.from}`, langs: ['ru'], duration: 6000, dynamic: 'week',
+      title: { ru: 'Итоги недели', en: 'Week recap' },
+      coverHtml: `<span class="story-img wk-cover" style="background:linear-gradient(165deg,#1d5fae,#12345f)">${emojiImg('1f4ca', 40)}</span>`,
+      slides: [{ html: wkPage('linear-gradient(170deg,#1d5fae 0%,#12345f 50%,#0e0e10 100%)', 'Итоги недели',
+        `<div class="wr-wrap" style="top:470px"><div class="wr-cap" style="margin-top:0">На прошлой неделе вы потратили</div>
+         <div class="wr-num" style="margin-top:40px">${wrMoney(s.spent, w.base)}</div>${pill}
+         <div class="wk-top">${emojiImg(twemoji(cat(s.top.category).emoji), 110)}<div><div class="wk-k">Категория #1</div>
+         <div class="wk-v">${esc(catName(s.top.category).toLowerCase())}</div></div></div></div>`) }],
+    };
+  }
+
+  async function loadWeeklyStories() {
+    if (state.lang !== 'ru') return;
+    try {
+      const w = await api('/weekly');
+      for (let i = STORIES.length - 1; i >= 0; i--) if (STORIES[i].dynamic === 'week') STORIES.splice(i, 1);
+      // порядок в ленте: «План на неделю», «Итоги недели», затем остальные
+      [buildWeekSummaryStory(w), buildPlanStory(w)].forEach((st) => { if (st) STORIES.unshift(st); });
+      renderStories();
+    } catch { /* недельные истории не критичны */ }
+  }
+
   // История за прошлый месяц: подгружаем сводку и добавляем в начало ленты
   async function loadMonthStory() {
     if (state.lang !== 'ru') return;
@@ -641,9 +723,10 @@
     try {
       const { summary } = await api(`/summary?month=${prev}`);
       const story = buildMonthStory(summary);
-      const i = STORIES.findIndex((x) => x.dynamic);
+      const i = STORIES.findIndex((x) => x.dynamic === 'month');
       if (i >= 0) STORIES.splice(i, 1);
-      if (story) STORIES.unshift(story);
+      // месячная история — после недельных
+      if (story) STORIES.splice(STORIES.filter((x) => x.dynamic === 'week').length, 0, story);
       renderStories();
       return story;
     } catch { return null; }
@@ -1518,7 +1601,7 @@
 
     await loadMonth();
     renderStories();
-    const monthStory = me.hasEntries ? await loadMonthStory() : null;
+    const [monthStory] = me.hasEntries ? await Promise.all([loadMonthStory(), loadWeeklyStories()]) : [null];
     if (!me.hasEntries && !store.get('welcomed')) await openWelcome();
     // новичкам сразу показываем историю «Как пользоваться»
     const howto = visibleStories().find((s) => s.id === 'howto-v1');
