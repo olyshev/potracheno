@@ -528,10 +528,7 @@
     const rep = repeatBlock('m', { day: Number(state.today.slice(8, 10)), date: state.today });
     const sh = openSheet(`
       <div class="sheet-head"><h2 id="mTitle"></h2><button class="close">${t('cancel')}</button></div>
-      <div class="segmented" role="tablist">
-        <button data-kind="expense" role="tab">${t('expense')}</button>
-        <button data-kind="income" role="tab">${t('incomeKind')}</button>
-      </div>
+      <div class="field"><label for="mDate">${t('date')}</label><input id="mDate" type="date" value="${state.today}" max="${state.today}"></div>
       <div class="field amount-field">
         <span class="sign" id="mSign"></span>
         <input id="mAmount" inputmode="decimal" placeholder="0" autocomplete="off" aria-label="${t('amount')}">
@@ -540,7 +537,6 @@
       <div class="field"><label for="mNote" id="mNoteLabel"></label><input id="mNote" maxlength="120" autocomplete="off"></div>
       <div class="label-row"><span>${t('category')}</span></div>
       <div class="chips" id="mCats"></div>
-      <div class="field"><label for="mDate">${t('date')}</label><input id="mDate" type="date" value="${state.today}" max="${state.today}"></div>
       ${rep.html}
       <button class="btn btn-primary btn-block" id="mSave">${t('save')}</button>`);
     const S = sh.sheet;
@@ -569,7 +565,6 @@
     };
     const setKind = (k) => {
       kind = k; category = null; suggested = null; userPicked = false;
-      S.querySelectorAll('[data-kind]').forEach((b) => b.classList.toggle('active', b.dataset.kind === k));
       $('#mTitle', S).textContent = k === 'income' ? t('newIncome') : t('newExpense');
       $('#mNoteLabel', S).textContent = k === 'income' ? t('incomeNote') : t('note');
       noteEl.placeholder = k === 'income' ? t('incomeNotePh') : t('notePh');
@@ -577,7 +572,6 @@
       $('#mSign', S).className = `sign ${k === 'income' ? 'pos-text' : ''}`;
       drawCats();
     };
-    S.querySelectorAll('[data-kind]').forEach((b) => b.addEventListener('click', () => { haptic('select'); setKind(b.dataset.kind); }));
     setKind(kind);
 
     noteEl.addEventListener('input', () => {
