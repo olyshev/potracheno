@@ -250,7 +250,7 @@
     if (!list.length) { el.innerHTML = ''; return; }
     el.innerHTML = `<div class="stories">${list.map((s) => `
       <button class="story-tile ${seenStory(s.id) ? 'seen' : ''}" data-story="${s.id}" aria-label="${esc(s.title[state.lang] || s.title.ru)}">
-        <span class="story-img" style="background-image:url('${s.cover}')"></span>
+        ${s.coverHtml || `<span class="story-img" style="background-image:url('${s.cover}')"></span>`}
         <span class="story-title">${esc(s.title[state.lang] || s.title.ru)}</span>
       </button>`).join('')}</div>`;
     el.querySelectorAll('[data-story]').forEach((b) => b.addEventListener('click', () => {
@@ -273,32 +273,52 @@
       if (!story) return resolve();
       const n = story.slides.length, dur = story.duration || 6000;
       let i = start, elapsed = 0, paused = false, last = performance.now(), raf = 0, closed = false;
-      story.slides.forEach((src) => { const im = new Image(); im.src = src; }); // заранее подгружаем все слайды
+      story.slides.forEach((src) => { if (typeof src === 'string') { const im = new Image(); im.src = src; } }); // заранее подгружаем картинки
 
       const v = document.createElement('div');
       v.className = 'story-viewer';
       v.innerHTML = `
-        <img class="sv-bg" alt=""><img class="sv-img" alt="">
+        <img class="sv-bg" alt=""><img class="sv-img" alt=""><div class="sv-html"></div>
         <div class="sv-bars">${story.slides.map(() => '<div><i></i></div>').join('')}</div>
         <button class="sv-close" aria-label="${t('close')}">×</button>
         <div class="sv-touch"></div>`;
       const img = $('.sv-img', v), bars = [...v.querySelectorAll('.sv-bars i')];
-      const entry = { sheet: v, backdrop: document.createElement('div'), onClose: () => { closed = true; cancelAnimationFrame(raf); resolve(); } };
+      const entry = { sheet: v, backdrop: document.createElement('div'), onClose: () => { closed = true; cancelAnimationFrame(raf); removeEventListener('resize', fit); resolve(); } };
       document.body.append(v);
       sheets.push(entry); updateBackButton();
       requestAnimationFrame(() => v.classList.add('open'));
       markStorySeen(story);
 
-      const bg = $('.sv-bg', v);
+      const bg = $('.sv-bg', v), box = $('.sv-html', v);
+      // html-слайд рисуется в 1080×1920 и масштабируется: на телефоне — на весь экран, на широком — целиком
+      const fit = () => {
+        const page = box.firstElementChild; if (!page) return;
+        const vw = innerWidth, vh = innerHeight;
+        const k = vw / vh <= 9 / 16 ? Math.max(vw / 1080, vh / 1920) : Math.min(vw / 1080, vh / 1920);
+        page.style.transform = `translate(-50%, -50%) scale(${k})`;
+      };
+      const fitNumbers = () => box.querySelectorAll('.wr-num').forEach((n) => {
+        let f = parseFloat(getComputedStyle(n).fontSize);
+        while (n.scrollWidth > n.clientWidth && f > 60) { f -= 4; n.style.fontSize = `${f}px`; }
+      });
+      addEventListener('resize', fit);
       const show = () => {
-        img.src = story.slides[i]; bg.src = story.slides[i];
+        const sl = story.slides[i];
+        if (typeof sl === 'string') {
+          box.innerHTML = ''; img.hidden = bg.hidden = false;
+          img.src = sl; bg.src = sl;
+        } else {
+          img.hidden = bg.hidden = true; img.removeAttribute('src');
+          box.innerHTML = sl.html; fit();
+          (document.fonts ? document.fonts.ready : Promise.resolve()).then(fitNumbers);
+        }
         bars.forEach((b, k) => { b.style.width = k < i ? '100%' : '0%'; });
       };
       const next = () => { if (i < n - 1) { i++; elapsed = 0; show(); } else closeSheet(entry); };
       const prev = () => { if (i > 0) i--; elapsed = 0; show(); };
       const loop = (now) => {
         if (closed) return;
-        if (!paused && img.complete) elapsed += now - last;
+        if (!paused && (img.hidden || img.complete)) elapsed += now - last;
         last = now;
         bars[i].style.width = `${Math.min(100, (elapsed / dur) * 100)}%`;
         if (elapsed >= dur) next();
@@ -333,6 +353,112 @@
       show();
       raf = requestAnimationFrame(loop);
     });
+  }
+
+  // ---------- персональная история «Ваш месяц» ----------
+  // Собирается из данных прошлого месяца; висит в ленте весь следующий месяц.
+  // Правила: меньше 5 трат — истории нет; нет прошлого месяца для сравнения — без слайда 2;
+  // нет доходов — без слайдов 3 и 4.
+  const CAT_ACC = {
+    groceries: 'продукты', cafe: 'кафе и рестораны', delivery: 'доставку', transport: 'транспорт', taxi: 'такси',
+    carsharing: 'каршеринг', fuel: 'топливо', car_service: 'обслуживание авто', car_goods: 'товары для авто',
+    housing: 'жильё', utilities: 'связь и ЖКУ', health: 'здоровье', beauty: 'уход и гигиену', household: 'дом и быт',
+    clothes: 'одежду и обувь', shopping: 'покупки', fun: 'развлечения', sport: 'спорт', subscriptions: 'подписки',
+    travel: 'путешествия', education: 'обучение', kids: 'детей', pets: 'питомцев', gifts: 'подарки', other: 'прочее',
+  };
+  const twemoji = (e) => [...e].map((c) => c.codePointAt(0).toString(16)).filter((c) => c !== 'fe0f').join('-');
+  const emojiImg = (code, size) => `<img src="stories/emoji/${code}.svg" alt="" style="width:${size}px;height:${size}px">`;
+  // Суммы для слайдов: обычные пробелы (в шрифте Unbounded неразрывный пробел нулевой ширины)
+  const wrMoney = (n, cur) => {
+    try {
+      return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: cur, maximumFractionDigits: 0 }).format(Math.abs(n)).replace(/[  ]/g, ' ');
+    } catch { return `${Math.round(Math.abs(n))} ${cur}`; }
+  };
+
+  function buildMonthStory(s) {
+    const cur = s.base;
+    const nw = (n) => `<span style="white-space:nowrap">${wrMoney(n, cur)}</span>`; // сумма в подписи не разрывается
+    const expenseCount = s.categories.reduce((a, c) => a + c.count, 0);
+    if (expenseCount < 5 || !s.total) return null;
+    const [y, mm] = s.month.split('-').map(Number);
+    const mi = mm - 1;
+    const name = MONTHS.ru[mi], prep = MONTHS.ruPrep[mi], gen = MONTHS.ruGen[mi];
+    const prevPrep = MONTHS.ruPrep[(mi + 11) % 12], nextPrep = MONTHS.ruPrep[(mi + 1) % 12];
+    const hasPrev = s.prevTotal > 0;
+    const pct = hasPrev ? Math.round(Math.abs(s.total - s.prevTotal) / s.prevTotal * 100) : 0;
+    const less = !hasPrev || s.total <= s.prevTotal;
+    const result = s.income - s.total;
+    const top = s.categories[0];
+    const busiest = s.days.reduce((b, v, d) => (v > b.v ? { v, d } : b), { v: 0, d: 0 });
+    const user = state.me.first_name || '';
+    const G = {
+      blue: 'linear-gradient(165deg,#2a78d6 0%,#163f73 45%,#0e0e10 100%)',
+      green: 'linear-gradient(165deg,#1f9d63 0%,#10533a 45%,#0e0e10 100%)',
+      red: 'linear-gradient(165deg,#d9483f 0%,#6e2420 45%,#0e0e10 100%)',
+      violet: 'linear-gradient(165deg,#6250d6 0%,#2f2770 45%,#0e0e10 100%)',
+      amber: 'linear-gradient(165deg,#e8962a 0%,#7a4a12 45%,#0e0e10 100%)',
+      final: 'linear-gradient(165deg,#2a78d6 0%,#1f9d63 55%,#0e0e10 100%)',
+    };
+    const slide = (bg, blob, body, stickers) => ({ html: `<div class="wr" style="background:${bg}">
+      <div class="wr-blob" style="${blob}"></div><div class="wr-tag">Ваш ${name}</div>${body}${stickers}
+      <div class="wr-logo">потрачено<span>БЮДЖЕТ-БОТ</span></div></div>` });
+    const st = (code, size, pos) => `<div class="wr-sticker" style="${pos}">${emojiImg(code, size)}</div>`;
+    const out = [];
+    out.push(slide(G.blue, 'width:700px;height:700px;right:-220px;top:1050px;background:rgba(90,156,240,.35)',
+      `<div class="wr-wrap"><div class="wr-num">${wrMoney(s.total, cur)}</div><div class="wr-cap">вы потратили<br>в ${prep}</div></div>`,
+      st('1f4b8', 300, 'right:110px;top:1240px;transform:rotate(12deg)')));
+    if (hasPrev) {
+      out.push(slide(less ? G.green : G.red, 'width:640px;height:640px;left:-200px;top:1150px;background:rgba(255,255,255,.12)',
+        `<div class="wr-wrap"><div class="wr-num">${less ? '−' : '+'}${pct}%</div><div class="wr-cap">Это на ${pct}% ${less ? 'меньше' : 'больше'}, чем в ${prevPrep}</div>
+         <div class="wr-small">${nw(s.total)} против ${nw(s.prevTotal)}</div></div>`,
+        st(less ? '1f4c9' : '1f4c8', 290, 'right:120px;top:1260px;transform:rotate(-8deg)')));
+    }
+    if (s.income > 0) {
+      out.push(slide(G.violet, 'width:720px;height:720px;right:-240px;top:980px;background:rgba(144,133,233,.3)',
+        `<div class="wr-wrap"><div class="wr-num">${wrMoney(s.income, cur)}</div><div class="wr-cap">вы заработали<br>в ${prep}</div></div>`,
+        st('1f4b0', 300, 'right:120px;top:1250px;transform:rotate(10deg)')));
+      out.push(slide(result >= 0 ? G.green : G.red, 'width:760px;height:760px;left:-260px;top:1080px;background:rgba(255,255,255,.1)',
+        `<div class="wr-wrap"><div class="wr-num">${result >= 0 ? '+' : '−'}${wrMoney(result, cur)}</div><div class="wr-cap">финансовый результат за месяц</div>
+         <div class="wr-small">${nw(s.income)} доходов − ${nw(s.total)} расходов</div></div>`,
+        st(result >= 0 ? '1f3c6' : '1f62c', 290, 'right:120px;top:1270px;transform:rotate(-10deg)')));
+    }
+    out.push(slide(G.amber, 'width:700px;height:700px;right:-200px;top:1120px;background:rgba(255,200,120,.22)',
+      `<div class="wr-wrap" style="top:470px"><div class="wr-cap" style="margin-top:0">Больше всего вы тратили на ${CAT_ACC[top.category] || catName(top.category).toLowerCase()}</div>
+       <div class="wr-num" style="margin-top:50px">${wrMoney(top.amount, cur)}</div>
+       <div class="wr-small">${Math.round(top.amount / s.total * 100)}% всех трат за месяц</div></div>`,
+      st(twemoji(cat(top.category).emoji), 320, 'right:130px;top:1240px;transform:rotate(8deg)')));
+    if (busiest.v > 0) {
+      out.push(slide(G.blue, 'width:700px;height:700px;left:-220px;top:1120px;background:rgba(90,156,240,.3)',
+        `<div class="wr-wrap" style="top:470px"><div class="wr-cap" style="margin-top:0">Самый дорогой день месяца —</div>
+         <div class="wr-num" style="margin-top:40px;font-size:260px">${busiest.d + 1}</div><div class="wr-num wr-mid">${gen}</div>
+         <div class="wr-cap">Тогда вы потратили ${nw(busiest.v)}</div></div>`,
+        st('1f525', 280, 'right:120px;top:1300px;transform:rotate(-8deg)')));
+    }
+    const finalText = less ? `Так держать${user ? `, ${esc(user)}` : ''}!` : `Отличная работа${user ? `, ${esc(user)}` : ''}! Давайте постараемся в ${nextPrep}.`;
+    out.push(slide(G.final, 'width:760px;height:760px;right:-240px;top:1060px;background:rgba(255,255,255,.12)',
+      `<div class="wr-wrap" style="top:560px"><div class="wr-cap" style="font-size:${less ? 96 : 84}px;line-height:1.1;margin-top:0">${finalText}</div></div>`,
+      st(less ? '1f64c' : '1f4aa', 300, `right:120px;top:1250px;transform:rotate(${less ? -8 : 8}deg)`) + st('1f389', 150, 'left:150px;top:1380px;transform:rotate(-14deg)')));
+    return {
+      id: `month-${s.month}`, langs: ['ru'], duration: 5000,
+      title: { ru: `Ваш ${name}`, en: `Your ${MONTHS.en[mi]}` },
+      coverHtml: `<span class="story-img wr-cover">${emojiImg('1f4b8', 40)}</span>`,
+      slides: out, dynamic: true,
+    };
+  }
+
+  // История за прошлый месяц: подгружаем сводку и добавляем в начало ленты
+  async function loadMonthStory() {
+    if (state.lang !== 'ru') return;
+    const prev = shiftMonth(state.today.slice(0, 7), -1);
+    try {
+      const { summary } = await api(`/summary?month=${prev}`);
+      const story = buildMonthStory(summary);
+      const i = STORIES.findIndex((x) => x.dynamic);
+      if (i >= 0) STORIES.splice(i, 1);
+      if (story) STORIES.unshift(story);
+      renderStories();
+      return story;
+    } catch { return null; }
   }
 
   // ---------- главный экран ----------
@@ -1203,10 +1329,14 @@
 
     await loadMonth();
     renderStories();
+    const monthStory = me.hasEntries ? await loadMonthStory() : null;
     if (!me.hasEntries && !store.get('welcomed')) await openWelcome();
     // новичкам сразу показываем историю «Как пользоваться»
     const howto = visibleStories().find((s) => s.id === 'howto-v1');
     if (howto && !me.hasEntries && !seenStory(howto.id)) await openStory(howto);
+    // из ежемесячного сообщения бота: сразу открыть историю за прошлый месяц
+    const startParam = tg && tg.initDataUnsafe ? tg.initDataUnsafe.start_param : '';
+    if (monthStory && (new URLSearchParams(location.search).get('story') === 'month' || startParam === 'month')) await openStory(monthStory);
     if (!state.me.can_message) requestWriteAccess(false);
   }
 

@@ -293,3 +293,28 @@ button.emoji { cursor: pointer; }
 .sv-bg { position: absolute; inset: -40px; width: calc(100% + 80px); height: calc(100% + 80px); object-fit: cover; filter: blur(28px) brightness(.75); pointer-events: none; }
 /* на телефонах слайд заполняет экран (поля слайдов рассчитаны на обрезку по бокам); на широких экранах — целиком, с размытым фоном */
 @media (min-aspect-ratio: 9/16) { .sv-img { object-fit: contain; } }
+
+/* ---------- персональная история «Ваш месяц» (слайды 1080×1920, масштабируются) ---------- */
+@font-face { font-family: WrU; src: url(fonts/unbounded-cyrillic-900-normal.woff2) format('woff2'); font-display: block; }
+@font-face { font-family: WrU; src: url(fonts/unbounded-latin-900-normal.woff2) format('woff2'); unicode-range: U+0000-00FF, U+20AC, U+20BD, U+2212; font-display: block; }
+@font-face { font-family: WrM; src: url(fonts/manrope-cyrillic-700-normal.woff2) format('woff2'); font-weight: 700; font-display: block; }
+@font-face { font-family: WrM; src: url(fonts/manrope-cyrillic-800-normal.woff2) format('woff2'); font-weight: 800; font-display: block; }
+@font-face { font-family: WrM; src: url(fonts/manrope-latin-700-normal.woff2) format('woff2'); font-weight: 700; unicode-range: U+0000-00FF, U+20AC; font-display: block; }
+@font-face { font-family: WrM; src: url(fonts/manrope-latin-800-normal.woff2) format('woff2'); font-weight: 800; unicode-range: U+0000-00FF, U+20AC; font-display: block; }
+.sv-html { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.wr { position: absolute; left: 50%; top: 50%; width: 1080px; height: 1920px; transform-origin: center; overflow: hidden;
+  font-family: WrM, sans-serif; color: #fff; text-align: left; }
+.wr * { box-sizing: border-box; }
+.wr-blob { position: absolute; border-radius: 50%; filter: blur(10px); }
+.wr-tag { position: absolute; top: 190px; left: 124px; font-family: WrU; font-size: 40px; letter-spacing: .5px; opacity: .9; }
+.wr-wrap { position: absolute; left: 124px; right: 124px; top: 560px; }
+.wr-num { font-family: WrU; font-size: 210px; line-height: .95; letter-spacing: -6px; white-space: nowrap; overflow: hidden; }
+.wr-mid { font-size: 170px; letter-spacing: -5px; }
+.wr-cap { font-weight: 800; font-size: 66px; line-height: 1.15; margin-top: 40px; letter-spacing: -.5px; }
+.wr-small { font-weight: 700; font-size: 44px; opacity: .75; margin-top: 30px; line-height: 1.3; }
+.wr-sticker { position: absolute; filter: drop-shadow(10px 14px 0 rgba(0,0,0,.35)); }
+.wr-logo { position: absolute; bottom: 120px; left: 124px; font-family: WrU; font-size: 34px; opacity: .55; }
+.wr-logo span { color: #5a9cf0; font-family: WrM; font-weight: 800; font-size: 24px; letter-spacing: 6px; margin-left: 12px; vertical-align: 4px; }
+.wr-cover { display: flex !important; flex-direction: column; align-items: flex-start; justify-content: flex-start; padding: 8px;
+  background: linear-gradient(165deg, #2a78d6, #1f9d63) !important; }
+.wr-cover img { position: absolute; right: 10px; top: 8px; transform: rotate(12deg); filter: drop-shadow(2px 3px 0 rgba(0,0,0,.35)); }

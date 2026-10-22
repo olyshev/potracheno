@@ -144,7 +144,11 @@ export async function runMonthlyReports(env) {
   for (const u of users) {
     const s = await monthSummary(env, u.id, month, u.base_currency || 'EUR');
     const payload = { chat_id: u.id, text: reportText(s, u.lang), parse_mode: 'HTML' };
-    if (appUrl) payload.reply_markup = openAppKeyboard(appUrl, u.lang === 'ru' ? 'Открыть подробно' : 'Open details');
+    // русским пользователям — кнопка сразу на персональную историю месяца (если трат достаточно)
+    const expenseCount = s.categories.reduce((a, c) => a + c.count, 0);
+    if (appUrl) payload.reply_markup = u.lang === 'ru' && expenseCount >= 5
+      ? openAppKeyboard(`${appUrl}/?story=month`, '📊 Посмотреть историю месяца')
+      : openAppKeyboard(appUrl, u.lang === 'ru' ? 'Открыть подробно' : 'Open details');
     const r = await tg(env, 'sendMessage', payload);
     let status = r.ok ? 'sent' : 'failed';
     if (!r.ok && r.error_code === 403) {
