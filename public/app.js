@@ -41,6 +41,9 @@
       allowReports: 'Разрешите боту писать вам — 1-го числа он пришлёт итоги месяца.',
       maxDay: (x) => `макс. ${x} в день`,
       nudges: 'Напоминания, если давно не заходили',
+      shareTitle: 'Поделиться', shareMaking: 'Готовим карточку…', shareStory: 'Опубликовать в истории Telegram', shareSave: 'Сохранить картинку',
+      shareHint: (n) => `После публикации — +${n} сканов чеков в этом месяце`, shareBonus: (n) => `+${n} сканов на этот месяц 🎁`,
+      shareNoStory: 'Обновите Telegram, чтобы публиковать истории. Пока можно сохранить картинку',
       addIncome: 'Доход', addExpense: 'Расход', expense: 'Расход', incomeKind: 'Доход',
       newIncome: 'Новый доход', incomeNote: 'Откуда', incomeNotePh: 'Например, зарплата',
       balance: 'Остаток', balanceOf: (m) => `Остаток за ${m}`, income: 'Доходы', expenses: 'Расходы',
@@ -89,6 +92,9 @@
       allowReports: 'Let the bot message you — it will send a wrap-up on the 1st of each month.',
       maxDay: (x) => `max ${x} a day`,
       nudges: "Reminders when you've been away",
+      shareTitle: 'Share', shareMaking: 'Making your card…', shareStory: 'Post to Telegram story', shareSave: 'Save image',
+      shareHint: (n) => `Post it and get +${n} receipt scans this month`, shareBonus: (n) => `+${n} scans this month 🎁`,
+      shareNoStory: 'Update Telegram to post stories. You can save the image for now',
       addIncome: 'Income', addExpense: 'Expense', expense: 'Expense', incomeKind: 'Income',
       newIncome: 'New income', incomeNote: 'Source', incomeNotePh: 'e.g. salary',
       balance: 'Left over', balanceOf: (m) => `Left over in ${m}`, income: 'Income', expenses: 'Expenses',
@@ -311,6 +317,7 @@
           img.hidden = bg.hidden = true; img.removeAttribute('src');
           box.innerHTML = sl.html; fit();
           (document.fonts ? document.fonts.ready : Promise.resolve()).then(fitNumbers);
+          if (sl.onShow) sl.onShow(box, () => closeSheet(entry));
         }
         bars.forEach((b, k) => { b.style.width = k < i ? '100%' : '0%'; });
       };
@@ -318,10 +325,11 @@
       const prev = () => { if (i > 0) i--; elapsed = 0; show(); };
       const loop = (now) => {
         if (closed) return;
-        if (!paused && (img.hidden || img.complete)) elapsed += now - last;
+        const hold = typeof story.slides[i] === 'object' && story.slides[i].hold;
+        if (!paused && !hold && (img.hidden || img.complete)) elapsed += now - last;
         last = now;
-        bars[i].style.width = `${Math.min(100, (elapsed / dur) * 100)}%`;
-        if (elapsed >= dur) next();
+        bars[i].style.width = hold ? '100%' : `${Math.min(100, (elapsed / dur) * 100)}%`;
+        if (!hold && elapsed >= dur) next();
         raf = requestAnimationFrame(loop);
       };
 
@@ -438,12 +446,192 @@
     out.push(slide(G.final, 'width:760px;height:760px;right:-240px;top:1060px;background:rgba(255,255,255,.12)',
       `<div class="wr-wrap" style="top:560px"><div class="wr-cap" style="font-size:${less ? 96 : 84}px;line-height:1.1;margin-top:0">${finalText}</div></div>`,
       st(less ? '1f64c' : '1f4aa', 300, `right:120px;top:1250px;transform:rotate(${less ? -8 : 8}deg)`) + st('1f389', 150, 'left:150px;top:1380px;transform:rotate(-14deg)')));
+    // призыв поделиться: кнопка «Я в деле!» открывает карточку с типажом; слайд не листается сам
+    out.push({ hold: true, html: `<div class="wr" style="background:linear-gradient(165deg,#6250d6 0%,#2a78d6 50%,#0e0e10 100%)">
+      <div class="wr-blob" style="width:760px;height:760px;left:-260px;top:1000px;background:rgba(255,255,255,.1)"></div>
+      <div class="wr-tag">Ваш ${name}</div>
+      <div class="wr-wrap" style="top:330px"><div class="wr-cap" style="font-size:64px;line-height:1.15;margin-top:0">Узнайте свой финансовый типаж и поделитесь результатами с друзьями, а мы подарим вам 5 сканов</div></div>
+      <img src="stories/share-teaser.webp" alt="" style="position:absolute;left:330px;top:900px;width:420px;border-radius:36px;transform:rotate(-6deg);box-shadow:0 0 0 8px #fff,18px 22px 0 8px rgba(0,0,0,.35)">
+      ${st('1f381', 220, 'right:120px;top:1180px;transform:rotate(14deg)')}
+      <button class="wr-action" data-share>Я в деле!</button>
+      <div class="wr-logo">потрачено<span>БЮДЖЕТ-БОТ</span></div></div>`,
+      onShow: (root, close) => {
+        const b = root.querySelector('[data-share]');
+        if (b) b.addEventListener('click', () => { haptic('select'); close(); openShareSheet(s); });
+      } });
     return {
       id: `month-${s.month}`, langs: ['ru'], duration: 5000,
       title: { ru: `Ваш ${name}`, en: `Your ${MONTHS.en[mi]}` },
       coverHtml: `<span class="story-img wr-cover">${emojiImg('1f4b8', 40)}</span>`,
       slides: out, dynamic: true,
     };
+  }
+
+  // ---------- шеринг: карточка «Мой типаж месяца» ----------
+  const BOT_USERNAME = 'potrachenbot';
+  const ARCHETYPES = {
+    groceries: ['Домашний шеф', '1f9d1-200d-1f373'], cafe: ['Гурман', '1f37d'], delivery: ['Друг всех курьеров', '1f6f5'],
+    taxi: ['Passenger princess', '1f451'], carsharing: ['Искатель каршеринга', '1f699'], fuel: ['Директор заправки', '26fd'],
+    housing: ['Домосед', '1f6cb'], clothes: ['Ценитель good fabric', '1f9f5'], shopping: ['Директор по покупкам', '1f6cd'],
+    fun: ['Главный по веселью', '1f973'], sport: ['Киборг', '1f9be'], travel: ['Путешественник', '1f9f3'],
+    subscriptions: ['Любимый подписчик', '1f37f'], education: ['Своего рода учёный', '1f9d1-200d-1f52c'], pets: ['Котопёс', '1f43e'],
+    kids: ['Супер-родитель', '1f9b8'], savings: ['Акционер', '1f4c8'], gifts: ['Гуманист', '1f49d'],
+  };
+  const DEFAULT_ARCHETYPE = ['Финансовый стратег', '265f'];
+
+  // Данные карточки из сводки месяца: без сумм, только проценты и достижения
+  function shareData(s) {
+    const mi = Number(s.month.slice(5, 7)) - 1;
+    const top = s.categories[0];
+    const [title, icon] = ARCHETYPES[top.category] || DEFAULT_ARCHETYPE;
+    const facts = [];
+    if (s.prevTotal > 0 && s.total < s.prevTotal) {
+      facts.push(['1f4c9', `−${Math.round((s.prevTotal - s.total) / s.prevTotal * 100)}% трат к ${MONTHS.ruDat[(mi + 11) % 12]}`]);
+    }
+    if (s.income > 0 && s.income > s.total) facts.push(['2705', `Месяц в плюсе: осталось ${Math.round((s.income - s.total) / s.income * 100)}% дохода`]);
+    facts.push([twemoji(cat(top.category).emoji), `Больше всего — на ${CAT_ACC[top.category] || catName(top.category).toLowerCase()}`]);
+    if (facts.length < 3) facts.push(['1f4d2', `Учёт вёлся ${s.days.filter((v) => v > 0).length} дней из ${s.days.length}`]);
+    return { month: MONTHS.ru[mi], title, icon, facts: facts.slice(0, 3) };
+  }
+
+  const loadImg = (src) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+  function rr(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+  function wrapLines(ctx, text, maxW) {
+    const words = text.split(' '), lines = [];
+    let line = '';
+    for (const w of words) {
+      const t = line ? `${line} ${w}` : w;
+      if (ctx.measureText(t).width > maxW && line) { lines.push(line); line = w; } else line = t;
+    }
+    if (line) lines.push(line);
+    return lines;
+  }
+  function spaced(ctx, text, x, y, gap) { for (const ch of text) { ctx.fillText(ch, x, y); x += ctx.measureText(ch).width + gap; } }
+
+  // Рисуем карточку 1080×1920 на canvas (тот же макет, что согласовали)
+  async function drawShareCard(d) {
+    await Promise.all(['900 100px WrU', '800 40px WrM', '700 40px WrM'].map((f) => (document.fonts ? document.fonts.load(f) : null)));
+    const W = 1080, H = 1920, L = 110, R = W - 110, CW = R - L;
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+    const g = ctx.createLinearGradient(0, 0, W * 0.45, H);
+    g.addColorStop(0, '#2a78d6'); g.addColorStop(0.35, '#1a4f8f'); g.addColorStop(0.7, '#10213a'); g.addColorStop(1, '#0e0e10');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    const blob = (x, y, r, col) => { const rg = ctx.createRadialGradient(x, y, 0, x, y, r); rg.addColorStop(0, col); rg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = rg; ctx.fillRect(x - r, y - r, 2 * r, 2 * r); };
+    blob(-20, 1390, 520, 'rgba(31,157,99,.38)'); blob(1000, 60, 420, 'rgba(120,180,255,.35)');
+    ctx.fillStyle = '#fff'; ctx.textBaseline = 'alphabetic';
+    // «Мой октябрь»
+    ctx.font = '900 46px WrU'; ctx.globalAlpha = 0.9; ctx.fillText(`Мой ${d.month}`, L, 246); ctx.globalAlpha = 1;
+    // иконка в плашке + «Мой типаж месяца»
+    const ico = await loadImg(`stories/emoji/${d.icon}.svg`).catch(() => null);
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; rr(ctx, L + 8, 346, 150, 150, 40); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.12)'; rr(ctx, L, 336, 150, 150, 40); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.lineWidth = 4; ctx.stroke();
+    if (ico) ctx.drawImage(ico, L + 23, 359, 104, 104);
+    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = '800 42px WrM';
+    ctx.fillText('Мой типаж', L + 176, 402); ctx.fillText('месяца', L + 176, 452);
+    // типаж: максимум две строки, слово не разрывается
+    let fs = 116, lines;
+    for (;;) {
+      ctx.font = `900 ${fs}px WrU`;
+      lines = wrapLines(ctx, d.title, CW);
+      const tooWide = d.title.split(' ').some((w) => ctx.measureText(w).width > CW);
+      if ((lines.length <= 2 && !tooWide) || fs <= 64) break;
+      fs -= 4;
+    }
+    ctx.fillStyle = '#fff';
+    let y = 522 + fs * 0.82;
+    lines.forEach((ln, k) => ctx.fillText(ln, L - 4, y + k * fs * 1.02));
+    y += (lines.length - 1) * fs * 1.02 + fs * 0.2 + 80;
+    // факты
+    for (const [code, text] of d.facts) {
+      ctx.font = '800 40px WrM';
+      const tl = wrapLines(ctx, text, CW - 68 - 64 - 26);
+      const h = Math.max(120, 56 + tl.length * 48);
+      ctx.fillStyle = 'rgba(0,0,0,.3)'; rr(ctx, L + 8, y + 10, CW, h, 36); ctx.fill();
+      ctx.fillStyle = 'rgba(40,60,100,.55)'; rr(ctx, L, y, CW, h, 36); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.14)'; ctx.lineWidth = 3; ctx.stroke();
+      const im = await loadImg(`stories/emoji/${code}.svg`).catch(() => null);
+      if (im) ctx.drawImage(im, L + 34, y + (h - 64) / 2, 64, 64);
+      ctx.fillStyle = '#fff';
+      const ty = y + h / 2 - (tl.length - 1) * 24 + 14;
+      tl.forEach((ln, k) => ctx.fillText(ln, L + 34 + 64 + 26, ty + k * 48));
+      y += h + 20;
+    }
+    // логотип и кнопка с адресом бота
+    const ctaH = 122, ctaY = H - 140 - ctaH;
+    ctx.fillStyle = '#fff'; ctx.font = '900 50px WrU'; ctx.fillText('потрачено', L, ctaY - 70);
+    ctx.fillStyle = '#8fbaf5'; ctx.font = '800 22px WrM'; spaced(ctx, 'БЮДЖЕТ-БОТ', L, ctaY - 34, 7);
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; rr(ctx, L + 9, ctaY + 11, CW, ctaH, 34); ctx.fill();
+    ctx.fillStyle = '#fff'; rr(ctx, L, ctaY, CW, ctaH, 34); ctx.fill();
+    ctx.font = '800 46px WrM';
+    const a = 'Считаю деньги в ', b = `@${BOT_USERNAME}`;
+    const tw = ctx.measureText(a + b).width, tx = L + (CW - tw) / 2, tyy = ctaY + ctaH / 2 + 16;
+    ctx.fillStyle = '#111'; ctx.fillText(a, tx, tyy);
+    ctx.fillStyle = '#2a78d6'; ctx.fillText(b, tx + ctx.measureText(a).width, tyy);
+    return c;
+  }
+
+  async function grantShareBonus() {
+    try {
+      const r = await api('/share/bonus', { method: 'POST' });
+      state.me.scans = r.scans; state.me.sharedThisMonth = true;
+      if (r.granted) { haptic('success'); toast(t('shareBonus', r.bonus)); }
+    } catch { /* бонус не критичен */ }
+  }
+
+  // Окно «Поделиться»: превью карточки, публикация в истории Telegram и сохранение картинки (для Instagram)
+  async function openShareSheet(summary) {
+    const d = shareData(summary);
+    const sh = openSheet(`<div class="loading"><div class="spinner"></div><b>${t('shareMaking')}</b></div>`);
+    let canvas;
+    try { canvas = await drawShareCard(d); } catch (e) { closeSheet(sh); toast(t('netError')); return; }
+    const jpeg = canvas.toDataURL('image/jpeg', 0.88);
+    let uploaded = null;
+    const upload = async () => {
+      if (uploaded) return uploaded;
+      const r = await api('/share/image', { method: 'POST', body: { data: jpeg.split(',')[1] } });
+      uploaded = r.url; return uploaded;
+    };
+    const canStory = !!(tg && tg.initData && tg.shareToStory && tg.isVersionAtLeast('7.8'));
+    const canDownload = !!(tg && tg.initData && tg.downloadFile && tg.isVersionAtLeast('8.0'));
+    sh.sheet.innerHTML = `<div class="sheet-grip"></div>
+      <div class="sheet-head"><h2>${t('shareTitle')}</h2><button class="close">${t('close')}</button></div>
+      <img class="share-preview" src="${jpeg}" alt="">
+      ${state.me.sharedThisMonth ? '' : `<div class="note" style="margin:0 4px 12px;text-align:center">🎁 ${t('shareHint', state.me.shareBonus || 5)}</div>`}
+      <button class="btn btn-primary btn-block" id="shStory">${t('shareStory')}</button>
+      <button class="btn btn-secondary btn-block" id="shSave" style="margin-top:8px">${t('shareSave')}</button>`;
+    $('.close', sh.sheet).addEventListener('click', () => closeSheet(sh));
+    $('#shStory', sh.sheet).addEventListener('click', async (ev) => {
+      const btn = ev.currentTarget; btn.disabled = true;
+      try {
+        const mediaUrl = await upload();
+        if (canStory) {
+          const params = { text: `Мой типаж месяца — ${d.title}. Считаю деньги в @${BOT_USERNAME}` };
+          // кликабельная ссылка в истории доступна только с Telegram Premium
+          if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.is_premium) {
+            params.widget_link = { url: `https://t.me/${BOT_USERNAME}?start=ref_${state.me.id}`, name: 'Потрачено' };
+          }
+          tg.shareToStory(mediaUrl, params);
+          grantShareBonus();
+        } else {
+          toast(t('shareNoStory'));
+        }
+      } catch { toast(t('netError')); }
+      btn.disabled = false;
+    });
+    $('#shSave', sh.sheet).addEventListener('click', async (ev) => {
+      const btn = ev.currentTarget; btn.disabled = true;
+      try {
+        if (canDownload) {
+          tg.downloadFile({ url: await upload(), file_name: `potracheno-${summary.month}.jpg` });
+        } else {
+          const a = document.createElement('a'); a.href = jpeg; a.download = `potracheno-${summary.month}.jpg`; document.body.append(a); a.click(); a.remove();
+        }
+        grantShareBonus();
+      } catch { toast(t('netError')); }
+      btn.disabled = false;
+    });
   }
 
   // История за прошлый месяц: подгружаем сводку и добавляем в начало ленты
@@ -1307,7 +1495,8 @@
       document.body.innerHTML = `<div class="blocker"><div class="big">⚠️</div><p>${e.status === 401 ? `${T.ru.openInTg}<br>${T.en.openInTg}` : 'Network error'}</p></div>`;
       return;
     }
-    state.me = { ...me.user, scans: me.limits.scans, scansUsed: me.limits.scansUsed, seenStories: me.seenStories || [] };
+    state.me = { ...me.user, scans: me.limits.scans, scansUsed: me.limits.scansUsed, seenStories: me.seenStories || [],
+      shareBonus: me.limits.shareBonus, sharedThisMonth: me.limits.sharedThisMonth };
     state.lang = me.user.lang === 'en' ? 'en' : 'ru';
     state.cats = me.categories;
     state.incomeCats = me.income_categories || [];

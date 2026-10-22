@@ -318,3 +318,9 @@ button.emoji { cursor: pointer; }
 .wr-cover { display: flex !important; flex-direction: column; align-items: flex-start; justify-content: flex-start; padding: 8px;
   background: linear-gradient(165deg, #2a78d6, #1f9d63) !important; }
 .wr-cover img { position: absolute; right: 10px; top: 8px; transform: rotate(12deg); filter: drop-shadow(2px 3px 0 rgba(0,0,0,.35)); }
+.sv-html { z-index: 2; }
+.wr-action { position: absolute; left: 124px; right: 124px; bottom: 230px; pointer-events: auto; cursor: pointer;
+  background: #fff; color: #111; border: 0; border-radius: 40px; padding: 40px; text-align: center;
+  font-family: WrM, sans-serif; font-weight: 800; font-size: 58px; box-shadow: 10px 12px 0 rgba(0,0,0,.35); }
+.wr-action:active { transform: translate(4px, 5px); box-shadow: 6px 7px 0 rgba(0,0,0,.35); }
+.share-preview { display: block; width: 62%; max-width: 280px; margin: 0 auto 14px; border-radius: 18px; box-shadow: 0 6px 24px rgba(0,0,0,.35); }

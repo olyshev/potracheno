@@ -47,8 +47,8 @@ async function upsertUser(env, tgUser, extra = {}) {
 }
 
 async function getUsage(env, userId) {
-  const row = await env.DB.prepare('SELECT scans, suggests FROM usage WHERE user_id = ? AND month = ?').bind(userId, thisMonth()).first();
-  return { scans: row?.scans || 0, suggests: row?.suggests || 0 };
+  const row = await env.DB.prepare('SELECT scans, suggests, bonus, shared FROM usage WHERE user_id = ? AND month = ?').bind(userId, thisMonth()).first();
+  return { scans: row?.scans || 0, suggests: row?.suggests || 0, bonus: row?.bonus || 0, shared: !!row?.shared };
 }
 async function bumpUsage(env, userId, field) {
   await env.DB.prepare(
@@ -56,7 +56,8 @@ async function bumpUsage(env, userId, field) {
      ON CONFLICT(user_id, month) DO UPDATE SET ${field} = ${field} + 1`
   ).bind(userId, thisMonth()).run();
 }
-const scanLimit = (env) => Number(env.FREE_SCANS_PER_MONTH || 60);
+const scanLimit = (env, usage) => Number(env.FREE_SCANS_PER_MONTH || 60) + (usage?.bonus || 0);
+const SHARE_BONUS = 5;
 
 async function authUser(request, env) {
   const h = request.headers.get('authorization') || '';
@@ -144,7 +145,7 @@ async function markDuplicates(env, userId, items) {
 
 async function scanDocument(env, user, files) {
   const usage = await getUsage(env, user.id);
-  if (usage.scans >= scanLimit(env)) return { error: 'limit' };
+  if (usage.scans >= scanLimit(env, usage)) return { error: 'limit' };
   let parsed;
   try {
     parsed = await parseDocument(env, files, today());
@@ -155,7 +156,7 @@ async function scanDocument(env, user, files) {
   await bumpUsage(env, user.id, 'scans');
   const rates = await getRates(env);
   const base = user.base_currency || 'EUR';
-  const scansLeft = Math.max(0, scanLimit(env) - usage.scans - 1);
+  const scansLeft = Math.max(0, scanLimit(env, usage) - usage.scans - 1);
   if (parsed?.doc_type === 'transactions') {
     const draft = transactionsToDraft(parsed, base, today());
     if (!draft) return { error: 'not_receipt' };
@@ -191,7 +192,7 @@ async function handleApi(request, env, url) {
       categories: CATEGORIES,
       income_categories: INCOME_CATEGORIES,
       currencies: CURRENCIES,
-      limits: { scans: scanLimit(env), scansUsed: usage.scans },
+      limits: { scans: scanLimit(env, usage), scansUsed: usage.scans, shareBonus: SHARE_BONUS, sharedThisMonth: usage.shared },
       hasEntries: cnt.n > 0,
       seenStories: views.results.map((v) => v.story_id),
       today: today(),
@@ -350,6 +351,24 @@ async function handleApi(request, env, url) {
     return json({ ok: true });
   }
 
+  if (path === '/share/image' && method === 'POST') {
+    const data = String(body.data || '');
+    if (!/^[A-Za-z0-9+/=]+$/.test(data.slice(0, 200)) || data.length < 1000 || data.length > 1_900_000) return fail(400, 'bad_image');
+    const id = crypto.randomUUID().replace(/-/g, '');
+    await env.DB.prepare('INSERT INTO share_images (id, user_id, data) VALUES (?, ?, ?)').bind(id, user.id, data).run();
+    return json({ ok: true, url: `${url.origin}/share/${id}.jpg` });
+  }
+
+  if (path === '/share/bonus' && method === 'POST') {
+    // +5 сканов раз в календарный месяц за попытку поделиться (Telegram не сообщает, опубликована ли история)
+    const res = await env.DB.prepare(
+      `INSERT INTO usage (user_id, month, bonus, shared) VALUES (?1, ?2, ?3, 1)
+       ON CONFLICT(user_id, month) DO UPDATE SET bonus = bonus + ?3, shared = 1 WHERE shared = 0`
+    ).bind(user.id, thisMonth(), SHARE_BONUS).run();
+    const usage = await getUsage(env, user.id);
+    return json({ ok: true, granted: res.meta.changes > 0, bonus: SHARE_BONUS, scans: scanLimit(env, usage), scansUsed: usage.scans });
+  }
+
   if (path === '/stories/seen' && method === 'POST') {
     const id = String(body.id || '');
     if (!/^[a-z0-9-]{1,40}$/.test(id)) return fail(400, 'bad_id');
@@ -367,7 +386,7 @@ async function handleApi(request, env, url) {
     if (files === 'too_big') return fail(413, 'too_big');
     if (!files) return fail(400, 'no_image');
     const r = await scanDocument(env, user, files);
-    if (r.error === 'limit') return fail(429, 'limit', `Monthly limit of ${scanLimit(env)} receipts reached`);
+    if (r.error === 'limit') return fail(429, 'limit', 'Monthly receipt limit reached');
     if (r.error === 'not_receipt') return fail(422, 'not_receipt');
     if (r.error) return fail(502, 'ai_error');
     return json(r);
@@ -422,6 +441,7 @@ async function handleApi(request, env, url) {
       env.DB.prepare('DELETE FROM entries WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM recurring WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM story_views WHERE user_id = ?').bind(user.id),
+      env.DB.prepare('DELETE FROM share_images WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM usage WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM reports_sent WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM users WHERE id = ?').bind(user.id),
@@ -509,6 +529,13 @@ async function handleUpdate(env, update) {
   const reply = (text, extra = {}) => tg(env, 'sendMessage', { chat_id: msg.chat.id, text, parse_mode: 'HTML', ...extra });
 
   const text = (msg.text || '').trim();
+  if (text.startsWith('/start')) {
+    const ref = (text.match(/^\/start\s+ref_(\d+)/) || [])[1];
+    // запоминаем, кто пригласил: только для новых пользователей (первые 10 минут) и не самого себя
+    if (ref && Number(ref) !== user.id && !user.referred_by) {
+      await env.DB.prepare(`UPDATE users SET referred_by = ? WHERE id = ? AND referred_by IS NULL AND created_at > datetime('now', '-10 minutes')`).bind(Number(ref), user.id).run();
+    }
+  }
   if (text.startsWith('/start')) return reply(L.start((msg.from.first_name || '').replace(/[<&>]/g, '')), { reply_markup: appUrl ? openAppKeyboard(appUrl, L.startBtn) : undefined });
   if (text.startsWith('/report')) {
     const s = await monthSummary(env, user.id, thisMonth(), user.base_currency || 'EUR');
@@ -526,7 +553,7 @@ async function handleUpdate(env, update) {
     const mediaType = doc ? doc.mime_type : 'image/jpeg';
     const r = await scanDocument(env, user, [{ data: base64, media_type: mediaType }]);
     let out;
-    if (r.error === 'limit') out = L.limit(scanLimit(env));
+    if (r.error === 'limit') out = L.limit(scanLimit(env, await getUsage(env, user.id)));
     else if (r.error === 'not_receipt') out = L.notReceipt;
     else if (r.error) out = L.aiError;
     else if (r.type === 'transactions') {
@@ -683,6 +710,13 @@ export default {
         return json({ ok: true });
       }
       if (url.pathname.startsWith('/admin/')) return await handleAdmin(request, env, url);
+      const shareMatch = url.pathname.match(/^\/share\/([0-9a-f]{32})\.jpg$/);
+      if (shareMatch) {
+        const row = await env.DB.prepare('SELECT data FROM share_images WHERE id = ?').bind(shareMatch[1]).first();
+        if (!row) return new Response('Not found', { status: 404 });
+        const bytes = Uint8Array.from(atob(row.data), (c) => c.charCodeAt(0));
+        return new Response(bytes, { headers: { 'content-type': 'image/jpeg', 'cache-control': 'public, max-age=86400' } });
+      }
       return env.ASSETS.fetch(request);
     } catch (e) {
       console.error(e.stack || e.message);
@@ -700,6 +734,7 @@ export default {
       }
       if (created) console.log('recurring created', created);
       await env.DB.prepare(`DELETE FROM processed_updates WHERE at < datetime('now', '-3 days')`).run();
+      await env.DB.prepare(`DELETE FROM share_images WHERE created_at < datetime('now', '-7 days')`).run();
       const appUrl = (await env.DB.prepare(`SELECT value FROM settings WHERE key = 'app_url'`).first())?.value;
       if (appUrl && env.BOT_TOKEN) {
         const w = await ensureWebhook(env, appUrl);
