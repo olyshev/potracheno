@@ -590,6 +590,20 @@ const MAINTENANCE = {
     for (let i = 0; i < stmts.length; i += 100) await env.DB.batch(stmts.slice(i, i + 100));
     return { renamed: stmts.length };
   },
+  // «Авто и топливо» разделили на «Топливо», «Обслуживание авто» и «Товары для авто»; парковки и платные дороги — в «Транспорт»
+  split_car_v1: async (env) => {
+    const pick = (text) => {
+      const c = categorizeByRules(text);
+      return ['fuel', 'car_service', 'car_goods', 'transport'].includes(c) ? c : 'car_service';
+    };
+    const stmts = [];
+    const { results: entries } = await env.DB.prepare(`SELECT id, note, merchant FROM entries WHERE category = 'car'`).all();
+    for (const e of entries) stmts.push(env.DB.prepare('UPDATE entries SET category = ? WHERE id = ?').bind(pick(`${e.note || ''} ${e.merchant || ''}`), e.id));
+    const { results: rules } = await env.DB.prepare(`SELECT id, note FROM recurring WHERE category = 'car'`).all();
+    for (const r of rules) stmts.push(env.DB.prepare('UPDATE recurring SET category = ? WHERE id = ?').bind(pick(r.note || ''), r.id));
+    for (let i = 0; i < stmts.length; i += 100) await env.DB.batch(stmts.slice(i, i + 100));
+    return { entries: entries.length, rules: rules.length };
+  },
 };
 
 async function runMaintenance(env) {

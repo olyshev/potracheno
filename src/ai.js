@@ -64,7 +64,7 @@ const documentSystem = (today) => `You read photos of shopping receipts, screens
 Expense categories: ${CATEGORY_GUIDE}.
 Income categories: ${INCOME_GUIDE}.
 
-Category hints: food or grocery delivery services (Glovo, Uber Eats, Just Eat, Deliveroo, Wolt, Яндекс Еда, Самокат, Купер) → delivery; ride-hailing and taxis (Uber rides, Cabify, Bolt, FreeNow, Yango, Яндекс Go) → taxi; per-minute car rental (Zity, Share Now, Free2Move, WiBLE, Делимобиль, Яндекс Драйв, Ситидрайв) → carsharing; public transport, trains, e-scooters → transport; fuel, parking, tolls, car service → car; supermarkets → groceries; restaurants, bars, coffee shops → cafe; gyms, fitness clubs, pools, sports classes and coaches, sports equipment and stores (Decathlon), padel/tennis courts, ski passes → sport; streaming and apps → subscriptions.
+Category hints: food or grocery delivery services (Glovo, Uber Eats, Just Eat, Deliveroo, Wolt, Яндекс Еда, Самокат, Купер) → delivery; ride-hailing and taxis (Uber rides, Cabify, Bolt, FreeNow, Yango, Яндекс Go) → taxi; per-minute car rental (Zity, Share Now, Free2Move, WiBLE, Делимобиль, Яндекс Драйв, Ситидрайв) → carsharing; public transport, trains, e-scooters → transport; fuel and gas stations (Repsol, Cepsa, Galp, Shell, BP) → fuel; car repairs, maintenance, spare parts, inspection (ITV) → car_service; car accessories, tyres, car wash, auto shops (Norauto) → car_goods; parking and tolls → transport; supermarkets → groceries; restaurants, bars, coffee shops → cafe; gyms, fitness clubs, pools, sports classes and coaches, sports equipment and stores (Decathlon), padel/tennis courts, ski passes → sport; streaming and apps → subscriptions.
 
 For a receipt (doc_type=receipt):
 - Categorize each line item on its own: in a supermarket, food → groceries, detergent → household, shampoo → beauty, pet food → pets.
@@ -240,7 +240,7 @@ function mockTransactions(today) {
       { date: d(2), description: 'Перевод на накопительный счёт', amount: 500, currency: 'EUR', kind: 'transfer', category: 'other' },
       { date: d(3), description: 'Bizum от Анны', amount: 30, currency: 'EUR', kind: 'income', category: 'transfer_in' },
       { date: d(4), description: 'Spotify', amount: 10.99, currency: 'EUR', kind: 'expense', category: 'subscriptions' },
-      { date: d(5), description: 'Repsol', amount: 55, currency: 'EUR', kind: 'expense', category: 'car' },
+      { date: d(5), description: 'Repsol', amount: 55, currency: 'EUR', kind: 'expense', category: 'fuel' },
     ],
   };
 }
