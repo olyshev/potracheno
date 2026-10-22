@@ -7,7 +7,7 @@
 //   cron            — регулярные платежи (каждый час) и рассылка итогов месяца (1–2 числа)
 import { verifyInitData, webhookSecret } from './auth.js';
 import { CATEGORIES, INCOME_CATEGORIES, isCategory, isCategoryFor, categorizeByRules, categorizeIncome, catLabel } from './categories.js';
-import { materialize, upcoming, listRules, createRule, dueDate, periodOf, resumeState, datesInRange } from './recurring.js';
+import { materialize, upcoming, listRules, createRule, dueDate, periodOf, resumeState, datesInRange, localToday, localHour, localDate, validTz } from './recurring.js';
 import { normalizeMerchant } from './brands.js';
 import { runNudges } from './nudges.js';
 import { shiftMonth } from './report.js';
@@ -37,12 +37,16 @@ const kindOf = (k) => (k === 'income' ? 'income' : 'expense');
 // ---------- пользователи и лимиты ----------
 
 async function upsertUser(env, tgUser, extra = {}) {
+  if (extra.tz && validTz(extra.tz)) {
+    await env.DB.prepare('UPDATE users SET tz = ? WHERE id = ? AND (tz IS NULL OR tz != ?)').bind(extra.tz, tgUser.id, extra.tz).run();
+  }
   await env.DB.prepare(
     `INSERT INTO users (id, first_name, username, lang, last_seen, can_message)
      VALUES (?1, ?2, ?3, ?4, datetime('now'), ?5)
      ON CONFLICT(id) DO UPDATE SET first_name = ?2, username = ?3, last_seen = datetime('now'), nudge_stage = 0,
        can_message = MAX(can_message, ?5)`
   ).bind(tgUser.id, tgUser.first_name || '', tgUser.username || '', langOf(tgUser.language_code), extra.canMessage ? 1 : 0).run();
+  if (extra.tz && validTz(extra.tz)) await env.DB.prepare('UPDATE users SET tz = ? WHERE id = ? AND tz IS NULL').bind(extra.tz, tgUser.id).run();
   return env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(tgUser.id).first();
 }
 
@@ -148,7 +152,7 @@ async function scanDocument(env, user, files) {
   if (usage.scans >= scanLimit(env, usage)) return { error: 'limit' };
   let parsed;
   try {
-    parsed = await parseDocument(env, files, today());
+    parsed = await parseDocument(env, files, localToday(user.tz));
   } catch (e) {
     console.error('document parse failed', e.message);
     return { error: 'ai' };
@@ -158,7 +162,7 @@ async function scanDocument(env, user, files) {
   const base = user.base_currency || 'EUR';
   const scansLeft = Math.max(0, scanLimit(env, usage) - usage.scans - 1);
   if (parsed?.doc_type === 'transactions') {
-    const draft = transactionsToDraft(parsed, base, today());
+    const draft = transactionsToDraft(parsed, base, localToday(user.tz));
     if (!draft) return { error: 'not_receipt' };
     draft.items.forEach((i) => { if (!isCurrency(i.currency, rates)) i.currency = base; });
     await markDuplicates(env, user.id, draft.items);
@@ -167,7 +171,7 @@ async function scanDocument(env, user, files) {
   const draft = receiptToDraft(parsed, base);
   if (!draft) return { error: 'not_receipt' };
   if (!isCurrency(draft.currency, rates)) draft.currency = base;
-  if (!draft.date || !validDate(draft.date)) draft.date = today();
+  if (!draft.date || !validDate(draft.date)) draft.date = localToday(user.tz);
   return { type: 'receipt', draft, scansLeft };
 }
 
@@ -176,7 +180,8 @@ async function scanDocument(env, user, files) {
 async function handleApi(request, env, url) {
   const tgUser = await authUser(request, env);
   if (!tgUser) return fail(401, 'unauthorized', 'Open the app from Telegram');
-  const user = await upsertUser(env, tgUser);
+  const user = await upsertUser(env, tgUser, { tz: request.headers.get('x-tz') });
+  const now = localToday(user.tz), curMonth = now.slice(0, 7); // «сегодня» по времени пользователя
   const path = url.pathname.replace(/^\/api/, '');
   const method = request.method;
   const body = method === 'POST' || method === 'PATCH' ? await request.json().catch(() => ({})) : {};
@@ -195,7 +200,9 @@ async function handleApi(request, env, url) {
       limits: { scans: scanLimit(env, usage), scansUsed: usage.scans, shareBonus: SHARE_BONUS, sharedThisMonth: usage.shared },
       hasEntries: cnt.n > 0,
       seenStories: views.results.map((v) => v.story_id),
-      today: today(),
+      today: now,
+      // сколько дней прошло с первого запуска — «С чего начать» показываем первую неделю
+      daysSinceStart: Math.max(0, Math.floor((Date.parse(`${now}T00:00:00Z`) - Date.parse(`${localDate(user.created_at, user.tz)}T00:00:00Z`)) / 864e5)),
     });
   }
 
@@ -218,10 +225,10 @@ async function handleApi(request, env, url) {
   }
 
   if (path === '/summary' && method === 'GET') {
-    const month = MONTH_RE.test(url.searchParams.get('month') || '') ? url.searchParams.get('month') : thisMonth();
+    const month = MONTH_RE.test(url.searchParams.get('month') || '') ? url.searchParams.get('month') : curMonth;
     const base = user.base_currency || 'EUR';
     await materialize(env, user.id); // регулярные платежи, у которых наступил день
-    const isCurrent = month === thisMonth();
+    const isCurrent = month === curMonth;
     const [summary, list, rates, next] = await Promise.all([
       monthSummary(env, user.id, month, base),
       env.DB.prepare(
@@ -231,7 +238,7 @@ async function handleApi(request, env, url) {
          WHERE e.user_id = ? AND e.date >= ? AND e.date <= ? ORDER BY e.date DESC, e.created_at DESC LIMIT 1000`
       ).bind(user.id, `${month}-01`, `${month}-31`).all(),
       getRates(env),
-      isCurrent ? upcoming(env, user.id, base) : [],
+      isCurrent ? upcoming(env, user.id, base, now) : [],
     ]);
     const entries = list.results.map((e) => ({ ...e, amount_base: round2(fromEur(e.amount_eur, base, rates)) }));
     // прогноз: остаток к концу месяца с учётом регулярных платежей, которые ещё впереди
@@ -249,7 +256,7 @@ async function handleApi(request, env, url) {
     const currency = body.currency || user.base_currency;
     if (!validAmount(amount)) return fail(400, 'bad_amount');
     if (!isCurrency(currency, rates)) return fail(400, 'bad_currency');
-    const date = validDate(body.date) ? body.date : today();
+    const date = validDate(body.date) ? body.date : now;
     const note = String(body.note || '').trim().slice(0, 120);
     const category = isCategoryFor(kind, body.category) ? body.category
       : kind === 'income' ? categorizeIncome(note) : (await pickCategory(env, user.id, note)).category;
@@ -264,7 +271,7 @@ async function handleApi(request, env, url) {
   }
 
   if (path === '/recurring' && method === 'GET') {
-    return json({ rules: await listRules(env, user.id, user.base_currency || 'EUR') });
+    return json({ rules: await listRules(env, user.id, user.base_currency || 'EUR', now) });
   }
   const ruleMatch = path.match(/^\/recurring\/([0-9a-f-]{36})$/);
   if (ruleMatch && method === 'PATCH') {
@@ -281,8 +288,8 @@ async function handleApi(request, env, url) {
     let st = { last_month: r.last_month, last_date: r.last_date };
     // После паузы или смены периода задним числом ничего не создаём: следующий платёж — в будущем
     if ((active && !r.active) || period !== r.period) {
-      const last = r.last_date || (await env.DB.prepare('SELECT MAX(date) AS d FROM entries WHERE recurring_id = ? AND user_id = ?').bind(r.id, user.id).first())?.d || today();
-      st = resumeState({ period, day, lastDate: last });
+      const last = r.last_date || (await env.DB.prepare('SELECT MAX(date) AS d FROM entries WHERE recurring_id = ? AND user_id = ?').bind(r.id, user.id).first())?.d || now;
+      st = resumeState({ period, day, lastDate: last }, now);
     }
     await env.DB.prepare(
       `UPDATE recurring SET amount = ?, currency = ?, category = ?, note = ?, day = ?, active = ?, period = ?, last_month = ?, last_date = ? WHERE id = ? AND user_id = ?`
@@ -325,15 +332,15 @@ async function handleApi(request, env, url) {
           // последняя уже внесённая запись правила — опора для следующего платежа
           const last = (await env.DB.prepare('SELECT MAX(date) AS d FROM entries WHERE recurring_id = ? AND user_id = ?').bind(rule.id, user.id).first())?.d || date;
           const st = period === 'month'
-            ? { last_month: last.slice(0, 7) >= thisMonth() ? thisMonth() : (period === rule.period ? rule.last_month : last.slice(0, 7)), last_date: null }
-            : resumeState({ period, day, lastDate: last });
+            ? { last_month: last.slice(0, 7) >= curMonth ? curMonth : (period === rule.period ? rule.last_month : last.slice(0, 7)), last_date: null }
+            : resumeState({ period, day, lastDate: last }, now);
           stmts.push(env.DB.prepare('UPDATE recurring SET day = ?, period = ?, last_month = ?, last_date = ? WHERE id = ?').bind(day, period, st.last_month, st.last_date, rule.id));
         }
       } else if (period === 'month') {
-        const lastMonth = date.slice(0, 7) > thisMonth() ? thisMonth() : (date.slice(0, 7) < thisMonth() && dueDate(thisMonth(), day) <= today() ? prevMonth(thisMonth()) : date.slice(0, 7));
+        const lastMonth = date.slice(0, 7) > curMonth ? curMonth : (date.slice(0, 7) < curMonth && dueDate(curMonth, day) <= now ? prevMonth(curMonth) : date.slice(0, 7));
         recurringId = await createRule(env, user.id, { kind: e.kind, amount, currency, category, note, day, period, date, lastMonth });
       } else {
-        recurringId = await createRule(env, user.id, { kind: e.kind, amount, currency, category, note, day, period, date, lastDate: resumeState({ period, day, lastDate: date }).last_date });
+        recurringId = await createRule(env, user.id, { kind: e.kind, amount, currency, category, note, day, period, date, lastDate: resumeState({ period, day, lastDate: date }, now).last_date });
       }
     }
     if (body.apply_to_rule && recurringId) {
@@ -370,10 +377,10 @@ async function handleApi(request, env, url) {
   }
 
   if (path === '/weekly' && method === 'GET') {
-    // Недели — с понедельника по воскресенье (UTC). Итоги — за прошлую неделю, план — на текущую.
+    // Недели — с понедельника по воскресенье по местному времени. Итоги прошлой недели живут понедельник и вторник
+    // (с 00:00 понедельника до 00:00 среды), план — на текущую неделю, обновляется в понедельник.
     const base = user.base_currency || 'EUR';
     const rates = await getRates(env);
-    const now = today();
     const dow = (new Date(`${now}T00:00:00Z`).getUTCDay() + 6) % 7; // 0 = понедельник
     const weekStart = addDays(now, -dow), weekEnd = addDays(weekStart, 6);
     const lastStart = addDays(weekStart, -7), lastEnd = addDays(weekStart, -1), histStart = addDays(weekStart, -35);
@@ -386,7 +393,7 @@ async function handleApi(request, env, url) {
     ).bind(user.id, histStart, lastEnd).all();
     const last = daily.filter((e) => e.date >= lastStart);
     let summary = null;
-    if (last.length >= 3) {
+    if (dow <= 1 && last.length >= 3) {
       const byCat = {};
       for (const e of last) byCat[e.category] = (byCat[e.category] || 0) + e.amount_eur;
       const top = Object.entries(byCat).sort((a, b) => b[1] - a[1])[0];
@@ -451,7 +458,7 @@ async function handleApi(request, env, url) {
       .map((g) => ({ category: g.category, amount: Number(g.amount), note: String(g.note || '').slice(0, 120) }))
       .filter((g) => isCategory(g.category) && validAmount(g.amount));
     if (!groups.length || groups.length > 20) return fail(400, 'bad_groups');
-    const date = validDate(body.date) ? body.date : today();
+    const date = validDate(body.date) ? body.date : now;
     const merchant = normalizeMerchant(body.merchant).slice(0, 60);
     const receipt_id = crypto.randomUUID();
     await insertEntries(env, user.id, groups.map((g) => ({
@@ -467,7 +474,7 @@ async function handleApi(request, env, url) {
       return {
         kind, amount: Number(i.amount), currency: i.currency,
         category: isCategoryFor(kind, i.category) ? i.category : (kind === 'income' ? 'other_income' : 'other'),
-        note: normalizeMerchant(i.note).slice(0, 120), date: validDate(i.date) ? i.date : today(), source: 'statement',
+        note: normalizeMerchant(i.note).slice(0, 120), date: validDate(i.date) ? i.date : now, source: 'statement',
       };
     }).filter((i) => validAmount(i.amount) && isCurrency(i.currency, rates));
     if (!items.length) return fail(400, 'bad_items');
@@ -482,7 +489,7 @@ async function handleApi(request, env, url) {
     const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const csv = '\ufeffdate,type,amount,currency,amount_eur,category,note,merchant,source\n' +
       results.map((r) => [r.date, r.kind, r.amount, r.currency, r.amount_eur, catLabel(r.category, user.lang).replace(/^\S+\s/, ''), r.note, r.merchant, r.source].map(q).join(',')).join('\n');
-    const res = await sendDocument(env, user.id, `expenses-${today()}.csv`, csv, user.lang === 'ru' ? 'Все ваши доходы и траты' : 'All your income and expenses');
+    const res = await sendDocument(env, user.id, `expenses-${now}.csv`, csv, user.lang === 'ru' ? 'Все ваши доходы и траты' : 'All your income and expenses');
     if (!res.ok) return fail(409, 'cant_message', 'Start the bot first');
     return json({ ok: true });
   }
@@ -590,7 +597,7 @@ async function handleUpdate(env, update) {
   }
   if (text.startsWith('/start')) return reply(L.start((msg.from.first_name || '').replace(/[<&>]/g, '')), { reply_markup: appUrl ? openAppKeyboard(appUrl, L.startBtn) : undefined });
   if (text.startsWith('/report')) {
-    const s = await monthSummary(env, user.id, thisMonth(), user.base_currency || 'EUR');
+    const s = await monthSummary(env, user.id, localToday(user.tz).slice(0, 7), user.base_currency || 'EUR');
     return reply(s.count ? reportText(s, user.lang) : L.empty, { reply_markup: kb });
   }
 
@@ -645,7 +652,7 @@ async function handleUpdate(env, update) {
     if (!known && q.token) q.note = `${q.token} ${q.note}`.trim();
     const kind = q.income ? 'income' : 'expense';
     const category = q.income ? categorizeIncome(q.note) : (await pickCategory(env, user.id, q.note)).category;
-    await insertEntries(env, user.id, [{ date: today(), amount: q.amount, currency, category, note: q.note, kind, source: 'manual' }]);
+    await insertEntries(env, user.id, [{ date: localToday(user.tz), amount: q.amount, currency, category, note: q.note, kind, source: 'manual' }]);
     return reply((q.income ? L.savedIncome : L.savedManual)(money(q.amount, currency, user.lang), catLabel(category, user.lang)) + (q.note ? ` · ${q.note.replace(/[<&>]/g, '')}` : ''), { reply_markup: kb });
   }
   return reply(L.help, { reply_markup: kb });
@@ -777,6 +784,9 @@ export default {
   },
   async scheduled(event, env, ctx) {
     ctx.waitUntil((async () => {
+      // расписание — каждые 10 минут; почасовые задачи выполняем в первые 10 минут часа
+      const hourly = new Date(event.scheduledTime || Date.now()).getUTCMinutes() < 10;
+      if (hourly) {
       // регулярные платежи: несколько порций за запуск, остальное доберут следующие запуски
       let created = 0;
       for (let i = 0; i < 5; i++) {
@@ -792,10 +802,15 @@ export default {
         const w = await ensureWebhook(env, appUrl);
         if (w.result !== 'unchanged') console.log('webhook', JSON.stringify(w).slice(0, 300));
       }
-      const day = new Date().getUTCDate();
-      if (day === 1 || day === 2) console.log('reports', JSON.stringify(await runMonthlyReports(env)));
-      else {
-        // в дни ежемесячной рассылки напоминания не шлём, чтобы не заваливать сообщениями
+      }
+      const day = new Date().getUTCDate(), lastDay = new Date(Date.now() + 864e5).getUTCDate() === 1;
+      // итоги месяца — с последнего дня месяца по 4-е число по UTC: так покрываются все часовые пояса
+      if (lastDay || day <= 4) {
+        const r = await runMonthlyReports(env);
+        if (r.processed) console.log('reports', JSON.stringify(r));
+      }
+      if (hourly) {
+        // напоминания: внутри сами проверяют местный час и дату пользователя
         const n = await runNudges(env);
         if (n.sent) console.log('nudges', JSON.stringify(n));
       }

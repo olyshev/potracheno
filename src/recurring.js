@@ -9,6 +9,20 @@ import { getRates, toEur, fromEur, round2 } from './rates.js';
 
 export const today = () => new Date().toISOString().slice(0, 10);
 export const thisMonth = () => today().slice(0, 7);
+// Местная дата и час пользователя по часовому поясу с устройства; без пояса — UTC
+export const validTz = (tz) => { try { if (!tz || tz.length > 64) return false; new Intl.DateTimeFormat('en', { timeZone: tz }); return true; } catch { return false; } };
+// местная дата момента времени; строка из SQLite ('YYYY-MM-DD HH:MM:SS') считается UTC
+export const localDate = (at, tz) => {
+  const d = typeof at === 'string' ? new Date(at.replace(' ', 'T') + (/[zZ]|[+-]\d\d:?\d\d$/.test(at) ? '' : 'Z')) : at;
+  if (!d || isNaN(d)) return today();
+  return validTz(tz)
+    ? new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d)
+    : d.toISOString().slice(0, 10);
+};
+export const localToday = (tz) => localDate(new Date(), tz);
+export const localHour = (tz) => (validTz(tz)
+  ? Number(new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', hourCycle: 'h23' }).format(new Date()))
+  : new Date().getUTCHours());
 export const PERIODS = ['week', '2weeks', 'month'];
 export const periodOf = (p) => (PERIODS.includes(p) ? p : 'month');
 const STEP = { week: 7, '2weeks': 14 };
@@ -70,17 +84,18 @@ export function futureDates(rule, now = today(), until = null) {
 }
 
 export async function materialize(env, userId = null, limit = 300) {
-  const now = today();
+  // отбор с запасом: «завтра по UTC» не раньше самого восточного пояса; точная проверка — по поясу владельца ниже
+  const now = addDays(today(), 1);
   const cur = now.slice(0, 7);
   const [y, m] = cur.split('-').map(Number);
   const prev = new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 7);
   // выбираем только правила, которым действительно пора
-  const where = `active = 1 AND (
-      (period = 'month' AND (last_month IS NULL OR last_month < ?1) AND (last_month IS NULL OR last_month < ?2 OR MIN(day, ?3) <= ?4))
-      OR (period = 'week' AND last_date IS NOT NULL AND date(last_date, '+7 days') <= ?5)
-      OR (period = '2weeks' AND last_date IS NOT NULL AND date(last_date, '+14 days') <= ?5)
-    )${userId ? ' AND user_id = ?6' : ''}`;
-  const stmt = env.DB.prepare(`SELECT * FROM recurring WHERE ${where} LIMIT ${Number(limit) | 0}`);
+  const where = `r.active = 1 AND (
+      (r.period = 'month' AND (r.last_month IS NULL OR r.last_month < ?1) AND (r.last_month IS NULL OR r.last_month < ?2 OR MIN(r.day, ?3) <= ?4))
+      OR (r.period = 'week' AND r.last_date IS NOT NULL AND date(r.last_date, '+7 days') <= ?5)
+      OR (r.period = '2weeks' AND r.last_date IS NOT NULL AND date(r.last_date, '+14 days') <= ?5)
+    )${userId ? ' AND r.user_id = ?6' : ''}`;
+  const stmt = env.DB.prepare(`SELECT r.*, u.tz FROM recurring r LEFT JOIN users u ON u.id = r.user_id WHERE ${where} LIMIT ${Number(limit) | 0}`);
   const args = [cur, prev, daysIn(cur), Number(now.slice(8, 10)), now];
   const { results: rules } = await stmt.bind(...args, ...(userId ? [userId] : [])).all();
   if (!rules.length) return 0;
@@ -89,7 +104,7 @@ export async function materialize(env, userId = null, limit = 300) {
   const stmts = [];
   let created = 0;
   for (const r of rules) {
-    const dates = pendingDates(r, now);
+    const dates = pendingDates(r, localToday(r.tz));
     if (!dates.length) continue;
     for (const { date } of dates) {
       stmts.push(env.DB.prepare(
@@ -110,8 +125,7 @@ export async function materialize(env, userId = null, limit = 300) {
 
 // Платежи, которые ещё впереди в текущем месяце (для прогноза на главном экране).
 // Недельное правило может дать несколько платежей до конца месяца.
-export async function upcoming(env, userId, base) {
-  const now = today();
+export async function upcoming(env, userId, base, now = today()) {
   const monthEnd = dueDate(now.slice(0, 7), 31);
   const { results } = await env.DB.prepare(
     `SELECT * FROM recurring WHERE user_id = ? AND active = 1`
@@ -130,8 +144,7 @@ export async function upcoming(env, userId, base) {
   return out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
 
-export async function listRules(env, userId, base) {
-  const now = today();
+export async function listRules(env, userId, base, now = today()) {
   const { results } = await env.DB.prepare(
     `SELECT * FROM recurring WHERE user_id = ? ORDER BY kind DESC, active DESC, day`
   ).bind(userId).all();

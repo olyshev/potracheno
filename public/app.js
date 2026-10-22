@@ -54,7 +54,7 @@
       weekdays: ['по воскресеньям', 'по понедельникам', 'по вторникам', 'по средам', 'по четвергам', 'по пятницам', 'по субботам'],
       weekHint: (wd) => `Начиная с даты записи, ${wd}`, everyDay: (d) => `каждое ${d}-е`,
       lastDayHint: 'Если в месяце нет такого числа — в последний день',
-      upcoming: 'Ожидается в этом месяце', recurring: 'Регулярные платежи', recurringEmpty: 'Пока нет регулярных платежей. Выберите, как часто повторять, когда добавляете зарплату, аренду или подписку — дальше приложение будет вносить их само.',
+      upcoming: 'Ожидается в этом месяце', recurring: 'Регулярные платежи', howto: 'Как пользоваться', recurringEmpty: 'Пока нет регулярных платежей. Выберите, как часто повторять, когда добавляете зарплату, аренду или подписку — дальше приложение будет вносить их само.',
       recIncome: 'Регулярные доходы', recExpense: 'Регулярные расходы', next: (d) => `→ ${d}`, paused: 'на паузе',
       editRule: 'Регулярный платёж', pause: 'Поставить на паузу', resume: 'Возобновить', deleteRule: 'Больше не повторять',
       confirmDeleteRule: 'Больше не повторять этот платёж? Уже внесённые записи останутся.',
@@ -105,7 +105,7 @@
       weekdays: ['on Sundays', 'on Mondays', 'on Tuesdays', 'on Wednesdays', 'on Thursdays', 'on Fridays', 'on Saturdays'],
       weekHint: (wd) => `Starting from the entry date, ${wd}`, everyDay: (d) => `monthly on ${d}`,
       lastDayHint: "If a month is shorter, it's the last day",
-      upcoming: 'Coming up this month', recurring: 'Recurring payments', recurringEmpty: 'No recurring payments yet. Pick how often to repeat when adding your salary, rent or a subscription — the app will add them for you from then on.',
+      upcoming: 'Coming up this month', recurring: 'Recurring payments', howto: 'How to use', recurringEmpty: 'No recurring payments yet. Pick how often to repeat when adding your salary, rent or a subscription — the app will add them for you from then on.',
       recIncome: 'Recurring income', recExpense: 'Recurring expenses', next: (d) => `→ ${d}`, paused: 'paused',
       editRule: 'Recurring payment', pause: 'Pause', resume: 'Resume', deleteRule: 'Stop repeating',
       confirmDeleteRule: 'Stop repeating this payment? Entries already added will stay.',
@@ -167,10 +167,12 @@
   };
 
   // ---------- сеть ----------
+  // часовой пояс устройства: по нему сервер считает «сегодня», регулярные платежи и время историй
+  const TZ = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { return ''; } })();
   async function api(path, opts = {}) {
     const res = await fetch(`/api${path}`, {
       method: opts.method || 'GET',
-      headers: { authorization: `tma ${initData}`, ...(opts.body ? { 'content-type': 'application/json' } : {}) },
+      headers: { authorization: `tma ${initData}`, 'x-tz': TZ, ...(opts.body ? { 'content-type': 'application/json' } : {}) },
       body: opts.body ? JSON.stringify(opts.body) : undefined,
     });
     const data = await res.json().catch(() => ({}));
@@ -241,14 +243,15 @@
   // (текст «зашит» в картинки). Новую историю достаточно добавить в этот список.
   const STORIES = [
     {
-      id: 'howto-v1', langs: ['ru'], duration: 6000,
+      id: 'howto-v1', langs: ['ru'], duration: 6000, days: 7, // в ленте — первую неделю, потом только в настройках
       title: { ru: 'С чего начать', en: 'Getting started' },
       cover: 'stories/howto/cover.webp',
       slides: [1, 2, 3, 4, 5, 6, 7].map((n) => `stories/howto/${n}.webp`),
     },
   ];
   const seenStory = (id) => (state.me.seenStories || []).includes(id);
-  const visibleStories = () => STORIES.filter((s) => !s.langs || s.langs.includes(state.lang));
+  const storyLang = (s) => !s.langs || s.langs.includes(state.lang);
+  const visibleStories = () => STORIES.filter((s) => storyLang(s) && !(s.days && (state.daysSinceStart || 0) >= s.days));
 
   function renderStories() {
     const el = $('#storiesRow');
@@ -717,8 +720,10 @@
   }
 
   // История за прошлый месяц: подгружаем сводку и добавляем в начало ленты
-  async function loadMonthStory() {
+  // В ленте — с 1-го по 7-е число по местному времени; по кнопке из сообщения бота открывается всегда
+  async function loadMonthStory(force = false) {
     if (state.lang !== 'ru') return;
+    if (!force && Number(state.today.slice(8, 10)) > 7) return null;
     const prev = shiftMonth(state.today.slice(0, 7), -1);
     try {
       const { summary } = await api(`/summary?month=${prev}`);
@@ -1466,6 +1471,7 @@
       <div class="note">${t('baseNote')}</div>
       <div class="card list settings-list">
         <button class="row" id="sRec"><span>🔁 ${t('recurring')}</span><span class="settings-value">›</span></button>
+        ${STORIES.some((x) => x.id === 'howto-v1' && storyLang(x)) ? `<button class="row" id="sHowto"><span>📖 ${t('howto')}</span><span class="settings-value">›</span></button>` : ''}
       </div>
       <div class="card list settings-list">
         <div class="row"><span>${t('scans')}</span><span class="settings-value num">${me.scansUsed} ${t('from')} ${me.scans}</span></div>
@@ -1487,6 +1493,8 @@
       }
     });
     $('#sRec', S).addEventListener('click', () => openRecurringList());
+    const hb = $('#sHowto', S);
+    if (hb) hb.addEventListener('click', () => { closeSheet(sh); openStory(STORIES.find((x) => x.id === 'howto-v1')); });
     $('#sLang', S).addEventListener('click', async () => {
       state.lang = state.lang === 'ru' ? 'en' : 'ru';
       await api('/settings', { method: 'POST', body: { lang: state.lang } }).catch(() => {});
@@ -1586,6 +1594,7 @@
     state.catMap = Object.fromEntries([...me.categories, ...state.incomeCats].map((c) => [c.id, c]));
     state.currencies = me.currencies;
     state.today = me.today;
+    state.daysSinceStart = me.daysSinceStart || 0;
     state.month = me.today.slice(0, 7);
     state.lastCurrency = store.get('lastCurrency') || me.user.base_currency;
     if (!state.currencies.includes(state.lastCurrency)) state.lastCurrency = me.user.base_currency;
@@ -1601,14 +1610,15 @@
 
     await loadMonth();
     renderStories();
-    const [monthStory] = me.hasEntries ? await Promise.all([loadMonthStory(), loadWeeklyStories()]) : [null];
+    const startParam = tg && tg.initDataUnsafe ? tg.initDataUnsafe.start_param : '';
+    const wantMonth = new URLSearchParams(location.search).get('story') === 'month' || startParam === 'month';
+    const [monthStory] = me.hasEntries ? await Promise.all([loadMonthStory(wantMonth), loadWeeklyStories()]) : [null];
     if (!me.hasEntries && !store.get('welcomed')) await openWelcome();
     // новичкам сразу показываем историю «Как пользоваться»
-    const howto = visibleStories().find((s) => s.id === 'howto-v1');
+    const howto = visibleStories().find((s) => s.id === 'howto-v1');  // скрыта через неделю — тогда и не открываем
     if (howto && !me.hasEntries && !seenStory(howto.id)) await openStory(howto);
     // из ежемесячного сообщения бота: сразу открыть историю за прошлый месяц
-    const startParam = tg && tg.initDataUnsafe ? tg.initDataUnsafe.start_param : '';
-    if (monthStory && (new URLSearchParams(location.search).get('story') === 'month' || startParam === 'month')) await openStory(monthStory);
+    if (monthStory && wantMonth) await openStory(monthStory);
     if (!state.me.can_message) requestWriteAccess(false);
   }
 

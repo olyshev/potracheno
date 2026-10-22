@@ -2,6 +2,7 @@
 import { catLabel } from './categories.js';
 import { getRates, fromEur } from './rates.js';
 import { tg, openAppKeyboard } from './telegram.js';
+import { localToday, localHour } from './recurring.js';
 
 export const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -126,23 +127,39 @@ export function reportText(s, lang) {
   return lines.join('\n');
 }
 
-// Рассылка итогов прошлого месяца. Запускается по расписанию 1-го и 2-го числа каждые 10 минут
-// и за раз обрабатывает REPORT_BATCH пользователей (лимит подзапросов бесплатного тарифа Cloudflare — 50).
+// Рассылка итогов прошлого месяца — 1–3 числа с 10:00 по местному времени пользователя.
+// Расписание запускает её каждые 10 минут в последние и первые дни месяца по UTC; за раз — не больше REPORT_BATCH
+// сообщений (лимит внешних запросов бесплатного тарифа Cloudflare — 50).
+// Пора ли отправлять отчёт за month: с 10:00 1-го до конца 3-го числа по местному времени, за прошедший местный месяц
+export function reportDue(tz, month) {
+  const local = localToday(tz);
+  if (Number(local.slice(8, 10)) > 3 || (local.endsWith('-01') && localHour(tz) < 10)) return false;
+  return shiftMonth(local.slice(0, 7), -1) === month;
+}
+
 export async function runMonthlyReports(env) {
-  const month = shiftMonth(new Date().toISOString().slice(0, 7), -1);
   const batch = Number(env.REPORT_BATCH || 40);
+  const utcDay = new Date().getUTCDate(), utcMonth = new Date().toISOString().slice(0, 7);
+  // в последний день месяца по UTC у восточных поясов уже наступило 1-е — им отчёт за текущий UTC-месяц, иначе за прошлый
+  const target = utcDay >= 28 ? utcMonth : shiftMonth(utcMonth, -1);
   const appUrl = (await env.DB.prepare(`SELECT value FROM settings WHERE key = 'app_url'`).first())?.value;
-  const { results: users } = await env.DB.prepare(
-    `SELECT u.id, u.lang, u.base_currency FROM users u
+  const { results: cands } = await env.DB.prepare(
+    `SELECT u.id, u.lang, u.base_currency, u.tz FROM users u
      WHERE u.can_message = 1
-       AND EXISTS (SELECT 1 FROM entries e WHERE e.user_id = u.id AND e.date >= ? AND e.date <= ?)
-       AND NOT EXISTS (SELECT 1 FROM reports_sent r WHERE r.user_id = u.id AND r.month = ?)
-     LIMIT ?`
-  ).bind(`${month}-01`, `${month}-31`, month, batch).all();
+       AND NOT EXISTS (SELECT 1 FROM reports_sent r WHERE r.user_id = u.id AND r.month = ?1)
+       AND EXISTS (SELECT 1 FROM entries e WHERE e.user_id = u.id AND e.date >= ?1 || '-01' AND e.date <= ?1 || '-31')
+     LIMIT 3000`
+  ).bind(target).all();
+  const users = [];
+  for (const u of cands) {
+    if (!reportDue(u.tz, target)) continue;
+    users.push({ ...u, month: target });
+    if (users.length >= batch) break;
+  }
 
   let sent = 0;
   for (const u of users) {
-    const s = await monthSummary(env, u.id, month, u.base_currency || 'EUR');
+    const s = await monthSummary(env, u.id, u.month, u.base_currency || 'EUR');
     const payload = { chat_id: u.id, text: reportText(s, u.lang), parse_mode: 'HTML' };
     // русским пользователям — кнопка сразу на персональную историю месяца (если трат достаточно)
     const expenseCount = s.categories.reduce((a, c) => a + c.count, 0);
@@ -156,8 +173,8 @@ export async function runMonthlyReports(env) {
       await env.DB.prepare('UPDATE users SET can_message = 0 WHERE id = ?').bind(u.id).run();
     }
     if (!r.ok && r.error_code === 429) break; // упёрлись в лимит Telegram — продолжим через 10 минут
-    await env.DB.prepare('INSERT OR REPLACE INTO reports_sent (user_id, month, status) VALUES (?, ?, ?)').bind(u.id, month, status).run();
+    await env.DB.prepare('INSERT OR REPLACE INTO reports_sent (user_id, month, status) VALUES (?, ?, ?)').bind(u.id, u.month, status).run();
     if (r.ok) sent++;
   }
-  return { month, processed: users.length, sent };
+  return { candidates: cands.length, processed: users.length, sent };
 }
