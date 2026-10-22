@@ -23,6 +23,7 @@ export const CATEGORIES = [
   { id: 'education',     emoji: '📚', ru: 'Обучение',        en: 'Education' },
   { id: 'kids',          emoji: '🧸', ru: 'Дети',            en: 'Kids' },
   { id: 'pets',          emoji: '🐾', ru: 'Питомцы',         en: 'Pets' },
+  { id: 'savings',       emoji: '🏦', ru: 'Инвестиции и сбережения', en: 'Investments & savings' },
   { id: 'gifts',         emoji: '🎁', ru: 'Подарки',         en: 'Gifts' },
   { id: 'other',         emoji: '📦', ru: 'Другое',          en: 'Other' },
 ];
@@ -59,6 +60,7 @@ const RULES = {
   education: ['курс', 'обучени', 'урок', 'репетитор', 'книг', 'школ', 'универ', 'academia', 'curso', 'course', 'book', 'libro', 'udemy', 'coursera'],
   kids: ['детск', 'ребён', 'ребен', 'садик', 'игрушк', 'подгузник', 'kids', 'toys', 'juguete', 'pañal'],
   pets: ['корм', 'ветеринар', 'кошк', 'кот ', 'собак', 'зоомагазин', 'tiendanimal', 'kiwoko', 'veterinar', 'pet ', 'pets'],
+  savings: ['накоплен', 'накопит', 'сбережен', 'копилк', 'брокер', 'инвест', 'акций', 'облигац', 'вклад', 'депозит', ' иис', 'крипт', 'биткоин', 'bitcoin', 'crypto', 'etf', 'savings', 'ahorro', 'hucha', 'inversión', 'inversion', 'broker', 'invest', 'trade republic', 'degiro', 'interactive brokers', 'myinvestor', 'indexa', 'revolut savings', 'vault'],
   gifts: ['подарок', 'подарк', 'цветы', 'букет', 'regalo', 'flores', 'gift', 'flowers'],
 };
 

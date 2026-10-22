@@ -48,7 +48,7 @@ const DOCUMENT_TOOL = {
             description: { type: 'string', description: 'Merchant or counterparty, cleaned up and short. For a well-known chain or brand — just the brand (e.g. "Mercadona", "Glovo", "Uber"); for people and small shops — a short readable name ("Перевод от Анны", "Panadería La Espiga"). No card numbers, store numbers, cities or reference codes.' },
             amount: { type: 'number', description: 'Positive number: amount charged or received in the account currency' },
             currency: { type: 'string', description: 'ISO 4217 code of that amount' },
-            kind: { type: 'string', enum: ['expense', 'income', 'transfer'], description: 'transfer = moving money between the user’s own accounts/cards/savings, card top-ups, investment account funding, ATM cash withdrawal' },
+            kind: { type: 'string', enum: ['expense', 'income', 'transfer'], description: 'transfer = moving money between the user’s own everyday accounts or cards, card or wallet top-ups, ATM cash withdrawal. Money put into savings, deposits, brokerage or crypto is an expense with category savings.' },
             category: { type: 'string', enum: [...CATEGORY_IDS, ...INCOME_IDS], description: 'expense category for expenses, income category for income, "other" for transfers' },
           },
           required: ['date', 'description', 'amount', 'currency', 'kind', 'category'],
@@ -64,7 +64,7 @@ const documentSystem = (today) => `You read photos of shopping receipts, screens
 Expense categories: ${CATEGORY_GUIDE}.
 Income categories: ${INCOME_GUIDE}.
 
-Category hints: food or grocery delivery services (Glovo, Uber Eats, Just Eat, Deliveroo, Wolt, Яндекс Еда, Самокат, Купер) → delivery; ride-hailing and taxis (Uber rides, Cabify, Bolt, FreeNow, Yango, Яндекс Go) → taxi; per-minute car rental (Zity, Share Now, Free2Move, WiBLE, Делимобиль, Яндекс Драйв, Ситидрайв) → carsharing; public transport, trains, e-scooters → transport; fuel and gas stations (Repsol, Cepsa, Galp, Shell, BP) → fuel; car repairs, maintenance, spare parts, inspection (ITV) → car_service; car accessories, tyres, car wash, auto shops (Norauto) → car_goods; parking and tolls → transport; supermarkets → groceries; restaurants, bars, coffee shops → cafe; gyms, fitness clubs, pools, sports classes and coaches, sports equipment and stores (Decathlon), padel/tennis courts, ski passes → sport; streaming and apps → subscriptions.
+Category hints: food or grocery delivery services (Glovo, Uber Eats, Just Eat, Deliveroo, Wolt, Яндекс Еда, Самокат, Купер) → delivery; ride-hailing and taxis (Uber rides, Cabify, Bolt, FreeNow, Yango, Яндекс Go) → taxi; per-minute car rental (Zity, Share Now, Free2Move, WiBLE, Делимобиль, Яндекс Драйв, Ситидрайв) → carsharing; public transport, trains, e-scooters → transport; fuel and gas stations (Repsol, Cepsa, Galp, Shell, BP) → fuel; car repairs, maintenance, spare parts, inspection (ITV) → car_service; car accessories, tyres, car wash, auto shops (Norauto) → car_goods; parking and tolls → transport; supermarkets → groceries; restaurants, bars, coffee shops → cafe; gyms, fitness clubs, pools, sports classes and coaches, sports equipment and stores (Decathlon), padel/tennis courts, ski passes → sport; streaming and apps → subscriptions; savings accounts, deposits, brokers, stocks, ETFs, crypto → savings.
 
 For a receipt (doc_type=receipt):
 - Categorize each line item on its own: in a supermarket, food → groceries, detergent → household, shampoo → beauty, pet food → pets.
@@ -77,7 +77,8 @@ For transactions (doc_type=transactions):
 - If several screenshots overlap, list each real operation only once.
 - Dates often lack a year: use the most recent past date that fits (never a date after today). Resolve relative labels like "Сегодня", "Вчера", "Today", "Hoy", "Ayer" against today.
 - Money out → expense; money in → income (salary → salary, refunds and cashback → refund, transfers from other people → transfer_in, interest/dividends → investments).
-- Moving money between the user's own accounts, cards or savings, topping up a card or wallet, funding a brokerage account, ATM cash withdrawals → kind=transfer, category=other.
+- Money set aside or invested — transfers to a savings account, deposit, piggy bank or vault, brokerage or investment account, buying stocks, ETFs or crypto → kind=expense, category=savings.
+- Moving money between the user's own everyday accounts or cards, topping up a card or wallet, ATM cash withdrawals → kind=transfer, category=other.
 - Amounts are positive; the kind carries the direction.
 
 Merchant names: for well-known chains and brands write only the consumer brand as people say it — "LIDL SUPERMERCADOS S.A.U" → "Lidl", "MERCADONA, S.A." → "Mercadona", "PYATEROCHKA 1123" → "Пятёрочка", "AMZN Mktp ES" → "Amazon". Drop legal forms (S.A., S.L., S.A.U., ООО, АО, GmbH, Ltd), store numbers and addresses. For small independent shops and people keep the name as printed.

@@ -364,7 +364,7 @@
     carsharing: 'каршеринг', fuel: 'топливо', car_service: 'обслуживание авто', car_goods: 'товары для авто',
     housing: 'жильё', utilities: 'связь и ЖКУ', health: 'здоровье', beauty: 'уход и гигиену', household: 'дом и быт',
     clothes: 'одежду и обувь', shopping: 'покупки', fun: 'развлечения', sport: 'спорт', subscriptions: 'подписки',
-    travel: 'путешествия', education: 'обучение', kids: 'детей', pets: 'питомцев', gifts: 'подарки', other: 'прочее',
+    travel: 'путешествия', education: 'обучение', kids: 'детей', pets: 'питомцев', savings: 'инвестиции и сбережения', gifts: 'подарки', other: 'прочее',
   };
   const twemoji = (e) => [...e].map((c) => c.codePointAt(0).toString(16)).filter((c) => c !== 'fe0f').join('-');
   const emojiImg = (code, size) => `<img src="stories/emoji/${code}.svg" alt="" style="width:${size}px;height:${size}px">`;
