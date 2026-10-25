@@ -1679,7 +1679,7 @@
     if (wait > 0) await new Promise((r) => setTimeout(r, wait));
     el.classList.add('done');
     $('#app').classList.add('app-in');
-    setTimeout(() => el.remove(), 700);
+    setTimeout(() => { el.remove(); $('#app').classList.remove('app-in'); }, 1000);
   }
   setTimeout(() => hideSplash(), 12000);
   // подпись на заставке — на языке Telegram, пока настройки пользователя ещё не загружены

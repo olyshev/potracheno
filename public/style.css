@@ -401,10 +401,13 @@ button.emoji { cursor: pointer; }
 @keyframes spLine { from { transform: translateY(0); opacity: 0; } 20% { opacity: 1; } to { transform: translateY(-380px); opacity: 0; } }
 @keyframes spFade { to { opacity: 1; } }
 /* экран приложения появляется из-под заставки */
-#app.app-in { animation: appIn .5s cubic-bezier(.2,.8,.3,1) .2s both; }
-@keyframes appIn { from { opacity: 0; transform: translateY(24px) scale(.985); } to { opacity: 1; transform: none; } }
+/* сдвигаем только содержимое, а не весь #app: transform у #app ломает закреплённую нижнюю панель с кнопками */
+#app.app-in > header, #app.app-in > main { animation: appIn .5s cubic-bezier(.2,.8,.3,1) .2s backwards; }
+#app.app-in > .bottom-bar { animation: appBar .45s cubic-bezier(.2,.8,.3,1) .3s backwards; }
+@keyframes appIn { from { opacity: 0; transform: translateY(24px) scale(.985); } }
+@keyframes appBar { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .sp-drop, .sp-bob, .sp-coin, .sp-lines span, #app.app-in { animation: none !important; }
+  .sp-drop, .sp-bob, .sp-coin, .sp-lines span, #app.app-in > * { animation: none !important; }
 }
 
 .sp-text { position: absolute; left: 0; right: 0; top: calc(50% + 86px); text-align: center; font-size: 16px; font-weight: 600;
