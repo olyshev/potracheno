@@ -1034,16 +1034,18 @@
   // Значение хранится в скрытом <input type="date">, поэтому остальной код работает с ним как раньше.
   const shiftDay = (d, n) => { const x = new Date(`${d}T00:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
   const WD = { ru: ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'], en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] };
-  function dateWheelHtml(id) {
+  // center — дата по центру колеса (для новой записи — сегодня, для старой — её дата);
+  // words — подписи «Вчера / Сегодня / Завтра» (только для новой записи)
+  function dateWheelHtml(id, center = state.today) {
     return `<div class="field dw" id="${id}Wrap"><label>${t('date')}</label>
       <div class="dw-box"><div class="dw-band"></div><div class="dw-track" id="${id}Track"></div></div>
-      <input id="${id}" type="hidden" value="${state.today}"></div>`;
+      <input id="${id}" type="hidden" value="${center}"></div>`;
   }
-  function bindDateWheel(S, id) {
+  function bindDateWheel(S, id, { center: c0 = state.today, words = true } = {}) {
     const track = $(`#${id}Track`, S), input = $(`#${id}`, S);
-    const days = [-3, -2, -1, 0, 1, 2, 3, 4].map((n) => shiftDay(state.today, n));
+    const days = [-3, -2, -1, 0, 1, 2, 3, 4].map((n) => shiftDay(c0, n));
     const wd = (d) => WD[state.lang === 'ru' ? 'ru' : 'en'][new Date(`${d}T00:00:00Z`).getUTCDay()];
-    const word = { [-1]: t('yesterday'), 0: t('today'), 1: t('tomorrow') };
+    const word = words ? { [-1]: t('yesterday'), 0: t('today'), 1: t('tomorrow') } : {};
     let custom = null; // дата вне колеса, выбранная в календаре
     const item = (d, n) => {
       const w = word[n];
@@ -1054,7 +1056,7 @@
     const edge = (side) => {
       const c = custom && ((side === 'L' && custom < days[0]) || (side === 'R' && custom > days[7])) ? custom : null;
       return `<div class="dw-item dw-edge" data-edge="${side}">${c ? `<b>${esc(dayMonth(c))}</b><small>${esc(wd(c))}</small>` : `<b>🗓️</b><small>${t('otherDate')}</small>`}
-        <input type="date" class="dw-native" aria-label="${t('otherDate')}" value="${c || state.today}"></div>`;
+        <input type="date" class="dw-native" aria-label="${t('otherDate')}" value="${c || c0}"></div>`;
     };
     const draw = () => { track.innerHTML = edge('L') + days.map((d, k) => item(d, k - 3)).join('') + edge('R'); bindNative(); };
     const items = () => [...track.children];
@@ -1112,7 +1114,7 @@
       }
     }
     draw();
-    requestAnimationFrame(() => { scrollTo(track.querySelector(`[data-d="${state.today}"]`), false); paint(); last = center(); });
+    requestAnimationFrame(() => { scrollTo(track.querySelector(`[data-d="${c0}"]`), false); paint(); last = center(); });
     return input;
   }
 
@@ -1434,12 +1436,13 @@
       </div>
       <div class="field"><label>${inc ? t('incomeNote') : t('note')}</label><input id="eNote" value="${esc(e.note || '')}" maxlength="120"></div>
       <div class="field" style="padding:12px 14px"><button class="group-cat" id="eCat" style="width:100%"><span>${cat(category).emoji}</span><span>${esc(catName(category))}</span></button></div>
-      <div class="field"><label>${t('date')}</label><input id="eDate" type="date" value="${e.date}" max="${state.today}"></div>
+      ${dateWheelHtml('eDate', e.date)}
       ${rep.html}
       ${e.source === 'recurring' ? `<div class="note" style="margin:-4px 4px 14px">🔁 ${t('auto')}</div>` : ''}
       <button class="btn btn-primary btn-block" id="eSave">${t('save')}</button>
       <button class="btn btn-danger btn-block" id="eDel" style="margin-top:6px">${t('delete')}</button>`);
     const S = sh.sheet;
+    bindDateWheel(S, 'eDate', { center: e.date, words: false });
     const getRepeat = rep.bind(S, (cb) => $('#eDate', S).addEventListener('change', (ev) => cb(ev.target.value)));
     $('.close', S).addEventListener('click', () => closeSheet(sh));
     $('#eCat', S).addEventListener('click', async () => {
