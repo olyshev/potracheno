@@ -357,3 +357,60 @@ button.emoji { cursor: pointer; }
 .dw-item b { font-size: 14px; font-weight: 600; white-space: nowrap; }
 .dw-item small { font-size: 12px; color: var(--hint); margin-top: 2px; white-space: nowrap; }
 .dw-native { position: absolute; inset: 0; width: 100%; height: 100%; -webkit-appearance: none; appearance: none; font-size: 16px; box-sizing: border-box; opacity: 0; border: 0; padding: 0; margin: 0; }
+
+/* ---------- заставка с монеткой ---------- */
+#splash { position: fixed; inset: 0; z-index: 1000; background: var(--bg); overflow: hidden; display: grid; place-items: center;
+  transition: opacity .38s ease .22s; }
+#splash.done { opacity: 0; pointer-events: none; }
+.sp-drop { animation: spIn .75s cubic-bezier(.22,.9,.32,1.12) both; }
+#splash.done .sp-drop { animation: none; transform: translateY(75vh); transition: transform .5s cubic-bezier(.55,0,.95,.4); }
+.sp-bob { animation: spBob 1.3s ease-in-out .75s infinite alternate; }
+.sp-coin { --c: 108px; width: var(--c); height: var(--c); position: relative; transform-style: preserve-3d; animation: spSpin 1.15s linear infinite; }
+#splash { perspective: 700px; }
+.sp-coin > * { position: absolute; inset: 0; border-radius: 50%; }
+.sp-coin > i { background: #b87f14; }
+.sp-coin > i:nth-of-type(odd) { background: #a96f0c; }
+.sp-face { background:
+    radial-gradient(circle at 34% 28%, rgba(255,255,255,.75) 0 6%, transparent 22%),
+    radial-gradient(circle, transparent 0 58%, rgba(120,70,0,.35) 60% 62%, transparent 64%),
+    radial-gradient(circle at 40% 35%, #ffe28a 0%, #f6be3b 45%, #d9921c 100%);
+  box-shadow: inset 0 0 0 5px #e8a52a, inset 0 0 0 7px rgba(255,240,190,.5); backface-visibility: hidden; }
+.sp-front { transform: translateZ(0); }
+.sp-back { transform: translateZ(-9px) rotateY(180deg); }
+/* значок на монетке — четырёхлучевая искра */
+.sp-face::before { content: ''; position: absolute; inset: 31%;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M5 0C5.4 3.3 6.7 4.6 10 5C6.7 5.4 5.4 6.7 5 10C4.6 6.7 3.3 5.4 0 5C3.3 4.6 4.6 3.3 5 0Z'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M5 0C5.4 3.3 6.7 4.6 10 5C6.7 5.4 5.4 6.7 5 10C4.6 6.7 3.3 5.4 0 5C3.3 4.6 4.6 3.3 5 0Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  background: linear-gradient(160deg, #fff6d0, #c98410); }
+/* линии скорости: летят вверх — кажется, что монетка продолжает падать */
+.sp-lines { position: absolute; left: 50%; top: 50%; width: 160px; height: 340px; transform: translate(-50%, -50%); opacity: 0;
+  animation: spFade .4s ease .6s forwards; }
+#splash.done .sp-lines { opacity: 0; animation: none; transition: opacity .15s; }
+.sp-lines span { position: absolute; bottom: -40px; width: 2px; height: 46px; border-radius: 2px;
+  background: linear-gradient(transparent, color-mix(in srgb, var(--hint) 70%, transparent)); animation: spLine .9s linear infinite; }
+.sp-lines span:nth-child(1) { left: 6%; animation-delay: .1s; height: 34px; }
+.sp-lines span:nth-child(2) { left: 20%; animation-delay: .55s; }
+.sp-lines span:nth-child(3) { left: 33%; animation-delay: .3s; height: 28px; }
+.sp-lines span:nth-child(4) { left: 66%; animation-delay: .7s; height: 30px; }
+.sp-lines span:nth-child(5) { left: 79%; animation-delay: .2s; }
+.sp-lines span:nth-child(6) { left: 93%; animation-delay: .45s; height: 36px; }
+.sp-lines span:nth-child(7) { left: 50%; animation-delay: .85s; height: 24px; }
+@keyframes spIn { from { transform: translateY(-75vh); } to { transform: translateY(0); } }
+@keyframes spBob { from { transform: translateY(-5px); } to { transform: translateY(5px); } }
+@keyframes spSpin { from { transform: rotateX(12deg) rotateY(0); } to { transform: rotateX(12deg) rotateY(360deg); } }
+@keyframes spLine { from { transform: translateY(0); opacity: 0; } 20% { opacity: 1; } to { transform: translateY(-380px); opacity: 0; } }
+@keyframes spFade { to { opacity: 1; } }
+/* экран приложения появляется из-под заставки */
+#app.app-in { animation: appIn .5s cubic-bezier(.2,.8,.3,1) .2s both; }
+@keyframes appIn { from { opacity: 0; transform: translateY(24px) scale(.985); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .sp-drop, .sp-bob, .sp-coin, .sp-lines span, #app.app-in { animation: none !important; }
+}
+
+.sp-text { position: absolute; left: 0; right: 0; top: calc(50% + 86px); text-align: center; font-size: 16px; font-weight: 600;
+  color: var(--hint); letter-spacing: .2px; opacity: 0; animation: spFade .35s ease .65s forwards; }
+#splash.done .sp-text { animation: none; opacity: 0; transition: opacity .15s; }
+.sp-dots i { font-style: normal; animation: spDot 1.2s infinite; opacity: .2; }
+.sp-dots i:nth-child(2) { animation-delay: .2s; }
+.sp-dots i:nth-child(3) { animation-delay: .4s; }
+@keyframes spDot { 0%, 60%, 100% { opacity: .2; } 30% { opacity: 1; } }

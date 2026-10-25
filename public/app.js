@@ -1666,14 +1666,39 @@
   }
 
   // ---------- запуск ----------
+  // ---------- заставка ----------
+  // Монетка крутится, пока грузятся данные, но не меньше ~1 с, чтобы успела долететь до центра
+  const splashAt = performance.now();
+  let splashGone = false;
+  async function hideSplash(instant = false) {
+    const el = document.getElementById('splash');
+    if (!el || splashGone) return;
+    splashGone = true;
+    if (instant) { el.remove(); return; }
+    const wait = 1000 - (performance.now() - splashAt);
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    el.classList.add('done');
+    $('#app').classList.add('app-in');
+    setTimeout(() => el.remove(), 700);
+  }
+  setTimeout(() => hideSplash(), 12000);
+  // подпись на заставке — на языке Telegram, пока настройки пользователя ещё не загружены
+  try {
+    const lc = tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.language_code : '';
+    const st = document.getElementById('splashText');
+    if (st && lc && !/^(ru|uk|be|kk)/.test(lc)) st.firstChild.textContent = 'Loading';
+  } catch { /* */ } // на всякий случай — не держим заставку вечно
+
   async function start() {
     if (tg) { tg.ready(); tg.expand(); try { tg.disableVerticalSwipes && tg.isVersionAtLeast('7.7') && tg.disableVerticalSwipes(); } catch { /* */ } }
     if (!initData) {
+      hideSplash(true);
       document.body.innerHTML = `<div class="blocker"><div class="big">📱</div><p>${T.ru.openInTg}<br>${T.en.openInTg}</p></div>`;
       return;
     }
     let me;
     try { me = await api('/me'); } catch (e) {
+      hideSplash(true);
       document.body.innerHTML = `<div class="blocker"><div class="big">⚠️</div><p>${e.status === 401 ? `${T.ru.openInTg}<br>${T.en.openInTg}` : 'Network error'}</p></div>`;
       return;
     }
@@ -1703,7 +1728,11 @@
     renderStories();
     const startParam = tg && tg.initDataUnsafe ? tg.initDataUnsafe.start_param : '';
     const wantMonth = new URLSearchParams(location.search).get('story') === 'month' || startParam === 'month';
-    const [monthStory] = me.hasEntries ? await Promise.all([loadMonthStory(wantMonth), loadWeeklyStories()]) : [null];
+    const storiesP = me.hasEntries ? Promise.all([loadMonthStory(wantMonth), loadWeeklyStories()]) : Promise.resolve([null]);
+    // убираем заставку, когда загрузились и истории (но ждём их не дольше 1,5 с)
+    await Promise.race([storiesP, new Promise((r) => setTimeout(r, 1500))]);
+    await hideSplash();
+    const [monthStory] = await storiesP;
     if (!me.hasEntries && !store.get('welcomed')) await openWelcome();
     // новичкам сразу показываем историю «Как пользоваться»
     const howto = visibleStories().find((s) => s.id === 'howto-v1');  // скрыта через неделю — тогда и не открываем
