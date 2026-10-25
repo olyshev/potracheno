@@ -24,7 +24,7 @@ const fail = (status, code, message) => json({ error: code, message }, status);
 const today = () => new Date().toISOString().slice(0, 10);
 const thisMonth = () => today().slice(0, 7);
 const langOf = (code) => (['ru', 'uk', 'be', 'kk', 'uz', 'ky', 'hy', 'ka', 'az', 'tg'].includes(String(code || '').slice(0, 2)) ? 'ru' : 'en');
-const validDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= '2000-01-01' && d <= addDays(today(), 1);
+const validDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= '2000-01-01' && d <= addDays(today(), 366); // будущие даты — для запланированных трат
 function addDays(day, n) {
   const d = new Date(`${day}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + n);

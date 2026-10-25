@@ -16,7 +16,7 @@
     ru: {
       addManual: 'Вручную', addReceipt: 'Скан', spent: 'Потрачено', entries: (n) => `${n} ${plural(n, ['запись', 'записи', 'записей'])}`,
       vs: (m) => `к ${m}`, same: 'как в прошлом месяце', categories: 'Категории', history: 'История', showAll: 'Все',
-      today: 'Сегодня', yesterday: 'Вчера', emptyTitle: 'Пока пусто',
+      today: 'Сегодня', yesterday: 'Вчера', tomorrow: 'Завтра', otherDate: 'Другая дата', pickDate: 'Выбрать', emptyTitle: 'Пока пусто',
       emptyText: 'Сфотографируйте чек или внесите сумму вручную. Ещё можно просто отправить фото чека боту в чат.',
       emptyPast: 'В этом месяце записей нет.',
       newExpense: 'Новая трата', amount: 'Сумма', note: 'Что купили', notePh: 'Например, кофе', date: 'Дата',
@@ -67,7 +67,7 @@
     en: {
       addManual: 'Manual', addReceipt: 'Scan', spent: 'Spent', entries: (n) => `${n} ${n === 1 ? 'entry' : 'entries'}`,
       vs: (m) => `vs ${m}`, same: 'same as last month', categories: 'Categories', history: 'History', showAll: 'All',
-      today: 'Today', yesterday: 'Yesterday', emptyTitle: 'Nothing here yet',
+      today: 'Today', yesterday: 'Yesterday', tomorrow: 'Tomorrow', otherDate: 'Other date', pickDate: 'Pick', emptyTitle: 'Nothing here yet',
       emptyText: 'Snap a receipt or add an amount manually. You can also just send a receipt photo to the bot.',
       emptyPast: 'No entries this month.',
       newExpense: 'New expense', amount: 'Amount', note: 'What was it', notePh: 'e.g. coffee', date: 'Date',
@@ -1028,6 +1028,94 @@
   }
 
   // ---------- ручной ввод ----------
+  // ---------- выбор даты колесом ----------
+  // Горизонтальное колесо на 8 дней: три дня до вчера, вчера, сегодня, завтра и ещё три дня вперёд.
+  // По краям — «Другая дата»: если докрутить до края (или нажать), открывается обычный календарь.
+  // Значение хранится в скрытом <input type="date">, поэтому остальной код работает с ним как раньше.
+  const shiftDay = (d, n) => { const x = new Date(`${d}T00:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+  const WD = { ru: ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'], en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] };
+  function dateWheelHtml(id) {
+    return `<div class="field dw" id="${id}Wrap"><label>${t('date')}</label>
+      <div class="dw-box"><div class="dw-band"></div><div class="dw-track" id="${id}Track"></div></div>
+      <input id="${id}" type="hidden" value="${state.today}"></div>`;
+  }
+  function bindDateWheel(S, id) {
+    const track = $(`#${id}Track`, S), input = $(`#${id}`, S);
+    const days = [-3, -2, -1, 0, 1, 2, 3, 4].map((n) => shiftDay(state.today, n));
+    const wd = (d) => WD[state.lang === 'ru' ? 'ru' : 'en'][new Date(`${d}T00:00:00Z`).getUTCDay()];
+    const word = { [-1]: t('yesterday'), 0: t('today'), 1: t('tomorrow') };
+    let custom = null; // дата вне колеса, выбранная в календаре
+    const item = (d, n) => {
+      const w = word[n];
+      const main = w || dayMonth(d);
+      const sub = w ? (state.lang === 'ru' ? `${Number(d.slice(8, 10))} ${MONTHS.ruGen[Number(d.slice(5, 7)) - 1].slice(0, 3)}` : dayMonth(d)) : wd(d);
+      return `<div class="dw-item" data-d="${d}"><b>${esc(main)}</b><small>${esc(sub)}</small></div>`;
+    };
+    const edge = (side) => {
+      const c = custom && ((side === 'L' && custom < days[0]) || (side === 'R' && custom > days[7])) ? custom : null;
+      return `<div class="dw-item dw-edge" data-edge="${side}">${c ? `<b>${esc(dayMonth(c))}</b><small>${esc(wd(c))}</small>` : `<b>🗓️</b><small>${t('otherDate')}</small>`}
+        <input type="date" class="dw-native" aria-label="${t('otherDate')}" value="${c || state.today}"></div>`;
+    };
+    const draw = () => { track.innerHTML = edge('L') + days.map((d, k) => item(d, k - 3)).join('') + edge('R'); bindNative(); };
+    const items = () => [...track.children];
+    const center = () => {
+      const mid = track.scrollLeft + track.clientWidth / 2;
+      let best = null, bd = Infinity;
+      for (const el of items()) { const c = el.offsetLeft + el.offsetWidth / 2, dd = Math.abs(c - mid); if (dd < bd) { bd = dd; best = el; } }
+      return best;
+    };
+    const scrollTo = (el, smooth) => track.scrollTo({ left: el.offsetLeft + el.offsetWidth / 2 - track.clientWidth / 2, behavior: smooth ? 'smooth' : 'auto' });
+    const select = (d, smooth = true) => {
+      if (input.value !== d) { input.value = d; input.dispatchEvent(new Event('change')); }
+      const inWheel = days.includes(d);
+      custom = inWheel ? null : d;
+      if (!inWheel) draw();
+      const el = inWheel ? track.querySelector(`[data-d="${d}"]`) : track.querySelector(`[data-edge="${d < days[0] ? 'L' : 'R'}"]`);
+      requestAnimationFrame(() => { scrollTo(el, smooth); paint(); });
+    };
+    // вид «колеса»: чем дальше от центра, тем мельче и прозрачнее
+    const paint = () => {
+      const mid = track.scrollLeft + track.clientWidth / 2;
+      for (const el of items()) {
+        const k = Math.min(1, Math.abs(el.offsetLeft + el.offsetWidth / 2 - mid) / (track.clientWidth / 2));
+        el.style.opacity = String(1 - k * 0.55);
+        el.style.transform = `scale(${1 - k * 0.2})`;
+      }
+    };
+    let last = null, settle = 0, pickerAt = 0;
+    const onSettled = () => {
+      const el = center();
+      if (!el) return;
+      if (el.dataset.d) { if (input.value !== el.dataset.d) { custom = null; input.value = el.dataset.d; input.dispatchEvent(new Event('change')); } return; }
+      // докрутили до края — открываем календарь (если браузер разрешит без нажатия; иначе по нажатию на край)
+      const ni = $('.dw-native', el);
+      if (custom && ((el.dataset.edge === 'L' && custom < days[0]) || (el.dataset.edge === 'R' && custom > days[7]))) return;
+      if (Date.now() - pickerAt < 1500) return;
+      pickerAt = Date.now();
+      try { ni.showPicker(); } catch { /* откроется по нажатию */ }
+    };
+    track.addEventListener('scroll', () => {
+      paint();
+      const el = center();
+      if (el && el !== last) { last = el; haptic('select'); }
+      clearTimeout(settle); settle = setTimeout(onSettled, 140);
+    }, { passive: true });
+    track.addEventListener('click', (e) => {
+      const el = e.target.closest('.dw-item');
+      if (el && el.dataset.d) select(el.dataset.d);
+    });
+    function bindNative() {
+      for (const ni of track.querySelectorAll('.dw-native')) {
+        ni.addEventListener('change', () => { if (ni.value) select(ni.value); });
+        // закрыли календарь без выбора — возвращаемся на прежнюю дату
+        ni.addEventListener('blur', () => setTimeout(() => { const el = center(); if (el && el.dataset.edge && !custom) select(input.value); }, 200));
+      }
+    }
+    draw();
+    requestAnimationFrame(() => { scrollTo(track.querySelector(`[data-d="${state.today}"]`), false); paint(); last = center(); });
+    return input;
+  }
+
   function openManual(startKind = 'expense') {
     let kind = startKind;
     let currency = state.lastCurrency || state.me.base_currency;
@@ -1035,7 +1123,7 @@
     const rep = repeatBlock('m', { day: Number(state.today.slice(8, 10)), date: state.today });
     const sh = openSheet(`
       <div class="sheet-head"><h2 id="mTitle"></h2><button class="close">${t('cancel')}</button></div>
-      <div class="field"><label for="mDate">${t('date')}</label><input id="mDate" type="date" value="${state.today}" max="${state.today}"></div>
+      ${dateWheelHtml('mDate')}
       <div class="field amount-field">
         <span class="sign" id="mSign"></span>
         <input id="mAmount" inputmode="decimal" placeholder="0" autocomplete="off" aria-label="${t('amount')}">
@@ -1047,7 +1135,7 @@
       ${rep.html}
       <button class="btn btn-primary btn-block" id="mSave">${t('save')}</button>`);
     const S = sh.sheet;
-    const amountEl = $('#mAmount', S), noteEl = $('#mNote', S), dateEl = $('#mDate', S);
+    const amountEl = $('#mAmount', S), noteEl = $('#mNote', S), dateEl = bindDateWheel(S, 'mDate');
     setTimeout(() => amountEl.focus(), 280);
     $('.close', S).addEventListener('click', () => closeSheet(sh));
     const getRepeat = rep.bind(S, (cb) => dateEl.addEventListener('change', () => cb(dateEl.value)));
