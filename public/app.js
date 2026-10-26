@@ -436,8 +436,6 @@
     clothes: 'одежду и обувь', shopping: 'покупки', fun: 'развлечения', sport: 'спорт', subscriptions: 'подписки',
     travel: 'путешествия', education: 'обучение', kids: 'детей', pets: 'питомцев', savings: 'инвестиции и сбережения', gifts: 'подарки', other: 'прочее',
   };
-  const twemoji = (e) => [...e].map((c) => c.codePointAt(0).toString(16)).filter((c) => c !== 'fe0f').join('-');
-  const emojiImg = (code, size) => `<img src="stories/emoji/${code}.svg" alt="" style="width:${size}px;height:${size}px">`;
   // Суммы для слайдов: обычные пробелы (в шрифте Unbounded неразрывный пробел нулевой ширины)
   const wrMoney = (n, cur) => {
     try {
@@ -445,15 +443,18 @@
     } catch { return `${Math.round(Math.abs(n))} ${cur}`; }
   };
 
+  // Творительный падеж месяцев: «по сравнению с августом»
+  const MONTHS_RU_INS = ['январём', 'февралём', 'мартом', 'апрелем', 'маем', 'июнем', 'июлем', 'августом', 'сентябрём', 'октябрём', 'ноябрём', 'декабрём'];
+  const w3Ill = (name, style) => `<img class="w2-ill" src="illus/${name}.svg" alt="" style="${style}">`;
+  const w3Tag = (title, sub = '') => `<div class="w2-tag">${title}${sub ? `<small>${sub}</small>` : ''}</div>`;
+  const w3Ci = (icon, bg) => `<div class="w2-ci" style="background:${bg}">${ico(icon, 62, '#000')}</div>`;
+
   function buildMonthStory(s) {
-    const cur = s.base;
-    const nw = (n) => `<span style="white-space:nowrap">${wrMoney(n, cur)}</span>`; // сумма в подписи не разрывается
+    const cur = s.base, ru = isRu();
     const expenseCount = s.categories.reduce((a, c) => a + c.count, 0);
     if (expenseCount < 5 || !s.total) return null;
-    const [y, mm] = s.month.split('-').map(Number);
-    const mi = mm - 1;
-    const name = MONTHS.ru[mi], prep = MONTHS.ruPrep[mi], gen = MONTHS.ruGen[mi];
-    const prevPrep = MONTHS.ruPrep[(mi + 11) % 12], nextPrep = MONTHS.ruPrep[(mi + 1) % 12];
+    const mi = Number(s.month.slice(5, 7)) - 1;
+    const name = ru ? MONTHS.ru[mi] : MONTHS.en[mi];
     const hasPrev = s.prevTotal > 0;
     const pct = hasPrev ? Math.round(Math.abs(s.total - s.prevTotal) / s.prevTotal * 100) : 0;
     const less = !hasPrev || s.total <= s.prevTotal;
@@ -461,77 +462,64 @@
     const top = s.categories[0];
     const busiest = s.days.reduce((b, v, d) => (v > b.v ? { v, d } : b), { v: 0, d: 0 });
     const user = state.me.first_name || '';
-    const ru = state.lang === 'ru';
-    const en = MONTHS.en[mi], prevEn = MONTHS.en[(mi + 11) % 12], nextEn = MONTHS.en[(mi + 1) % 12];
-    const catLow = (id) => (ru ? CAT_ACC[id] || catName(id).toLowerCase() : catName(id).toLowerCase());
-    const G = {
-      blue: 'linear-gradient(165deg,#2a78d6 0%,#163f73 45%,#0e0e10 100%)',
-      green: 'linear-gradient(165deg,#1f9d63 0%,#10533a 45%,#0e0e10 100%)',
-      red: 'linear-gradient(165deg,#d9483f 0%,#6e2420 45%,#0e0e10 100%)',
-      violet: 'linear-gradient(165deg,#6250d6 0%,#2f2770 45%,#0e0e10 100%)',
-      amber: 'linear-gradient(165deg,#e8962a 0%,#7a4a12 45%,#0e0e10 100%)',
-      final: 'linear-gradient(165deg,#2a78d6 0%,#1f9d63 55%,#0e0e10 100%)',
-    };
-    const slide = (bg, blob, body, stickers) => ({ html: `<div class="wr" style="background:${bg}">
-      <div class="wr-blob" style="${blob}"></div><div class="wr-tag">${ru ? `Ваш ${name}` : `Your ${en}`}</div>${body}${stickers}
-      <div class="wr-logo">потрачено<span>${BRAND_SUB()}</span></div></div>` });
-    const st = (code, size, pos) => `<div class="wr-sticker" style="${pos}">${emojiImg(code, size)}</div>`;
+    const T = w3Tag(ru ? `Ваш ${name}` : `Your ${name}`, ru ? 'итоги месяца' : 'monthly recap');
+    const wrap = (body, top = 470) => `<div class="w2-wrap" style="top:${top}px">${body}</div>`;
+    const big = (n, sign = false) => `<div class="w2-num">${bigMoney(n, cur, sign)}</div>`;
     const out = [];
-    out.push(slide(G.blue, 'width:700px;height:700px;right:-220px;top:1050px;background:rgba(90,156,240,.35)',
-      `<div class="wr-wrap"><div class="wr-num">${wrMoney(s.total, cur)}</div><div class="wr-cap">${ru ? `вы потратили<br>в ${prep}` : `you spent<br>in ${en}`}</div></div>`,
-      st('1f4b8', 300, 'right:110px;top:1240px;transform:rotate(12deg)')));
+    out.push({ html: w2Page('#fff957', '#000', w3Ill('wallet', 'right:-150px;bottom:30px;width:540px;transform:rotate(-14deg)') + T
+      + wrap(`<div class="w3-cap">${ru ? `В ${MONTHS.ruPrep[mi]}<br>вы потратили` : `In ${name}<br>you spent`}</div>${big(s.total)}`)) });
     if (hasPrev) {
-      out.push(slide(less ? G.green : G.red, 'width:640px;height:640px;left:-200px;top:1150px;background:rgba(255,255,255,.12)',
-        `<div class="wr-wrap"><div class="wr-num">${less ? '−' : '+'}${pct}%</div><div class="wr-cap">${ru ? `Это на ${pct}% ${less ? 'меньше' : 'больше'}, чем в ${prevPrep}` : `That’s ${pct}% ${less ? 'less' : 'more'} than in ${prevEn}`}</div>
-         <div class="wr-small">${nw(s.total)} ${ru ? 'против' : 'vs'} ${nw(s.prevTotal)}</div></div>`,
-        st(less ? '1f4c9' : '1f4c8', 290, 'right:120px;top:1260px;transform:rotate(-8deg)')));
+      const prevName = ru ? MONTHS_RU_INS[(mi + 11) % 12] : MONTHS.en[(mi + 11) % 12];
+      const diff = Math.abs(s.total - s.prevTotal);
+      const pill = diff >= 1 ? `<div class="w2-pill w3-pill">${ico(less ? 'trend_down' : 'trend_up', 52, '#000')} ${ru ? `на ${esc(money(diff, cur, { round: true }))} ${less ? 'меньше' : 'больше'}` : `${esc(money(diff, cur, { round: true }))} ${less ? 'less' : 'more'}`}</div>` : '';
+      out.push({ html: w2Page(less ? '#8fd9ae' : '#ffb08a', '#000', w3Ill('note', 'right:-140px;bottom:120px;width:520px;transform:rotate(-16deg)') + T
+        + wrap(`<div class="w3-cap">${ru ? `По сравнению<br>с ${prevName}` : `Compared<br>to ${prevName}`}</div>
+          <div class="w2-num">${pct === 0 ? '' : less ? '−' : '+'}${pct}<span class="fr">%</span></div>${pill}
+          <div class="w3-small">${esc(money(s.total, cur, { round: true }))} ${ru ? 'против' : 'vs'} ${esc(money(s.prevTotal, cur, { round: true }))}</div>`)) });
     }
     if (s.income > 0) {
-      out.push(slide(G.violet, 'width:720px;height:720px;right:-240px;top:980px;background:rgba(144,133,233,.3)',
-        `<div class="wr-wrap"><div class="wr-num">${wrMoney(s.income, cur)}</div><div class="wr-cap">${ru ? `вы заработали<br>в ${prep}` : `you earned<br>in ${en}`}</div></div>`,
-        st('1f4b0', 300, 'right:120px;top:1250px;transform:rotate(10deg)')));
-      out.push(slide(result >= 0 ? G.green : G.red, 'width:760px;height:760px;left:-260px;top:1080px;background:rgba(255,255,255,.1)',
-        `<div class="wr-wrap"><div class="wr-num">${result >= 0 ? '+' : '−'}${wrMoney(result, cur)}</div><div class="wr-cap">${ru ? 'финансовый результат за месяц' : 'your balance for the month'}</div>
-         <div class="wr-small">${ru ? `${nw(s.income)} доходов − ${nw(s.total)} расходов` : `${nw(s.income)} income − ${nw(s.total)} spending`}</div></div>`,
-        st(result >= 0 ? '1f3c6' : '1f62c', 290, 'right:120px;top:1270px;transform:rotate(-10deg)')));
+      out.push({ html: w2Page('#4d72f5', '#fff', w3Ill('coin', 'right:-110px;bottom:200px;width:480px;transform:rotate(12deg)')
+        + w3Ill('star', 'right:330px;bottom:520px;width:150px;transform:rotate(-12deg)') + T
+        + wrap(`<div class="w3-cap">${ru ? `В ${MONTHS.ruPrep[mi]}<br>вы заработали` : `In ${name}<br>you earned`}</div>${big(s.income)}`)) });
+      out.push({ html: w2Page('#000', '#fff', w3Ill('dollar', 'right:-60px;bottom:180px;width:400px;transform:rotate(12deg)') + T
+        + wrap(`<div class="w3-cap">${ru ? 'Финансовый<br>результат месяца' : 'Your balance<br>for the month'}</div>
+          <div style="color:${result >= 0 ? '#fff957' : '#ffb08a'}">${big(result, true)}</div>
+          <div class="w3-facts" style="width:760px">
+            <div class="w3-fact">${w3Ci('plus', '#8fd9ae')}<div>${esc(money(s.income, cur, { round: true }))} ${ru ? 'доходов' : 'income'}</div></div>
+            <div class="w3-fact">${w3Ci('minus', '#ffb08a')}<div>${esc(money(s.total, cur, { round: true }))} ${ru ? 'расходов' : 'spending'}</div></div></div>`)) });
     }
-    out.push(slide(G.amber, 'width:700px;height:700px;right:-200px;top:1120px;background:rgba(255,200,120,.22)',
-      `<div class="wr-wrap" style="top:470px"><div class="wr-cap" style="margin-top:0">${ru ? 'Больше всего вы тратили на' : 'You spent the most on'} ${esc(catLow(top.category))}</div>
-       <div class="wr-num" style="margin-top:50px">${wrMoney(top.amount, cur)}</div>
-       <div class="wr-small">${Math.round(top.amount / s.total * 100)}% ${ru ? 'всех трат за месяц' : 'of all spending this month'}</div></div>`,
-      st(twemoji(cat(top.category).emoji), 320, 'right:130px;top:1240px;transform:rotate(8deg)')));
+    const topName = ru ? (CAT_ACC[top.category] || catName(top.category).toLowerCase()) : catName(top.category);
+    out.push({ html: w2Page('#fff', '#000', w3Ill('ruble', 'right:-80px;bottom:200px;width:380px;transform:rotate(-12deg)') + T
+      + wrap(`<div class="w3-cap">${ru ? 'Больше всего вы<br>тратили на' : 'You spent<br>the most on'}</div>
+        <div class="w2-card w2-top" style="margin-top:60px">${w2Ico(top.category)}<div><div class="w2-v">${esc(topName)}</div>
+          <div class="w2-k" style="margin-top:6px">${Math.round(top.amount / s.total * 100)}% ${ru ? 'всех трат' : 'of all spending'}</div></div></div>
+        <div style="margin-top:40px">${big(top.amount)}</div>`)) });
     if (busiest.v > 0) {
-      out.push(slide(G.blue, 'width:700px;height:700px;left:-220px;top:1120px;background:rgba(90,156,240,.3)',
-        `<div class="wr-wrap" style="top:470px"><div class="wr-cap" style="margin-top:0">${ru ? 'Самый дорогой день месяца —' : 'Your priciest day of the month —'}</div>
-         <div class="wr-num" style="margin-top:40px;font-size:260px">${busiest.d + 1}</div><div class="wr-num wr-mid">${ru ? gen : en}</div>
-         <div class="wr-cap">${ru ? 'Тогда вы потратили' : 'You spent'} ${nw(busiest.v)}${ru ? '' : ' that day'}</div></div>`,
-        st('1f525', 280, 'right:120px;top:1300px;transform:rotate(-8deg)')));
+      out.push({ html: w2Page('#ffb08a', '#000', w3Ill('euro', 'right:-70px;bottom:190px;width:380px;transform:rotate(12deg)') + T
+        + wrap(`<div class="w3-cap">${ru ? 'Самый дорогой<br>день месяца' : 'Your priciest<br>day of the month'}</div>
+          <div class="w3-big" style="margin-top:40px">${busiest.d + 1}</div><div class="w3-unit">${ru ? MONTHS.ruGen[mi] : name}</div>
+          <div class="w2-pill w3-pill">${ru ? 'вы потратили' : 'you spent'} ${esc(money(busiest.v, cur, { round: true }))}</div>`)) });
     }
     const nm = user ? `, ${esc(user)}` : '';
-    const finalText = ru ? (less ? `Так держать${nm}!` : `Отличная работа${nm}! Давайте постараемся в ${nextPrep}.`)
-      : (less ? `Keep it up${nm}!` : `Great job${nm}! Let’s do even better in ${nextEn}.`);
-    out.push(slide(G.final, 'width:760px;height:760px;right:-240px;top:1060px;background:rgba(255,255,255,.12)',
-      `<div class="wr-wrap" style="top:560px"><div class="wr-cap" style="font-size:${less ? 96 : 84}px;line-height:1.1;margin-top:0">${finalText}</div></div>`,
-      st(less ? '1f64c' : '1f4aa', 300, `right:120px;top:1250px;transform:rotate(${less ? -8 : 8}deg)`) + st('1f389', 150, 'left:150px;top:1380px;transform:rotate(-14deg)')));
-    // призыв поделиться: кнопка «Я в деле!» открывает карточку с типажом; слайд не листается сам
-    out.push({ hold: true, html: `<div class="wr" style="background:linear-gradient(165deg,#6250d6 0%,#2a78d6 50%,#0e0e10 100%)">
-      <div class="wr-blob" style="width:760px;height:760px;left:-260px;top:1000px;background:rgba(255,255,255,.1)"></div>
-      <div class="wr-tag">${ru ? `Ваш ${name}` : `Your ${en}`}</div>
-      <div class="wr-wrap" style="top:330px"><div class="wr-cap" style="font-size:64px;line-height:1.15;margin-top:0">${ru ? 'Узнайте свой финансовый типаж и поделитесь результатами с друзьями, а мы подарим вам 5 сканов' : 'Discover your money personality and share it with friends — we’ll give you 5 free scans'}</div></div>
-      <img src="stories/share-teaser${ru ? '' : '-en'}.webp" alt="" style="position:absolute;left:330px;top:900px;width:420px;border-radius:36px;transform:rotate(-6deg);box-shadow:0 0 0 8px #fff,18px 22px 0 8px rgba(0,0,0,.35)">
-      ${st('1f381', 220, 'right:120px;top:1180px;transform:rotate(14deg)')}
-      <button class="wr-action" data-share>${ru ? 'Я в деле!' : 'I’m in!'}</button>
-      <div class="wr-logo">потрачено<span>${BRAND_SUB()}</span></div></div>`,
+    const finalText = ru ? (less ? `Так держать${nm}!` : `Отличная работа${nm}! Давайте постараемся в ${MONTHS.ruPrep[(mi + 1) % 12]}.`)
+      : (less ? `Keep it up${nm}!` : `Great job${nm}! Let’s do even better in ${MONTHS.en[(mi + 1) % 12]}.`);
+    out.push({ html: w2Page('#fff957', '#000', w3Ill('star', 'right:120px;top:1150px;width:300px;transform:rotate(-12deg)')
+      + w3Ill('coin', 'left:-120px;bottom:120px;width:460px;transform:rotate(14deg)') + T
+      + wrap(`<div class="w3-big" style="font-size:${finalText.length > 26 ? 104 : 150}px;letter-spacing:-5px;line-height:1.02">${finalText}</div>`, 560)) });
+    // призыв поделиться: кнопка открывает карточку с типажом; слайд не листается сам
+    out.push({ hold: true, html: w2Page('#000', '#fff', T + wrap(`<div class="w3-cap" style="font-size:62px">${ru
+        ? 'Узнайте свой финансовый типаж и поделитесь с друзьями — а мы подарим 5 сканов'
+        : 'Discover your money personality and share it with friends — we’ll give you 5 free scans'}</div>`, 400)
+      + '<div class="w3-prev" style="background:#fff957"><img data-preview alt=""></div>'
+      + w3Ill('star', 'right:90px;top:1300px;width:200px;transform:rotate(12deg)')
+      + `<button class="w3-btn" data-share>${ru ? 'Я в деле!' : 'I’m in!'}</button>`),
       onShow: (root, close) => {
+        const img = root.querySelector('[data-preview]');
+        if (img && !img.src) drawShareCard(shareData(s)).then((c) => { img.src = c.toDataURL('image/jpeg', 0.8); }).catch(() => {});
         const b = root.querySelector('[data-share]');
         if (b) b.addEventListener('click', () => { haptic('select'); close(); openShareSheet(s); });
       } });
-    return {
-      id: `month-${s.month}`, duration: 5000,
-      title: { ru: `Ваш ${name}`, en: `Your ${MONTHS.en[mi]}` },
-      coverHtml: `<span class="story-img wr-cover">${emojiImg('1f4b8', 40)}</span>`,
-      slides: out, dynamic: 'month',
-    };
+    return { id: `month-${s.month}`, duration: 5000, title: { ru: `Ваш ${MONTHS.ru[mi]}`, en: `Your ${MONTHS.en[mi]}` }, slides: out, dynamic: 'month' };
   }
 
   // ---------- шеринг: карточка «Мой типаж месяца» ----------
@@ -552,26 +540,25 @@
     kids: 'Super parent', savings: 'Shareholder', gifts: 'Humanist',
   };
 
-  // Данные карточки из сводки месяца: без сумм, только проценты и достижения
+  // Данные карточки из сводки месяца: без сумм, только проценты и достижения. Факт: [значок, фон, текст]
   function shareData(s) {
     const mi = Number(s.month.slice(5, 7)) - 1;
     const top = s.categories[0];
     const ru = state.lang === 'ru';
-    const [ruTitle, icon] = ARCHETYPES[top.category] || DEFAULT_ARCHETYPE;
-    const title = ru ? ruTitle : (ARCHETYPES_EN[top.category] || 'Financial strategist');
+    const title = ru ? (ARCHETYPES[top.category] || DEFAULT_ARCHETYPE)[0] : (ARCHETYPES_EN[top.category] || 'Financial strategist');
     const facts = [];
     if (s.prevTotal > 0 && s.total < s.prevTotal) {
       const p = Math.round((s.prevTotal - s.total) / s.prevTotal * 100);
-      facts.push(['1f4c9', ru ? `−${p}% трат к ${MONTHS.ruDat[(mi + 11) % 12]}` : `−${p}% spending vs ${MONTHS.en[(mi + 11) % 12]}`]);
+      facts.push(['trend_down', '#8fd9ae', ru ? `−${p}% трат к ${MONTHS.ruDat[(mi + 11) % 12]}` : `−${p}% spending vs ${MONTHS.en[(mi + 11) % 12]}`]);
     }
     if (s.income > 0 && s.income > s.total) {
       const p = Math.round((s.income - s.total) / s.income * 100);
-      facts.push(['2705', ru ? `Месяц в плюсе: осталось ${p}% дохода` : `Month in the black: ${p}% of income left`]);
+      facts.push(['wallet', '#eaeeff', ru ? `Месяц в плюсе: осталось ${p}% дохода` : `Month in the black: ${p}% of income left`]);
     }
-    facts.push([twemoji(cat(top.category).emoji), ru ? `Больше всего — на ${CAT_ACC[top.category] || catName(top.category).toLowerCase()}` : `Spent the most on ${catName(top.category).toLowerCase()}`]);
+    facts.push([top.category, tintOf(top.category), ru ? `Больше всего — на ${CAT_ACC[top.category] || catName(top.category).toLowerCase()}` : `Spent the most on ${catName(top.category).toLowerCase()}`]);
     const tracked = s.days.filter((v) => v > 0).length;
-    if (facts.length < 3) facts.push(['1f4d2', ru ? `Учёт вёлся ${tracked} дней из ${s.days.length}` : `Tracked ${tracked} of ${s.days.length} days`]);
-    return { month: ru ? MONTHS.ru[mi] : MONTHS.en[mi], title, icon, facts: facts.slice(0, 3) };
+    if (facts.length < 3) facts.push(['calendar', '#ffe1d0', ru ? `Учёт вёлся ${tracked} дней из ${s.days.length}` : `Tracked ${tracked} of ${s.days.length} days`]);
+    return { month: ru ? MONTHS.ru[mi] : MONTHS.en[mi], title, cat: top.category, facts: facts.slice(0, 3) };
   }
 
   const loadImg = (src) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
@@ -586,75 +573,93 @@
     if (line) lines.push(line);
     return lines;
   }
-  // кнопка внизу карточки: «Считаю деньги в @бот»; если не влезает — уменьшаем шрифт
-  function ctaText(ctx, L, CW, ctaY, ctaH, accent) {
-    const a = state.lang === 'ru' ? 'Считаю деньги в ' : 'I track money with ', b = `@${BOT_USERNAME}`;
-    let fs = 48;
-    do { fs -= 2; ctx.font = `800 ${fs}px WrM`; } while (ctx.measureText(a + b).width > CW - 70 && fs > 30);
-    const tw = ctx.measureText(a + b).width, tx = L + (CW - tw) / 2, ty = ctaY + ctaH / 2 + 16;
-    ctx.fillStyle = '#111'; ctx.fillText(a, tx, ty);
-    ctx.fillStyle = accent; ctx.fillText(b, tx + ctx.measureText(a).width, ty);
-  }
   function spaced(ctx, text, x, y, gap) { for (const ch of text) { ctx.fillText(ch, x, y); x += ctx.measureText(ch).width + gap; } }
 
-  // Рисуем карточку 1080×1920 на canvas (тот же макет, что согласовали)
+  // ---- рисование карточек (стиль историй: плоский цвет, чёрная обводка, жёсткая тень) ----
+  const svgImg = (svg) => loadImg(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" '))}`);
+  const cvFonts = () => Promise.all(['800 40px Man', '700 40px Man'].map((f) => (document.fonts ? document.fonts.load(f, 'АаZz') : null)));
+  function cvBox(ctx, x, y, w, h, r, fill, sh = 12) {
+    ctx.fillStyle = '#000'; rr(ctx, x + sh * 0.85, y + sh, w, h, r); ctx.fill();
+    ctx.fillStyle = fill; rr(ctx, x, y, w, h, r); ctx.fill();
+    ctx.lineWidth = 5; ctx.strokeStyle = '#000'; ctx.stroke();
+  }
+  // кружок со значком: id категории или имя иконки из набора
+  async function cvIcon(ctx, id, x, y, d, bg) {
+    ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(x + d / 2, y + d / 2, d / 2 - 2.5, 0, 2 * Math.PI); ctx.fill();
+    ctx.lineWidth = 5; ctx.strokeStyle = '#000'; ctx.stroke();
+    let name = null, emoji = null;
+    if (window.ICONS.CAT[id] !== undefined || state.custom && state.custom.some((c) => c.id === id)) {
+      const c = cat(id), pe = state.prefs && state.prefs[id] && state.prefs[id].emoji;
+      const own = c.custom || (pe && state.baseCats[id] && pe !== state.baseCats[id].emoji);
+      if (window.ICONS.CAT[id] && !own) name = window.ICONS.CAT[id]; else emoji = c.emoji;
+    } else name = id;
+    if (name) {
+      const im = await svgImg(window.ICONS.icon(name, 96, '#000')).catch(() => null);
+      if (im) ctx.drawImage(im, x + d * 0.25, y + d * 0.25, d * 0.5, d * 0.5);
+    } else if (emoji) {
+      ctx.font = `${Math.round(d * 0.48)}px sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = '#000';
+      ctx.fillText(emoji, x + d / 2, y + d * 0.67); ctx.textAlign = 'left';
+    }
+  }
+  async function cvIll(ctx, name, x, y, w, deg) {
+    const im = await loadImg(`illus/${name}.svg`).catch(() => null);
+    if (!im) return;
+    const h = w * (im.naturalHeight / im.naturalWidth || 1);
+    ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.rotate(deg * Math.PI / 180); ctx.drawImage(im, -w / 2, -h / 2, w, h); ctx.restore();
+  }
+  const setLs = (ctx, px) => { if ('letterSpacing' in ctx) ctx.letterSpacing = `${px}px`; };
+  // логотип и кнопка «Считаю деньги в @бот» внизу карточки
+  function cvFooter(ctx, W, H, fg, pill, pillText, accent) {
+    const L = 110, CW = W - 2 * L, ctaH = 126, ctaY = H - 150 - ctaH;
+    ctx.fillStyle = fg; setLs(ctx, -1); ctx.font = '800 50px Man'; ctx.fillText('потрачено', L, ctaY - 96); setLs(ctx, 0);
+    ctx.globalAlpha = 0.6; ctx.font = '800 22px Man'; spaced(ctx, BRAND_SUB(), L, ctaY - 58, 7); ctx.globalAlpha = 1;
+    ctx.fillStyle = pill; rr(ctx, L, ctaY, CW, ctaH, 44); ctx.fill();
+    const a = state.lang === 'ru' ? 'Считаю деньги в ' : 'I track money with ', b = `@${BOT_USERNAME}`;
+    let fs = 46;
+    do { fs -= 2; ctx.font = `800 ${fs}px Man`; } while (ctx.measureText(a + b).width > CW - 80 && fs > 30);
+    const tw = ctx.measureText(a + b).width, tx = L + (CW - tw) / 2, ty = ctaY + ctaH / 2 + fs * 0.36;
+    ctx.fillStyle = pillText; ctx.fillText(a, tx, ty);
+    ctx.fillStyle = accent; ctx.fillText(b, tx + ctx.measureText(a).width, ty);
+  }
+
+  // Карточка «Мой типаж месяца» 1080×1920
   async function drawShareCard(d) {
-    await Promise.all(['900 100px WrU', '800 40px WrM', '700 40px WrM'].map((f) => (document.fonts ? document.fonts.load(f) : null)));
-    const W = 1080, H = 1920, L = 110, R = W - 110, CW = R - L;
+    await cvFonts();
+    const W = 1080, H = 1920, L = 110, CW = W - 2 * L, ru = state.lang === 'ru';
     const c = document.createElement('canvas'); c.width = W; c.height = H;
     const ctx = c.getContext('2d');
-    const g = ctx.createLinearGradient(0, 0, W * 0.45, H);
-    g.addColorStop(0, '#2a78d6'); g.addColorStop(0.35, '#1a4f8f'); g.addColorStop(0.7, '#10213a'); g.addColorStop(1, '#0e0e10');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    const blob = (x, y, r, col) => { const rg = ctx.createRadialGradient(x, y, 0, x, y, r); rg.addColorStop(0, col); rg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = rg; ctx.fillRect(x - r, y - r, 2 * r, 2 * r); };
-    blob(-20, 1390, 520, 'rgba(31,157,99,.38)'); blob(1000, 60, 420, 'rgba(120,180,255,.35)');
-    ctx.fillStyle = '#fff'; ctx.textBaseline = 'alphabetic';
-    // «Мой октябрь»
-    const ru = state.lang === 'ru';
-    ctx.font = '900 46px WrU'; ctx.globalAlpha = 0.9; ctx.fillText(ru ? `Мой ${d.month}` : `My ${d.month}`, L, 246); ctx.globalAlpha = 1;
-    // иконка в плашке + «Мой типаж месяца»
-    const ico = await loadImg(`stories/emoji/${d.icon}.svg`).catch(() => null);
-    ctx.fillStyle = 'rgba(0,0,0,.3)'; rr(ctx, L + 8, 346, 150, 150, 40); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,.12)'; rr(ctx, L, 336, 150, 150, 40); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.lineWidth = 4; ctx.stroke();
-    if (ico) ctx.drawImage(ico, L + 23, 359, 104, 104);
-    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = '800 42px WrM';
-    ctx.fillText(ru ? 'Мой типаж' : 'My money', L + 176, 402); ctx.fillText(ru ? 'месяца' : 'personality', L + 176, 452);
-    // типаж: максимум две строки, слово не разрывается
-    let fs = 116, lines;
+    ctx.fillStyle = '#fff957'; ctx.fillRect(0, 0, W, H);
+    ctx.textBaseline = 'alphabetic';
+    await cvIll(ctx, 'star', W - 90 - 170, 150, 170, 14);
+    ctx.fillStyle = '#000'; setLs(ctx, -0.5); ctx.font = '800 44px Man'; ctx.fillText(ru ? `Мой ${d.month}` : `My ${d.month}`, L, 232);
+    await cvIcon(ctx, d.cat, L, 340, 128, '#fff');
+    ctx.globalAlpha = 0.7; ctx.fillStyle = '#000'; ctx.font = '800 46px Man'; setLs(ctx, -1);
+    ctx.fillText(ru ? 'Мой типаж' : 'My money', L + 158, 396); ctx.fillText(ru ? 'месяца' : 'personality', L + 158, 450); ctx.globalAlpha = 1;
+    // типаж: не больше двух строк, слово не разрывается
+    let fs = 150, lines;
     for (;;) {
-      ctx.font = `900 ${fs}px WrU`;
+      ctx.font = `800 ${fs}px Man`; setLs(ctx, -fs * 0.04);
       lines = wrapLines(ctx, d.title, CW);
       const tooWide = d.title.split(' ').some((w) => ctx.measureText(w).width > CW);
-      if ((lines.length <= 2 && !tooWide) || fs <= 64) break;
-      fs -= 4;
+      if ((lines.length <= 2 && !tooWide) || fs <= 80) break;
+      fs -= 6;
     }
-    ctx.fillStyle = '#fff';
-    let y = 522 + fs * 0.82;
-    lines.forEach((ln, k) => ctx.fillText(ln, L - 4, y + k * fs * 1.02));
-    y += (lines.length - 1) * fs * 1.02 + fs * 0.2 + 80;
-    // факты
-    for (const [code, text] of d.facts) {
-      ctx.font = '800 40px WrM';
-      const tl = wrapLines(ctx, text, CW - 68 - 64 - 26);
-      const h = Math.max(120, 56 + tl.length * 48);
-      ctx.fillStyle = 'rgba(0,0,0,.3)'; rr(ctx, L + 8, y + 10, CW, h, 36); ctx.fill();
-      ctx.fillStyle = 'rgba(40,60,100,.55)'; rr(ctx, L, y, CW, h, 36); ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,.14)'; ctx.lineWidth = 3; ctx.stroke();
-      const im = await loadImg(`stories/emoji/${code}.svg`).catch(() => null);
-      if (im) ctx.drawImage(im, L + 34, y + (h - 64) / 2, 64, 64);
-      ctx.fillStyle = '#fff';
-      const ty = y + h / 2 - (tl.length - 1) * 24 + 14;
-      tl.forEach((ln, k) => ctx.fillText(ln, L + 34 + 64 + 26, ty + k * 48));
-      y += h + 20;
+    let y = 520 + fs * 0.8;
+    lines.forEach((ln, k) => ctx.fillText(ln, L - 4, y + k * fs * 0.98));
+    y += (lines.length - 1) * fs * 0.98 + fs * 0.2 + 70;
+    setLs(ctx, 0);
+    for (const [icon, bg, text] of d.facts) {
+      ctx.font = '800 42px Man';
+      const tl = wrapLines(ctx, text, CW - 34 - 96 - 30 - 34);
+      const h = Math.max(152, 56 + tl.length * 50);
+      cvBox(ctx, L, y, CW, h, 44, '#fff', 12);
+      await cvIcon(ctx, icon, L + 34, y + (h - 96) / 2, 96, bg);
+      ctx.fillStyle = '#000'; ctx.font = '800 42px Man';
+      const ty = y + h / 2 - (tl.length - 1) * 25 + 15;
+      tl.forEach((ln, k) => ctx.fillText(ln, L + 34 + 96 + 30, ty + k * 50));
+      y += h + 26;
     }
-    // логотип и кнопка с адресом бота
-    const ctaH = 122, ctaY = H - 140 - ctaH;
-    ctx.fillStyle = '#fff'; ctx.font = '900 50px WrU'; ctx.fillText('потрачено', L, ctaY - 70);
-    ctx.fillStyle = '#8fbaf5'; ctx.font = '800 22px WrM'; spaced(ctx, BRAND_SUB(), L, ctaY - 34, 7);
-    ctx.fillStyle = 'rgba(0,0,0,.35)'; rr(ctx, L + 9, ctaY + 11, CW, ctaH, 34); ctx.fill();
-    ctx.fillStyle = '#fff'; rr(ctx, L, ctaY, CW, ctaH, 34); ctx.fill();
-    ctaText(ctx, L, CW, ctaY, ctaH, '#2a78d6');
+    cvFooter(ctx, W, H, '#000', '#000', '#fff', '#fff957');
     return c;
   }
 
@@ -730,21 +735,24 @@
 
   // ---------- юбилеи: месяц, 100/200/300 дней, год ----------
   const MILESTONES = [
-    { d: 30, n: '1', unit: 'месяц', phrase: 'Месяц', title: 'Месяц с нами', icon: '1f389', bg: ['#2a78d6', '#6250d6', '#1a1440'] },
-    { d: 100, n: '100', unit: 'дней', phrase: '100 дней', title: '100 дней', icon: '1f3c6', bg: ['#e8962a', '#d9483f', '#4a1418'] },
-    { d: 200, n: '200', unit: 'дней', phrase: '200 дней', title: '200 дней', icon: '1f3c6', bg: ['#d9483f', '#a2348f', '#3a1236'] },
-    { d: 300, n: '300', unit: 'дней', phrase: '300 дней', title: '300 дней', icon: '1f3c6', bg: ['#1f7a8c', '#2a78d6', '#10213a'] },
-    { d: 365, n: '1', unit: 'год', phrase: 'Год', title: 'Год с нами', icon: '1f382', bg: ['#1f9d63', '#1f7a8c', '#0f2f3a'] },
+    { d: 30, n: '1', unit: 'месяц', phrase: 'Уже целый месяц', title: 'Месяц с нами', bg: '#fff957', fg: '#000' },
+    { d: 100, n: '100', unit: 'дней', phrase: '100 дней', title: '100 дней', bg: '#4d72f5', fg: '#fff' },
+    { d: 200, n: '200', unit: 'дней', phrase: '200 дней', title: '200 дней', bg: '#ffb08a', fg: '#000' },
+    { d: 300, n: '300', unit: 'дней', phrase: '300 дней', title: '300 дней', bg: '#8fd9ae', fg: '#000' },
+    { d: 365, n: '1', unit: 'год', phrase: 'Целый год', title: 'Год с нами', bg: '#000', fg: '#fff' },
   ];
   const MILESTONES_EN = {
-    30: { unit: 'month', phrase: 'One month', title: 'One month with us' }, 100: { unit: 'days', phrase: '100 days', title: '100 days' },
+    30: { unit: 'month', phrase: 'A whole month', title: 'One month with us' }, 100: { unit: 'days', phrase: '100 days', title: '100 days' },
     200: { unit: 'days', phrase: '200 days', title: '200 days' }, 300: { unit: 'days', phrase: '300 days', title: '300 days' },
-    365: { unit: 'year', phrase: 'One year', title: 'One year with us' },
+    365: { unit: 'year', phrase: 'A whole year', title: 'One year with us' },
   };
   const msT = (m) => (state.lang === 'ru' ? m : { ...m, ...MILESTONES_EN[m.d] });
-  const CONFETTI = [[150, 1180, '#ffd84a', 0], [880, 1060, '#7fe0b0', 30], [300, 1500, '#ffffff', 60], [760, 1420, '#ff8fb1', 15],
-    [520, 1240, '#9cc3f7', 45], [930, 1600, '#ffd84a', 70], [190, 1700, '#7fe0b0', 20]];
-  const msGrad = (m) => `linear-gradient(165deg,${m.bg[0]} 0%,${m.bg[1]} 45%,${m.bg[2]} 80%,#0e0e10 100%)`;
+  // конфетти: [x, y, цвет, поворот]; кусочки цвета фона не рисуем
+  const CONFETTI = [[140, 1240, '#fff957', -20], [860, 1080, '#8fd9ae', 30], [300, 1560, '#ffb08a', 60], [760, 1450, '#ff8fb1', 15],
+    [560, 1250, '#4d72f5', 45], [930, 1640, '#ffffff', 70], [640, 1700, '#8fd9ae', 20]];
+  const confOf = (m) => CONFETTI.filter((x) => x[2] !== m.bg);
+  // кнопка внизу карточки: на тёмном фоне — белая, на светлом — чёрная
+  const msDark = (m) => m.fg === '#fff';
   // текущий юбилей — неделю после наступления
   function currentMilestone() {
     const days = state.daysTracking;
@@ -752,75 +760,58 @@
     return MILESTONES.find((m) => days >= m.d && days < m.d + 7) || null;
   }
 
-  async function drawMilestoneCard(m) {
-    await Promise.all(['900 100px WrU', '800 40px WrM'].map((f) => (document.fonts ? document.fonts.load(f) : null)));
-    const W = 1080, H = 1920, L = 124, CW = W - 2 * L;
+  async function drawMilestoneCard(m0) {
+    await cvFonts();
+    const m = msT(m0), ru = state.lang === 'ru';
+    const W = 1080, H = 1920, L = 110;
     const c = document.createElement('canvas'); c.width = W; c.height = H;
     const ctx = c.getContext('2d');
-    const g = ctx.createLinearGradient(0, 0, W * 0.45, H);
-    g.addColorStop(0, m.bg[0]); g.addColorStop(0.45, m.bg[1]); g.addColorStop(0.8, m.bg[2]); g.addColorStop(1, '#0e0e10');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    const rg = ctx.createRadialGradient(70, 1410, 0, 70, 1410, 480); rg.addColorStop(0, 'rgba(255,255,255,.13)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = rg; ctx.fillRect(0, 900, W, 1020);
-    for (const [x, y, col, r] of CONFETTI) { ctx.save(); ctx.translate(x + 17, y + 7); ctx.rotate(r * Math.PI / 180); ctx.fillStyle = col; rr(ctx, -17, -7, 34, 14, 6); ctx.fill(); ctx.restore(); }
-    ctx.fillStyle = '#fff'; ctx.textBaseline = 'alphabetic';
-    const ru = state.lang === 'ru'; m = msT(m);
-    ctx.font = '900 46px WrU'; ctx.globalAlpha = 0.9; ctx.fillText(ru ? 'Мой юбилей' : 'My milestone', L, 250); ctx.globalAlpha = 1;
+    ctx.fillStyle = m.bg; ctx.fillRect(0, 0, W, H);
+    ctx.textBaseline = 'alphabetic';
+    for (const [x, y, col, r] of confOf(m)) {
+      ctx.save(); ctx.translate(x + 23, y + 10); ctx.rotate(r * Math.PI / 180);
+      ctx.fillStyle = col; rr(ctx, -23, -10, 46, 20, 8); ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = '#000'; ctx.stroke(); ctx.restore();
+    }
+    await cvIll(ctx, 'star', W - 110 - 300, 1080, 300, 12);
+    ctx.fillStyle = m.fg; setLs(ctx, -0.5); ctx.font = '800 44px Man'; ctx.fillText(ru ? 'Мой юбилей' : 'My milestone', L, 232);
     const big = m.n.length < 3 ? 420 : 330;
-    ctx.font = `900 ${big}px WrU`; ctx.fillText(m.n, L - 10, 430 + big * 0.78);
-    const unitY = 430 + big * 0.9 + 110;
-    ctx.font = '900 120px WrU'; ctx.fillText(m.unit, L - 4, unitY);
-    ctx.font = '800 72px WrM';
-    wrapLines(ctx, ru ? `${m.phrase} слежу за деньгами` : `${m.phrase} of tracking my money`, CW).forEach((ln, k) => ctx.fillText(ln, L, unitY + 130 + k * 84));
-    const ico = await loadImg(`stories/emoji/${m.icon}.svg`).catch(() => null);
-    if (ico) { ctx.save(); ctx.translate(W - 130 - 150, 1080 + 150); ctx.rotate(-10 * Math.PI / 180); ctx.globalAlpha = 0.35; ctx.drawImage(ico, -150 + 10, -150 + 14, 300, 300); ctx.globalAlpha = 1; ctx.drawImage(ico, -150, -150, 300, 300); ctx.restore(); }
-    const ctaH = 122, ctaY = H - 140 - ctaH;
-    ctx.fillStyle = '#fff'; ctx.font = '900 50px WrU'; ctx.fillText('потрачено', L, ctaY - 70);
-    ctx.fillStyle = '#e8eeff'; ctx.font = '800 22px WrM'; spaced(ctx, BRAND_SUB(), L, ctaY - 34, 7);
-    ctx.fillStyle = 'rgba(0,0,0,.35)'; rr(ctx, L + 9, ctaY + 11, CW, ctaH, 34); ctx.fill();
-    ctx.fillStyle = '#fff'; rr(ctx, L, ctaY, CW, ctaH, 34); ctx.fill();
-    ctaText(ctx, L, CW, ctaY, ctaH, '#6a3fd6');
+    ctx.font = `800 ${big}px Man`; setLs(ctx, -big * 0.045); ctx.fillText(m.n, L - 8, 400 + big * 0.74);
+    const unitY = 400 + big * 0.9 + 112;
+    ctx.font = '800 120px Man'; setLs(ctx, -4); ctx.fillText(m.unit, L - 4, unitY);
+    ctx.font = '700 52px Man'; setLs(ctx, -0.5);
+    ctx.fillText(ru ? 'слежу за деньгами' : 'of tracking my money', L, unitY + 110);
+    setLs(ctx, 0);
+    cvFooter(ctx, W, H, m.fg, msDark(m) ? '#fff' : '#000', msDark(m) ? '#000' : '#fff', msDark(m) ? '#4d72f5' : '#fff957');
     return c;
   }
   function shareMilestone(m) {
     const mt = msT(m);
-    const storyText = state.lang === 'ru' ? `${mt.phrase} слежу за деньгами в @${BOT_USERNAME} 🎉` : `${mt.phrase} of tracking my money with @${BOT_USERNAME} 🎉`;
+    const storyText = state.lang === 'ru' ? `${m.n} ${m.unit} слежу за деньгами в @${BOT_USERNAME} 🎉` : `${m.n} ${mt.unit} of tracking my money with @${BOT_USERNAME} 🎉`;
     return openShareCard({ draw: () => drawMilestoneCard(m), storyText,
       file: `potracheno-${m.d}.jpg`, hint: !(state.me.milestonesShared || []).includes(m.d), milestone: m.d });
   }
   function buildMilestoneStory(m0) {
     const ru = state.lang === 'ru', m = msT(m0);
-    const conf = CONFETTI.map(([x, y, col, r]) => `<div style="position:absolute;left:${x}px;top:${y}px;width:34px;height:14px;border-radius:6px;background:${col};transform:rotate(${r}deg)"></div>`).join('');
-    const st = (code, size, pos) => `<div class="wr-sticker" style="${pos}">${emojiImg(code, size)}</div>`;
-    const congrats = `<div class="wr" style="background:${msGrad(m)}">
-      <div class="wr-blob" style="width:760px;height:760px;right:-260px;top:-120px;background:rgba(255,255,255,.14)"></div>
-      <div class="wr-tag">${ru ? 'Юбилей' : 'Milestone'}</div>${conf}
-      <div class="wr-wrap" style="top:400px"><div class="wr-num" style="font-size:${m.n.length < 3 ? 420 : 330}px;letter-spacing:-12px;line-height:.9">${m.n}</div>
-        <div class="wr-num" style="font-size:120px;letter-spacing:-3px;margin-top:10px">${m.unit}</div>
-        <div class="wr-cap" style="margin-top:60px">${ru ? `${m.phrase} вы следите за деньгами. Это не только привычка, но повод гордиться собой. Отличная работа!` : `${m.phrase} of tracking your money. It’s not just a habit — it’s something to be proud of. Great job!`}</div></div>
-      ${st(m.icon, 260, 'right:130px;top:1420px;transform:rotate(12deg)')}
-      <div class="wr-logo">потрачено<span>${BRAND_SUB()}</span></div></div>`;
+    const conf = confOf(m).map(([x, y, col, r]) => `<div class="w3-conf" style="left:${x}px;top:${y}px;background:${col};transform:rotate(${r}deg)"></div>`).join('');
+    const T = w3Tag(ru ? 'Юбилей' : 'Milestone');
+    const text = ru ? `${m.phrase} вы следите за деньгами. Это не только привычка, но повод гордиться собой. Отличная работа!`
+      : `${m.phrase} of tracking your money. It’s not just a habit — it’s something to be proud of. Great job!`;
+    const congrats = w2Page(m.bg, m.fg, conf + w3Ill('star', 'right:110px;top:1250px;width:320px;transform:rotate(12deg)') + T
+      + `<div class="w2-wrap" style="top:400px"><div class="w3-big" style="font-size:${m.n.length < 3 ? 420 : 330}px">${m.n}</div><div class="w3-unit">${m.unit}</div>
+        <div class="w3-txt" style="width:820px">${text}</div></div>`);
     const bonus = !(state.me.milestonesShared || []).includes(m.d);
-    const cta = { hold: true, html: `<div class="wr" style="background:linear-gradient(165deg,#6250d6 0%,#2a78d6 50%,#0e0e10 100%)">
-      <div class="wr-blob" style="width:760px;height:760px;left:-260px;top:1000px;background:rgba(255,255,255,.1)"></div>
-      <div class="wr-tag">${ru ? 'Юбилей' : 'Milestone'}</div>
-      <div class="wr-wrap" style="top:330px"><div class="wr-cap" style="font-size:64px;line-height:1.15;margin-top:0">${ru ? (bonus ? 'Поделитесь достижением с друзьями, а мы подарим вам 5 сканов' : 'Поделитесь достижением с друзьями') : (bonus ? 'Share your achievement with friends and get 5 free scans' : 'Share your achievement with friends')}</div></div>
-      <img data-preview alt="" style="position:absolute;left:330px;top:820px;width:420px;aspect-ratio:9/16;border-radius:36px;transform:rotate(-6deg);box-shadow:0 0 0 8px #fff,18px 22px 0 8px rgba(0,0,0,.35);background:${msGrad(m)}">
-      ${st('1f381', 220, 'right:120px;top:1120px;transform:rotate(14deg)')}
-      <button class="wr-action" data-share>${ru ? 'Поделиться' : 'Share'}</button>
-      <div class="wr-logo">потрачено<span>${BRAND_SUB()}</span></div></div>`,
+    const cta = { hold: true, html: w2Page('#000', '#fff', T + `<div class="w2-wrap" style="top:400px"><div class="w3-cap" style="font-size:62px">${ru
+        ? `Поделитесь достижением с друзьями${bonus ? ' — а мы подарим 5 сканов' : ''}`
+        : `Share your achievement with friends${bonus ? ' and get 5 free scans' : ''}`}</div></div>
+      <div class="w3-prev" style="background:${m.bg}"><img data-preview alt=""></div>
+      <button class="w3-btn" data-share>${ru ? 'Поделиться' : 'Share'}</button>`),
       onShow: (root, close) => {
         const img = root.querySelector('[data-preview]');
         if (img && !img.src) drawMilestoneCard(m0).then((c) => { img.src = c.toDataURL('image/jpeg', 0.8); }).catch(() => {});
         const b = root.querySelector('[data-share]');
         if (b) b.addEventListener('click', () => { haptic('select'); close(); shareMilestone(m0); });
       } };
-    return {
-      id: `milestone-${m.d}`, duration: 6000, dynamic: 'milestone',
-      title: { ru: m0.title, en: MILESTONES_EN[m0.d].title },
-      coverHtml: `<span class="story-img wk-cover" style="background:${msGrad(m)}">${emojiImg(m.icon, 40)}</span>`,
-      slides: [{ html: congrats }, cta],
-    };
+    return { id: `milestone-${m.d}`, duration: 6000, dynamic: 'milestone', title: { ru: m0.title, en: MILESTONES_EN[m0.d].title }, slides: [{ html: congrats }, cta] };
   }
   function loadMilestoneStory() {
     const m = currentMilestone();
@@ -858,9 +849,6 @@
     if (/^\S+$/.test(note) && !/\d/.test(note)) return `на ${esc(accusative(note))} ${day}`;
     return `— ${esc(note)} ${day}`;
   }
-  const wkPage = (bg, tag, body) => `<div class="wr" style="background:${bg}"><div class="wr-tag">${tag}</div>${body}
-    <div class="wr-logo">потрачено<span>${BRAND_SUB()}</span></div></div>`;
-
   // ---- новые недельные истории (стиль приложения: жёлтый/чёрный/синий, Manrope, иллюстрации) ----
   const w2Logo = () => `<div class="w2-logo">потрачено<span>${BRAND_SUB()}</span></div>`;
   const w2Range = (a, b) => (a.slice(5, 7) === b.slice(5, 7) ? `${Number(a.slice(8, 10))}–${dayMonth(b)}` : `${dayMonth(a)} – ${dayMonth(b)}`);

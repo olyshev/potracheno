@@ -708,3 +708,21 @@ button.h-chip { cursor: pointer; }
 .w2-ill { position: absolute; pointer-events: none; }
 .w2-logo { position: absolute; bottom: 120px; left: 110px; font-weight: 800; font-size: 46px; letter-spacing: -1px; }
 .w2-logo span { font-size: 22px; letter-spacing: 6px; margin-left: 14px; opacity: .6; vertical-align: 8px; }
+
+/* ---- истории v3: «Ваш месяц», юбилеи (в стиле недельных) ---- */
+.w3-cap { font-weight: 800; font-size: 68px; line-height: 1.12; letter-spacing: -1.5px; }
+.w3-big { font-weight: 800; font-size: 300px; letter-spacing: -14px; line-height: .9; }
+.w3-unit { font-weight: 800; font-size: 120px; letter-spacing: -4px; line-height: 1; margin-top: 6px; }
+.w3-txt { font-weight: 700; font-size: 52px; line-height: 1.22; letter-spacing: -.5px; margin-top: 56px; }
+.w3-small { font-weight: 700; font-size: 42px; margin-top: 40px; opacity: .65; }
+.w3-pill { background: #fff; color: #000; border: 5px solid #000; box-shadow: 10px 12px 0 #000; }
+.w3-btn { position: absolute; left: 110px; right: 110px; bottom: 250px; border-radius: 60px; padding: 46px; text-align: center; font: 800 56px Man, sans-serif;
+  background: #fff957; color: #000; border: 5px solid #000; box-shadow: 12px 14px 0 #000; cursor: pointer; pointer-events: auto; }
+.w3-btn:active { transform: translate(5px, 6px); box-shadow: 6px 7px 0 #000; }
+.w3-prev { position: absolute; left: 300px; top: 760px; width: 480px; height: 853px; border-radius: 44px; overflow: hidden; border: 6px solid #000; box-shadow: 16px 18px 0 #000; transform: rotate(-6deg); }
+.w3-prev img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.w3-conf { position: absolute; width: 46px; height: 20px; border-radius: 8px; border: 4px solid #000; }
+.w3-fact { display: flex; align-items: center; gap: 30px; padding: 28px 34px; border-radius: 44px; background: #fff; color: #000; border: 5px solid #000; box-shadow: 10px 12px 0 #000;
+  font-weight: 800; font-size: 42px; line-height: 1.15; }
+.w3-fact .w2-ci { width: 96px; height: 96px; }
+.w3-facts { display: flex; flex-direction: column; gap: 26px; margin-top: 70px; }
