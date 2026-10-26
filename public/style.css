@@ -674,3 +674,8 @@ button.h-chip { cursor: pointer; }
 .ce-name { min-width: 0; }
 #recAdd .ic { margin-right: 2px; }
 .dw-cal { display: grid; place-items: center; height: 22px; }
+/* кнопки в настройках: выгрузка — светлая (в светлой теме — чёрная), удаление — красная */
+.set-actions { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 4px; }
+.btn-invert { background: var(--text); color: var(--bg); }
+.btn-red { background: var(--danger); color: #fff; }
+.card.list.settings-list { background: var(--card); border-radius: 20px; margin-bottom: 22px; }

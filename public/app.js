@@ -2039,9 +2039,9 @@
         <button class="row" id="sReports"><span>${t('reports')}</span><span class="settings-value">${me.can_message ? t('reportsOn') : t('reportsOff')} ›</span></button>
         <button class="row" id="sNudges"><span>${t('nudges')}</span><span class="settings-value">${me.nudges ? t('reportsOn') : t('reportsOff')} ›</span></button>
       </div>
-      <div class="card list settings-list">
-        <button class="row" id="sExport"><span style="color:var(--link)">${t('export')}</span><span></span></button>
-        <button class="row" id="sDelete"><span style="color:var(--danger)">${t('deleteAll')}</span><span></span></button>
+      <div class="set-actions">
+        <button class="btn btn-block btn-invert" id="sExport">${t('export')}</button>
+        <button class="btn btn-block btn-red" id="sDelete">${t('deleteAll')}</button>
       </div>`);
     const S = sh.sheet;
     $('.close', S).addEventListener('click', () => closeSheet(sh));
