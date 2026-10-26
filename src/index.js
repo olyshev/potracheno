@@ -62,6 +62,8 @@ async function bumpUsage(env, userId, field) {
 }
 const scanLimit = (env, usage) => Number(env.FREE_SCANS_PER_MONTH || 60) + (usage?.bonus || 0);
 const SHARE_BONUS = 5;
+const BONUS_CAP = 10; // всего бонусных сканов за репосты в месяц
+const MILESTONES = [30, 100, 200, 300, 365]; // юбилеи: дней с первого запуска
 
 async function authUser(request, env) {
   const h = request.headers.get('authorization') || '';
@@ -221,6 +223,7 @@ async function handleApi(request, env, url) {
       seenStories: views.results.map((v) => v.story_id),
       today: now,
       // сколько дней прошло с первого запуска — «С чего начать» показываем первую неделю
+      milestonesShared: (await env.DB.prepare('SELECT milestone FROM milestone_shares WHERE user_id = ?').bind(user.id).all()).results.map((r) => r.milestone),
       daysSinceStart: Math.max(0, Math.floor((Date.parse(`${now}T00:00:00Z`) - Date.parse(`${localDate(user.created_at, user.tz)}T00:00:00Z`)) / 864e5)),
     });
   }
@@ -440,12 +443,30 @@ async function handleApi(request, env, url) {
     return json({ ok: true, url: `${url.origin}/share/${id}.jpg` });
   }
 
+  if (path === '/share/bonus' && method === 'POST' && body.milestone !== undefined) {
+    // +5 сканов за репост юбилея — один раз за каждый юбилей и не больше BONUS_CAP бонусных сканов в месяц
+    const m = Number(body.milestone);
+    const days = Math.floor((Date.parse(`${now}T00:00:00Z`) - Date.parse(`${localDate(user.created_at, user.tz)}T00:00:00Z`)) / 864e5) + 1;
+    if (!MILESTONES.includes(m) || days < m) return fail(400, 'bad_milestone');
+    const first = await env.DB.prepare('INSERT OR IGNORE INTO milestone_shares (user_id, milestone) VALUES (?, ?)').bind(user.id, m).run();
+    let granted = false;
+    if (first.meta.changes > 0) {
+      const res = await env.DB.prepare(
+        `INSERT INTO usage (user_id, month, bonus) VALUES (?1, ?2, ?3)
+         ON CONFLICT(user_id, month) DO UPDATE SET bonus = bonus + ?3 WHERE bonus + ?3 <= ?4`
+      ).bind(user.id, thisMonth(), SHARE_BONUS, BONUS_CAP).run();
+      granted = res.meta.changes > 0;
+    }
+    const usage = await getUsage(env, user.id);
+    return json({ ok: true, granted, bonus: SHARE_BONUS, scans: scanLimit(env, usage), scansUsed: usage.scans });
+  }
+
   if (path === '/share/bonus' && method === 'POST') {
     // +5 сканов раз в календарный месяц за попытку поделиться (Telegram не сообщает, опубликована ли история)
     const res = await env.DB.prepare(
       `INSERT INTO usage (user_id, month, bonus, shared) VALUES (?1, ?2, ?3, 1)
-       ON CONFLICT(user_id, month) DO UPDATE SET bonus = bonus + ?3, shared = 1 WHERE shared = 0`
-    ).bind(user.id, thisMonth(), SHARE_BONUS).run();
+       ON CONFLICT(user_id, month) DO UPDATE SET bonus = bonus + ?3, shared = 1 WHERE shared = 0 AND bonus + ?3 <= ?4`
+    ).bind(user.id, thisMonth(), SHARE_BONUS, BONUS_CAP).run();
     const usage = await getUsage(env, user.id);
     return json({ ok: true, granted: res.meta.changes > 0, bonus: SHARE_BONUS, scans: scanLimit(env, usage), scansUsed: usage.scans });
   }

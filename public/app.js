@@ -605,10 +605,12 @@
     return c;
   }
 
-  async function grantShareBonus() {
+  async function grantShareBonus(milestone = null) {
     try {
-      const r = await api('/share/bonus', { method: 'POST' });
-      state.me.scans = r.scans; state.me.sharedThisMonth = true;
+      const r = await api('/share/bonus', { method: 'POST', body: milestone ? { milestone } : {} });
+      state.me.scans = r.scans;
+      if (milestone) state.me.milestonesShared = [...(state.me.milestonesShared || []), milestone];
+      else state.me.sharedThisMonth = true;
       if (r.granted) { haptic('success'); toast(t('shareBonus', r.bonus)); }
     } catch { /* бонус не критичен */ }
   }
@@ -616,9 +618,14 @@
   // Окно «Поделиться»: превью карточки, публикация в истории Telegram и сохранение картинки (для Instagram)
   async function openShareSheet(summary) {
     const d = shareData(summary);
+    return openShareCard({ draw: () => drawShareCard(d), storyText: `Мой типаж месяца — ${d.title}. Считаю деньги в @${BOT_USERNAME}`,
+      file: `potracheno-${summary.month}.jpg`, hint: !state.me.sharedThisMonth, milestone: null });
+  }
+  // draw — рисует canvas; milestone — номер юбилея (бонус за юбилей) или null (бонус за итоги месяца)
+  async function openShareCard({ draw, storyText, file, hint, milestone }) {
     const sh = openSheet(`<div class="loading"><div class="spinner"></div><b>${t('shareMaking')}</b></div>`);
     let canvas;
-    try { canvas = await drawShareCard(d); } catch (e) { closeSheet(sh); toast(t('netError')); return; }
+    try { canvas = await draw(); } catch (e) { closeSheet(sh); toast(t('netError')); return; }
     const jpeg = canvas.toDataURL('image/jpeg', 0.88);
     let uploaded = null;
     const upload = async () => {
@@ -631,7 +638,7 @@
     sh.sheet.innerHTML = `<div class="sheet-grip"></div>
       <div class="sheet-head"><h2>${t('shareTitle')}</h2><button class="close">${t('close')}</button></div>
       <img class="share-preview" src="${jpeg}" alt="">
-      ${state.me.sharedThisMonth ? '' : `<div class="note" style="margin:0 4px 12px;text-align:center">🎁 ${t('shareHint', state.me.shareBonus || 5)}</div>`}
+      ${hint ? `<div class="note" style="margin:0 4px 12px;text-align:center">🎁 ${t('shareHint', state.me.shareBonus || 5)}</div>` : ''}
       <button class="btn btn-primary btn-block" id="shStory">${t('shareStory')}</button>
       <button class="btn btn-secondary btn-block" id="shSave" style="margin-top:8px">${t('shareSave')}</button>`;
     $('.close', sh.sheet).addEventListener('click', () => closeSheet(sh));
@@ -640,13 +647,13 @@
       try {
         const mediaUrl = await upload();
         if (canStory) {
-          const params = { text: `Мой типаж месяца — ${d.title}. Считаю деньги в @${BOT_USERNAME}` };
+          const params = { text: storyText };
           // кликабельная ссылка в истории доступна только с Telegram Premium
           if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.is_premium) {
             params.widget_link = { url: `https://t.me/${BOT_USERNAME}?start=ref_${state.me.id}`, name: 'Потрачено' };
           }
           tg.shareToStory(mediaUrl, params);
-          grantShareBonus();
+          grantShareBonus(milestone);
         } else {
           toast(t('shareNoStory'));
         }
@@ -657,14 +664,108 @@
       const btn = ev.currentTarget; btn.disabled = true;
       try {
         if (canDownload) {
-          tg.downloadFile({ url: await upload(), file_name: `potracheno-${summary.month}.jpg` });
+          tg.downloadFile({ url: await upload(), file_name: file });
         } else {
-          const a = document.createElement('a'); a.href = jpeg; a.download = `potracheno-${summary.month}.jpg`; document.body.append(a); a.click(); a.remove();
+          const a = document.createElement('a'); a.href = jpeg; a.download = file; document.body.append(a); a.click(); a.remove();
         }
-        grantShareBonus();
+        grantShareBonus(milestone);
       } catch { toast(t('netError')); }
       btn.disabled = false;
     });
+  }
+
+  // ---------- юбилеи: месяц, 100/200/300 дней, год ----------
+  const MILESTONES = [
+    { d: 30, n: '1', unit: 'месяц', phrase: 'Месяц', title: 'Месяц с нами', icon: '1f389', bg: ['#2a78d6', '#6250d6', '#1a1440'] },
+    { d: 100, n: '100', unit: 'дней', phrase: '100 дней', title: '100 дней', icon: '1f3c6', bg: ['#e8962a', '#d9483f', '#4a1418'] },
+    { d: 200, n: '200', unit: 'дней', phrase: '200 дней', title: '200 дней', icon: '1f3c6', bg: ['#d9483f', '#a2348f', '#3a1236'] },
+    { d: 300, n: '300', unit: 'дней', phrase: '300 дней', title: '300 дней', icon: '1f3c6', bg: ['#1f7a8c', '#2a78d6', '#10213a'] },
+    { d: 365, n: '1', unit: 'год', phrase: 'Год', title: 'Год с нами', icon: '1f382', bg: ['#1f9d63', '#1f7a8c', '#0f2f3a'] },
+  ];
+  const CONFETTI = [[150, 1180, '#ffd84a', 0], [880, 1060, '#7fe0b0', 30], [300, 1500, '#ffffff', 60], [760, 1420, '#ff8fb1', 15],
+    [520, 1240, '#9cc3f7', 45], [930, 1600, '#ffd84a', 70], [190, 1700, '#7fe0b0', 20]];
+  const msGrad = (m) => `linear-gradient(165deg,${m.bg[0]} 0%,${m.bg[1]} 45%,${m.bg[2]} 80%,#0e0e10 100%)`;
+  // текущий юбилей — неделю после наступления
+  function currentMilestone() {
+    const days = (state.daysSinceStart || 0) + 1;
+    return MILESTONES.find((m) => days >= m.d && days < m.d + 7) || null;
+  }
+
+  async function drawMilestoneCard(m) {
+    await Promise.all(['900 100px WrU', '800 40px WrM'].map((f) => (document.fonts ? document.fonts.load(f) : null)));
+    const W = 1080, H = 1920, L = 124, CW = W - 2 * L;
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+    const g = ctx.createLinearGradient(0, 0, W * 0.45, H);
+    g.addColorStop(0, m.bg[0]); g.addColorStop(0.45, m.bg[1]); g.addColorStop(0.8, m.bg[2]); g.addColorStop(1, '#0e0e10');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    const rg = ctx.createRadialGradient(70, 1410, 0, 70, 1410, 480); rg.addColorStop(0, 'rgba(255,255,255,.13)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = rg; ctx.fillRect(0, 900, W, 1020);
+    for (const [x, y, col, r] of CONFETTI) { ctx.save(); ctx.translate(x + 17, y + 7); ctx.rotate(r * Math.PI / 180); ctx.fillStyle = col; rr(ctx, -17, -7, 34, 14, 6); ctx.fill(); ctx.restore(); }
+    ctx.fillStyle = '#fff'; ctx.textBaseline = 'alphabetic';
+    ctx.font = '900 46px WrU'; ctx.globalAlpha = 0.9; ctx.fillText('Мой юбилей', L, 250); ctx.globalAlpha = 1;
+    const big = m.n.length < 3 ? 420 : 330;
+    ctx.font = `900 ${big}px WrU`; ctx.fillText(m.n, L - 10, 430 + big * 0.78);
+    const unitY = 430 + big * 0.9 + 110;
+    ctx.font = '900 120px WrU'; ctx.fillText(m.unit, L - 4, unitY);
+    ctx.font = '800 72px WrM';
+    wrapLines(ctx, `${m.phrase} слежу за деньгами`, CW).forEach((ln, k) => ctx.fillText(ln, L, unitY + 130 + k * 84));
+    const ico = await loadImg(`stories/emoji/${m.icon}.svg`).catch(() => null);
+    if (ico) { ctx.save(); ctx.translate(W - 130 - 150, 1080 + 150); ctx.rotate(-10 * Math.PI / 180); ctx.globalAlpha = 0.35; ctx.drawImage(ico, -150 + 10, -150 + 14, 300, 300); ctx.globalAlpha = 1; ctx.drawImage(ico, -150, -150, 300, 300); ctx.restore(); }
+    const ctaH = 122, ctaY = H - 140 - ctaH;
+    ctx.fillStyle = '#fff'; ctx.font = '900 50px WrU'; ctx.fillText('потрачено', L, ctaY - 70);
+    ctx.fillStyle = '#e8eeff'; ctx.font = '800 22px WrM'; spaced(ctx, 'БЮДЖЕТ-БОТ', L, ctaY - 34, 7);
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; rr(ctx, L + 9, ctaY + 11, CW, ctaH, 34); ctx.fill();
+    ctx.fillStyle = '#fff'; rr(ctx, L, ctaY, CW, ctaH, 34); ctx.fill();
+    ctx.font = '800 46px WrM';
+    const a = 'Считаю деньги в ', b = `@${BOT_USERNAME}`;
+    const tw = ctx.measureText(a + b).width, tx = L + (CW - tw) / 2, ty = ctaY + ctaH / 2 + 16;
+    ctx.fillStyle = '#111'; ctx.fillText(a, tx, ty);
+    ctx.fillStyle = '#6a3fd6'; ctx.fillText(b, tx + ctx.measureText(a).width, ty);
+    return c;
+  }
+  function shareMilestone(m) {
+    return openShareCard({ draw: () => drawMilestoneCard(m), storyText: `${m.phrase} слежу за деньгами в @${BOT_USERNAME} 🎉`,
+      file: `potracheno-${m.d}.jpg`, hint: !(state.me.milestonesShared || []).includes(m.d), milestone: m.d });
+  }
+  function buildMilestoneStory(m) {
+    const conf = CONFETTI.map(([x, y, col, r]) => `<div style="position:absolute;left:${x}px;top:${y}px;width:34px;height:14px;border-radius:6px;background:${col};transform:rotate(${r}deg)"></div>`).join('');
+    const st = (code, size, pos) => `<div class="wr-sticker" style="${pos}">${emojiImg(code, size)}</div>`;
+    const congrats = `<div class="wr" style="background:${msGrad(m)}">
+      <div class="wr-blob" style="width:760px;height:760px;right:-260px;top:-120px;background:rgba(255,255,255,.14)"></div>
+      <div class="wr-tag">Юбилей</div>${conf}
+      <div class="wr-wrap" style="top:400px"><div class="wr-num" style="font-size:${m.n.length < 3 ? 420 : 330}px;letter-spacing:-12px;line-height:.9">${m.n}</div>
+        <div class="wr-num" style="font-size:120px;letter-spacing:-3px;margin-top:10px">${m.unit}</div>
+        <div class="wr-cap" style="margin-top:60px">${m.phrase} вы следите за деньгами. Это не только привычка, но повод гордиться собой. Отличная работа!</div></div>
+      ${st(m.icon, 260, 'right:130px;top:1420px;transform:rotate(12deg)')}
+      <div class="wr-logo">потрачено<span>БЮДЖЕТ-БОТ</span></div></div>`;
+    const bonus = !(state.me.milestonesShared || []).includes(m.d);
+    const cta = { hold: true, html: `<div class="wr" style="background:linear-gradient(165deg,#6250d6 0%,#2a78d6 50%,#0e0e10 100%)">
+      <div class="wr-blob" style="width:760px;height:760px;left:-260px;top:1000px;background:rgba(255,255,255,.1)"></div>
+      <div class="wr-tag">Юбилей</div>
+      <div class="wr-wrap" style="top:330px"><div class="wr-cap" style="font-size:64px;line-height:1.15;margin-top:0">${bonus ? 'Поделитесь достижением с друзьями, а мы подарим вам 5 сканов' : 'Поделитесь достижением с друзьями'}</div></div>
+      <img data-preview alt="" style="position:absolute;left:330px;top:820px;width:420px;aspect-ratio:9/16;border-radius:36px;transform:rotate(-6deg);box-shadow:0 0 0 8px #fff,18px 22px 0 8px rgba(0,0,0,.35);background:${msGrad(m)}">
+      ${st('1f381', 220, 'right:120px;top:1120px;transform:rotate(14deg)')}
+      <button class="wr-action" data-share>Поделиться</button>
+      <div class="wr-logo">потрачено<span>БЮДЖЕТ-БОТ</span></div></div>`,
+      onShow: (root, close) => {
+        const img = root.querySelector('[data-preview]');
+        if (img && !img.src) drawMilestoneCard(m).then((c) => { img.src = c.toDataURL('image/jpeg', 0.8); }).catch(() => {});
+        const b = root.querySelector('[data-share]');
+        if (b) b.addEventListener('click', () => { haptic('select'); close(); shareMilestone(m); });
+      } };
+    return {
+      id: `milestone-${m.d}`, langs: ['ru'], duration: 6000, dynamic: 'milestone',
+      title: { ru: m.title, en: m.title },
+      coverHtml: `<span class="story-img wk-cover" style="background:${msGrad(m)}">${emojiImg(m.icon, 40)}</span>`,
+      slides: [{ html: congrats }, cta],
+    };
+  }
+  function loadMilestoneStory() {
+    if (state.lang !== 'ru') return;
+    const m = currentMilestone();
+    for (let i = STORIES.length - 1; i >= 0; i--) if (STORIES[i].dynamic === 'milestone') STORIES.splice(i, 1);
+    if (m) { STORIES.unshift(buildMilestoneStory(m)); renderStories(); }
   }
 
   // ---------- недельные истории: «План на неделю» и «Итоги недели» ----------
@@ -1895,7 +1996,7 @@
       return;
     }
     state.me = { ...me.user, scans: me.limits.scans, scansUsed: me.limits.scansUsed, seenStories: me.seenStories || [],
-      shareBonus: me.limits.shareBonus, sharedThisMonth: me.limits.sharedThisMonth };
+      shareBonus: me.limits.shareBonus, sharedThisMonth: me.limits.sharedThisMonth, milestonesShared: me.milestonesShared || [] };
     state.lang = me.user.lang === 'en' ? 'en' : 'ru';
     state.cats = me.categories;
     state.incomeCats = me.income_categories || [];
@@ -1926,7 +2027,8 @@
     renderStories();
     const startParam = tg && tg.initDataUnsafe ? tg.initDataUnsafe.start_param : '';
     const wantMonth = new URLSearchParams(location.search).get('story') === 'month' || startParam === 'month';
-    const storiesP = me.hasEntries ? Promise.all([loadMonthStory(wantMonth), loadWeeklyStories()]) : Promise.resolve([null]);
+    const storiesP = (me.hasEntries ? Promise.all([loadMonthStory(wantMonth), loadWeeklyStories()]) : Promise.resolve([null]))
+      .then((r) => { loadMilestoneStory(); return r; }); // юбилей — первым в ленте
     // убираем заставку, когда загрузились и истории (но ждём их не дольше 1,5 с)
     await Promise.race([storiesP, new Promise((r) => setTimeout(r, 1500))]);
     await hideSplash();
