@@ -685,5 +685,5 @@ button.h-chip { cursor: pointer; }
 .sp-ill:nth-of-type(5) { animation-delay: .14s; } .sp-ill:nth-of-type(6) { animation-delay: .18s; }
 @keyframes spIll { from { opacity: 0; scale: .6; } }
 .h-ill { position: absolute; pointer-events: none; z-index: 1; }
-.h-coin { width: 116px; right: -22px; top: 26px; transform: rotate(14deg); }
-.h-star { width: 52px; right: 82px; top: 14px; transform: rotate(-12deg); }
+.h-coin { width: 168px; right: -38px; top: 2px; transform: rotate(14deg); }
+.h-star { width: 72px; right: 14px; top: 150px; transform: rotate(-12deg); }
