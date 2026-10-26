@@ -90,9 +90,22 @@ export const INCOME_CATEGORIES = [
 ];
 export const INCOME_IDS = INCOME_CATEGORIES.map((c) => c.id);
 // custom — список своих категорий пользователя ({ id, kind, … })
-export const isCategoryFor = (kind, id, custom = null) => (kind === 'income' ? INCOME_IDS : CATEGORY_IDS).includes(id)
-  || !!(custom && custom.some((c) => c.id === id && c.kind === kind));
-export const customMap = (list) => Object.fromEntries((list || []).map((c) => [c.id, { emoji: c.emoji, name: c.name, kind: c.kind }]));
+export const isCategoryFor = (kind, id, custom = null, hidden = null) => !(hidden && hidden.has(id))
+  && ((kind === 'income' ? INCOME_IDS : CATEGORY_IDS).includes(id) || !!(custom && custom.some((c) => c.id === id && c.kind === kind)));
+export const customMap = (list, prefs = []) => {
+  const m = Object.fromEntries((list || []).map((c) => [c.id, { emoji: c.emoji, name: c.name, kind: c.kind }]));
+  // переименованные стандартные категории
+  for (const p of prefs || []) {
+    if (!p.name && !p.emoji) continue;
+    const base = m[p.category_id] || [...CATEGORIES, ...INCOME_CATEGORIES].find((c) => c.id === p.category_id);
+    if (!base) continue;
+    m[p.category_id] = { emoji: p.emoji || base.emoji, name: p.name || base.name || base.ru, kind: base.kind };
+  }
+  return m;
+};
+export const FALLBACK = { expense: 'other', income: 'other_income' };
+// заменить скрытую категорию на «Другое»
+export const unhide = (id, kind, hidden) => (hidden && hidden.has(id) ? FALLBACK[kind === 'income' ? 'income' : 'expense'] : id);
 export const CUSTOM_LIMIT = 40;
 export const CUSTOM_EMOJI = ['🏷️', '💡', '🎨', '🎮', '🎸', '📚', '💊', '🍷', '🍺', '✂️', '💅', '🌿', '🛠️', '⚽', '✈️', '🏍️', '👶', '💻', '📱', '💸', '🧾', '🐶', '🏖️', '❤️'];
 

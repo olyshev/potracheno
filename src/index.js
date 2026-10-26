@@ -6,7 +6,7 @@
 //   /admin/stats    — простая статистика для владельца (?key=ADMIN_KEY)
 //   cron            — регулярные платежи (каждый час) и рассылка итогов месяца (1–2 числа)
 import { verifyInitData, webhookSecret } from './auth.js';
-import { CATEGORIES, INCOME_CATEGORIES, isCategory, isCategoryFor, categorizeByRules, categorizeIncome, catLabel, customMap, CUSTOM_LIMIT, CUSTOM_EMOJI } from './categories.js';
+import { CATEGORIES, INCOME_CATEGORIES, isCategory, isCategoryFor, categorizeByRules, categorizeIncome, catLabel, customMap, unhide, FALLBACK, CUSTOM_LIMIT, CUSTOM_EMOJI } from './categories.js';
 import { materialize, upcoming, listRules, createRule, dueDate, periodOf, resumeState, datesInRange, localToday, localHour, localDate, validTz } from './recurring.js';
 import { normalizeMerchant } from './brands.js';
 import { runNudges } from './nudges.js';
@@ -197,6 +197,10 @@ async function handleApi(request, env, url) {
   // свои категории пользователя — загружаем один раз за запрос и только когда нужны
   let _custom = null;
   const getCustom = async () => (_custom ??= (await env.DB.prepare('SELECT id, kind, name, emoji FROM custom_categories WHERE user_id = ? ORDER BY created_at').bind(user.id).all()).results);
+  let _prefs = null;
+  const getPrefs = async () => (_prefs ??= (await env.DB.prepare('SELECT category_id, name, emoji, hidden FROM category_prefs WHERE user_id = ?').bind(user.id).all()).results);
+  const getHidden = async () => new Set((await getPrefs()).filter((p) => p.hidden).map((p) => p.category_id));
+  const getCatMap = async () => customMap(await getCustom(), await getPrefs());
 
   if (path === '/me' && method === 'GET') {
     const [usage, cnt, views] = await Promise.all([
@@ -209,6 +213,7 @@ async function handleApi(request, env, url) {
       categories: CATEGORIES,
       income_categories: INCOME_CATEGORIES,
       custom_categories: await getCustom(),
+      category_prefs: await getPrefs(),
       custom_emoji: CUSTOM_EMOJI,
       currencies: CURRENCIES,
       limits: { scans: scanLimit(env, usage), scansUsed: usage.scans, shareBonus: SHARE_BONUS, sharedThisMonth: usage.shared },
@@ -228,11 +233,50 @@ async function handleApi(request, env, url) {
     const emoji = CUSTOM_EMOJI.includes(body.emoji) ? body.emoji : CUSTOM_EMOJI[0];
     const list = await getCustom();
     const same = list.find((c) => c.kind === kind && c.name.toLowerCase() === name.toLowerCase());
-    if (same) return json({ category: same });
+    if (same) {
+      // если такую категорию раньше удаляли — возвращаем её
+      await env.DB.prepare('UPDATE category_prefs SET hidden = 0 WHERE user_id = ? AND category_id = ?').bind(user.id, same.id).run();
+      return json({ category: same });
+    }
     if (list.length >= CUSTOM_LIMIT) return fail(409, 'too_many');
     const id = 'u_' + crypto.randomUUID().replace(/-/g, '').slice(0, 10);
     await env.DB.prepare('INSERT INTO custom_categories (id, user_id, kind, name, emoji) VALUES (?, ?, ?, ?, ?)').bind(id, user.id, kind, name, emoji).run();
     return json({ category: { id, kind, name, emoji } });
+  }
+
+  // переименовать / сменить значок / удалить категорию (свою или стандартную)
+  const catMatch = path.match(/^\/categories\/([a-z0-9_]{1,40})$/);
+  if (catMatch && (method === 'PATCH' || method === 'DELETE')) {
+    const id = catMatch[1];
+    const custom = (await getCustom()).find((c) => c.id === id);
+    const builtin = [...CATEGORIES, ...INCOME_CATEGORIES].find((c) => c.id === id);
+    if (!custom && !builtin) return fail(404, 'not_found');
+    if (method === 'DELETE') {
+      if (id === FALLBACK.expense || id === FALLBACK.income) return fail(400, 'cant_delete');
+      const used = custom && await env.DB.prepare('SELECT 1 FROM entries WHERE user_id = ? AND category = ? LIMIT 1').bind(user.id, id).first();
+      const inRule = custom && await env.DB.prepare('SELECT 1 FROM recurring WHERE user_id = ? AND category = ? LIMIT 1').bind(user.id, id).first();
+      if (custom && !used && !inRule) {
+        await env.DB.prepare('DELETE FROM custom_categories WHERE id = ? AND user_id = ?').bind(id, user.id).run();
+      } else {
+        // старые записи остаются в этой категории, но выбрать её больше нельзя
+        await env.DB.prepare(`INSERT INTO category_prefs (user_id, category_id, hidden) VALUES (?, ?, 1)
+          ON CONFLICT (user_id, category_id) DO UPDATE SET hidden = 1`).bind(user.id, id).run();
+      }
+      return json({ ok: true });
+    }
+    const name = body.name !== undefined ? String(body.name).replace(/\s+/g, ' ').trim().slice(0, 30) : null;
+    // значок — из набора для своих категорий или любой из стандартных
+    const emoji = CUSTOM_EMOJI.includes(body.emoji) || [...CATEGORIES, ...INCOME_CATEGORIES].some((c) => c.emoji === body.emoji) ? body.emoji : null;
+    if (body.name !== undefined && !name) return fail(400, 'bad_name');
+    if (custom) {
+      await env.DB.prepare('UPDATE custom_categories SET name = COALESCE(?, name), emoji = COALESCE(?, emoji) WHERE id = ? AND user_id = ?')
+        .bind(name, emoji, id, user.id).run();
+    } else {
+      await env.DB.prepare(`INSERT INTO category_prefs (user_id, category_id, name, emoji) VALUES (?, ?, ?, ?)
+        ON CONFLICT (user_id, category_id) DO UPDATE SET name = COALESCE(excluded.name, name), emoji = COALESCE(excluded.emoji, emoji)`)
+        .bind(user.id, id, name, emoji).run();
+    }
+    return json({ ok: true });
   }
 
   if (path === '/settings' && method === 'POST') {
@@ -287,8 +331,9 @@ async function handleApi(request, env, url) {
     if (!isCurrency(currency, rates)) return fail(400, 'bad_currency');
     const date = validDate(body.date) ? body.date : now;
     const note = String(body.note || '').trim().slice(0, 120);
-    const category = isCategoryFor(kind, body.category, await getCustom()) ? body.category
-      : kind === 'income' ? categorizeIncome(note) : (await pickCategory(env, user.id, note)).category;
+    const hidden = await getHidden();
+    const category = isCategoryFor(kind, body.category, await getCustom(), hidden) ? body.category
+      : unhide(kind === 'income' ? categorizeIncome(note) : (await pickCategory(env, user.id, note)).category, kind, hidden);
     let recurring_id = null;
     if (body.recurring) {
       const day = validDay(Number(body.recurring.day)) ? Number(body.recurring.day) : Number(date.slice(8, 10));
@@ -422,7 +467,7 @@ async function handleApi(request, env, url) {
     ).bind(user.id, histStart, lastEnd).all();
     const last = daily.filter((e) => e.date >= lastStart);
     let summary = null;
-    if (dow <= 1 && last.length >= 3) {
+    if ((dow <= 1 || url.searchParams.get('all')) && last.length >= 3) {
       const byCat = {};
       for (const e of last) byCat[e.category] = (byCat[e.category] || 0) + e.amount_eur;
       const top = Object.entries(byCat).sort((a, b) => b[1] - a[1])[0];
@@ -464,7 +509,8 @@ async function handleApi(request, env, url) {
   }
 
   if (path === '/suggest' && method === 'POST') {
-    return json(await pickCategory(env, user.id, String(body.text || '').slice(0, 120)));
+    const r = await pickCategory(env, user.id, String(body.text || '').slice(0, 120));
+    return json({ ...r, category: unhide(r.category, 'expense', await getHidden()) });
   }
 
   if ((path === '/scan' || path === '/receipt/scan') && method === 'POST') {
@@ -473,6 +519,22 @@ async function handleApi(request, env, url) {
     if (files === 'too_big') return fail(413, 'too_big');
     if (!files) return fail(400, 'no_image');
     const r = await scanDocument(env, user, files);
+    if (r.draft) {
+      // скрытые (удалённые пользователем) категории заменяем на «Другое»
+      const hidden = await getHidden();
+      if (hidden.size) {
+        if (r.draft.items) r.draft.items.forEach((i) => { i.category = unhide(i.category, i.kind, hidden); });
+        if (r.draft.groups) {
+          const merged = {};
+          for (const g of r.draft.groups) {
+            const c = unhide(g.category, 'expense', hidden);
+            if (merged[c]) { merged[c].amount = Math.round((merged[c].amount + g.amount) * 100) / 100; merged[c].items = [...(merged[c].items || []), ...(g.items || [])]; }
+            else merged[c] = { ...g, category: c };
+          }
+          r.draft.groups = Object.values(merged);
+        }
+      }
+    }
     if (r.error === 'limit') return fail(429, 'limit', 'Monthly receipt limit reached');
     if (r.error === 'not_receipt') return fail(422, 'not_receipt');
     if (r.error) return fail(502, 'ai_error');
@@ -518,7 +580,7 @@ async function handleApi(request, env, url) {
       `SELECT date, kind, amount, currency, amount_eur, category, note, merchant, source FROM entries WHERE user_id = ? ORDER BY date`
     ).bind(user.id).all();
     const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const cmap = customMap(await getCustom());
+    const cmap = await getCatMap();
     const csv = '\ufeffdate,type,amount,currency,amount_eur,category,note,merchant,source\n' +
       results.map((r) => [r.date, r.kind, r.amount, r.currency, r.amount_eur, catLabel(r.category, user.lang, cmap).replace(/^\S+\s/, ''), r.note, r.merchant, r.source].map(q).join(',')).join('\n');
     const res = await sendDocument(env, user.id, `expenses-${now}.csv`, csv, user.lang === 'ru' ? 'Все ваши доходы и траты' : 'All your income and expenses');
@@ -531,6 +593,7 @@ async function handleApi(request, env, url) {
       env.DB.prepare('DELETE FROM entries WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM recurring WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM custom_categories WHERE user_id = ?').bind(user.id),
+      env.DB.prepare('DELETE FROM category_prefs WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM story_views WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM share_images WHERE user_id = ?').bind(user.id),
       // счётчики текущего месяца оставляем: иначе удаление данных обнуляло бы лимит сканов и бонус за шеринг
@@ -684,9 +747,14 @@ async function handleUpdate(env, update) {
     const currency = known ? q.currency : user.base_currency || 'EUR';
     if (!known && q.token) q.note = `${q.token} ${q.note}`.trim();
     const kind = q.income ? 'income' : 'expense';
-    const category = q.income ? categorizeIncome(q.note) : (await pickCategory(env, user.id, q.note)).category;
+    const [{ results: cc }, { results: cp }] = await Promise.all([
+      env.DB.prepare('SELECT id, kind, name, emoji FROM custom_categories WHERE user_id = ?').bind(user.id).all(),
+      env.DB.prepare('SELECT category_id, name, emoji, hidden FROM category_prefs WHERE user_id = ?').bind(user.id).all(),
+    ]);
+    const hidden = new Set(cp.filter((p) => p.hidden).map((p) => p.category_id));
+    const category = unhide(q.income ? categorizeIncome(q.note) : (await pickCategory(env, user.id, q.note)).category, kind, hidden);
     await insertEntries(env, user.id, [{ date: localToday(user.tz), amount: q.amount, currency, category, note: q.note, kind, source: 'manual' }]);
-    return reply((q.income ? L.savedIncome : L.savedManual)(money(q.amount, currency, user.lang), catLabel(category, user.lang, category.startsWith('u_') ? customMap((await env.DB.prepare('SELECT id, kind, name, emoji FROM custom_categories WHERE user_id = ?').bind(user.id).all()).results) : null)) + (q.note ? ` · ${q.note.replace(/[<&>]/g, '')}` : ''), { reply_markup: kb });
+    return reply((q.income ? L.savedIncome : L.savedManual)(money(q.amount, currency, user.lang), catLabel(category, user.lang, customMap(cc, cp))) + (q.note ? ` · ${q.note.replace(/[<&>]/g, '')}` : ''), { reply_markup: kb });
   }
   return reply(L.help, { reply_markup: kb });
 }

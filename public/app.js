@@ -16,6 +16,12 @@
     ru: {
       addManual: 'Вручную', addReceipt: 'Скан', spent: 'Потрачено', entries: (n) => `${n} ${plural(n, ['запись', 'записи', 'записей'])}`,
       vs: (m) => `к ${m}`, same: 'как в прошлом месяце', categories: 'Категории', history: 'История', showAll: 'Все',
+      menu: 'Меню', profile: 'Профиль', profileSub: 'Итоги недели и месяца', catEditor: 'Категории', catEditorSub: 'Переименовать, удалить, добавить',
+      settingsSub: 'Валюта, язык, уведомления', expensesTab: 'Расходы', incomesTab: 'Доходы', editCat: 'Категория', deleteCat: 'Удалить категорию',
+      confirmDeleteCat: (n) => `Удалить категорию «${n}»? Уже записанные траты в ней останутся, но выбрать её больше будет нельзя.`, ownCat: 'своя',
+      weekResults: 'Итоги недели', monthResults: 'Итоги месяца', openStory: 'Смотреть историю', notEnough: 'Пока мало данных: нужно хотя бы несколько трат.',
+      spentLbl: 'Потрачено', incomeLbl: 'Доходы', balanceLbl: 'Остаток', usualLbl: 'Обычно', topLbl: 'Больше всего', vsPrev: 'к прошлому месяцу', vsUsual: 'к обычной неделе',
+      daysWithUs: (n) => `Ведёте учёт ${n} ${plural(n, ['день', 'дня', 'дней'])}`,
       newCat: 'Новая категория', createCat: 'Создать', catNameLabel: 'Название', catNamePh: 'Например, хобби', catIcon: 'Значок', tooManyCats: 'Слишком много своих категорий', today: 'Сегодня', yesterday: 'Вчера', tomorrow: 'Завтра', otherDate: 'Другая дата', pickDate: 'Выбрать', emptyTitle: 'Пока пусто',
       emptyText: 'Сфотографируйте чек или внесите сумму вручную. Ещё можно просто отправить фото чека боту в чат.',
       emptyPast: 'В этом месяце записей нет.',
@@ -67,6 +73,12 @@
     en: {
       addManual: 'Manual', addReceipt: 'Scan', spent: 'Spent', entries: (n) => `${n} ${n === 1 ? 'entry' : 'entries'}`,
       vs: (m) => `vs ${m}`, same: 'same as last month', categories: 'Categories', history: 'History', showAll: 'All',
+      menu: 'Menu', profile: 'Profile', profileSub: 'Week and month results', catEditor: 'Categories', catEditorSub: 'Rename, delete, add',
+      settingsSub: 'Currency, language, notifications', expensesTab: 'Expenses', incomesTab: 'Income', editCat: 'Category', deleteCat: 'Delete category',
+      confirmDeleteCat: (n) => `Delete "${n}"? Existing entries keep it, but you won't be able to pick it anymore.`, ownCat: 'custom',
+      weekResults: 'Week results', monthResults: 'Month results', openStory: 'View story', notEnough: 'Not enough data yet: add a few expenses first.',
+      spentLbl: 'Spent', incomeLbl: 'Income', balanceLbl: 'Left', usualLbl: 'Usually', topLbl: 'Top category', vsPrev: 'vs last month', vsUsual: 'vs a usual week',
+      daysWithUs: (n) => `Tracking for ${n} day${n === 1 ? '' : 's'}`,
       newCat: 'New category', createCat: 'Create', catNameLabel: 'Name', catNamePh: 'e.g. Hobby', catIcon: 'Icon', tooManyCats: 'Too many custom categories', today: 'Today', yesterday: 'Yesterday', tomorrow: 'Tomorrow', otherDate: 'Other date', pickDate: 'Pick', emptyTitle: 'Nothing here yet',
       emptyText: 'Snap a receipt or add an amount manually. You can also just send a receipt photo to the bot.',
       emptyPast: 'No entries this month.',
@@ -146,7 +158,15 @@
     const base = kind === 'income' ? state.incomeCats : state.cats;
     const own = (state.custom || []).filter((c) => c.kind === kind).map((c) => state.catMap[c.id]);
     const i = base.findIndex((c) => c.id === (kind === 'income' ? 'other_income' : 'other'));
-    return i < 0 ? [...base, ...own] : [...base.slice(0, i), ...own, ...base.slice(i)];
+    const all = i < 0 ? [...base, ...own] : [...base.slice(0, i), ...own, ...base.slice(i)];
+    return all.filter((c) => !isHidden(c.id)).map((c) => state.catMap[c.id] || c);
+  };
+  const isHidden = (id) => !!(state.prefs && state.prefs[id] && state.prefs[id].hidden);
+  // применить переименование стандартной категории
+  const applyPref = (id) => {
+    const p = state.prefs[id], orig = state.baseCats[id];
+    if (!orig) return;
+    state.catMap[id] = p && (p.name || p.emoji) ? { ...orig, emoji: p.emoji || orig.emoji, ru: p.name || orig.ru, en: p.name || orig.en, renamed: true } : orig;
   };
   const addCustomCat = (c) => {
     if (!state.custom.some((x) => x.id === c.id)) state.custom.push(c);
@@ -218,11 +238,11 @@
 
   // ---------- шторки ----------
   const sheets = [];
-  function openSheet(html, { onClose } = {}) {
+  function openSheet(html, { onClose, cls = '' } = {}) {
     const backdrop = document.createElement('div');
     backdrop.className = 'sheet-backdrop';
     const sheet = document.createElement('div');
-    sheet.className = 'sheet';
+    sheet.className = `sheet ${cls}`.trim();
     sheet.innerHTML = `<div class="sheet-grip"></div>${html}`;
     $('#sheets').append(backdrop, sheet);
     const entry = { sheet, backdrop, onClose };
@@ -957,17 +977,31 @@
 
   // ---------- своя категория ----------
   // Окно с названием и значком; возвращает id новой категории (или null, если закрыли)
-  function createCategory(kind = 'expense') {
+  // editId — редактирование существующей категории (тогда есть кнопка «Удалить»); возвращает id или null
+  function createCategory(kind = 'expense', editId = null) {
     return new Promise((resolve) => {
-      let created = null, emoji = state.customEmoji[0];
+      const ex = editId ? cat(editId) : null;
+      let created = null, emoji = ex ? ex.emoji : state.customEmoji[0];
+      const icons = ex && !state.customEmoji.includes(ex.emoji) ? [ex.emoji, ...state.customEmoji] : state.customEmoji;
+      const canDelete = ex && !['other', 'other_income'].includes(editId);
       const sh = openSheet(`
-        <div class="sheet-head"><h2>${t('newCat')}</h2><button class="close">${t('cancel')}</button></div>
-        <div class="field"><label for="ncName">${t('catNameLabel')}</label><input id="ncName" maxlength="30" autocomplete="off" placeholder="${t('catNamePh')}"></div>
+        <div class="sheet-head"><h2>${ex ? t('editCat') : t('newCat')}</h2><button class="close">${t('cancel')}</button></div>
+        <div class="field"><label for="ncName">${t('catNameLabel')}</label><input id="ncName" maxlength="30" autocomplete="off" placeholder="${t('catNamePh')}" value="${ex ? esc(catName(editId)) : ''}"></div>
         <div class="label-row"><span>${t('catIcon')}</span></div>
-        <div class="emoji-grid" id="ncEmoji">${state.customEmoji.map((e, k) => `<button class="emoji-btn ${k ? '' : 'active'}" data-e="${e}">${e}</button>`).join('')}</div>
-        <button class="btn btn-primary btn-block" id="ncSave" disabled>${t('createCat')}</button>`, { onClose: () => resolve(created) });
+        <div class="emoji-grid" id="ncEmoji">${icons.map((e) => `<button class="emoji-btn ${e === emoji ? 'active' : ''}" data-e="${e}">${e}</button>`).join('')}</div>
+        <button class="btn btn-primary btn-block" id="ncSave" ${ex ? '' : 'disabled'}>${ex ? t('save') : t('createCat')}</button>
+        ${canDelete ? `<button class="btn btn-danger btn-block" id="ncDel" style="margin-top:6px">${t('deleteCat')}</button>` : ''}`, { onClose: () => resolve(created) });
       const S = sh.sheet, nameEl = $('#ncName', S), save = $('#ncSave', S);
-      setTimeout(() => nameEl.focus(), 280);
+      if (!ex) setTimeout(() => nameEl.focus(), 280);
+      const del = $('#ncDel', S);
+      if (del) del.addEventListener('click', async () => {
+        if (!(await confirmBox(t('confirmDeleteCat', catName(editId))))) return;
+        try {
+          await api(`/categories/${editId}`, { method: 'DELETE' });
+          state.prefs[editId] = { ...(state.prefs[editId] || {}), category_id: editId, hidden: 1 };
+          created = editId; haptic('success'); closeSheet(sh);
+        } catch { toast(t('netError')); }
+      });
       $('.close', S).addEventListener('click', () => closeSheet(sh));
       nameEl.addEventListener('input', () => { save.disabled = !nameEl.value.trim(); });
       nameEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !save.disabled) save.click(); });
@@ -980,8 +1014,18 @@
         if (!name) return;
         save.disabled = true;
         try {
+          if (ex) {
+            await api(`/categories/${editId}`, { method: 'PATCH', body: { name, emoji } });
+            if (ex.custom) addCustomCat({ ...state.custom.find((c) => c.id === editId), name, emoji });
+            else { state.prefs[editId] = { ...(state.prefs[editId] || {}), category_id: editId, name, emoji }; applyPref(editId); }
+            const cc = state.custom.find((c) => c.id === editId);
+            if (cc) { cc.name = name; cc.emoji = emoji; }
+            created = editId; haptic('success'); closeSheet(sh);
+            return;
+          }
           const r = await api('/categories', { method: 'POST', body: { kind, name, emoji } });
           addCustomCat(r.category);
+          if (state.prefs[r.category.id]) state.prefs[r.category.id].hidden = 0;
           created = r.category.id;
           haptic('success');
           closeSheet(sh);
@@ -1610,6 +1654,95 @@
   }
 
   // ---------- настройки ----------
+  // ---------- боковое меню ----------
+  function openMenu() {
+    const me = state.me;
+    const initial = (me.first_name || '?').trim().charAt(0).toUpperCase();
+    const item = (id, icon, title, sub) => `<button class="menu-item" id="${id}"><span class="menu-ico">${icon}</span>
+      <span class="menu-txt"><b>${title}</b><small>${sub}</small></span><span class="menu-chev">›</span></button>`;
+    const sh = openSheet(`
+      <div class="menu-user"><div class="menu-ava">${esc(initial)}</div><div><b>${esc(me.first_name || '')}</b>
+        <small>${t('daysWithUs', (state.daysSinceStart || 0) + 1)}</small></div></div>
+      <div class="menu-list">
+        ${item('mnProfile', '👤', t('profile'), t('profileSub'))}
+        ${item('mnCats', '🗂️', t('catEditor'), t('catEditorSub'))}
+        ${item('mnSettings', '⚙️', t('settings'), t('settingsSub'))}
+      </div>
+      <div class="menu-foot">потрачено <span>бюджет-бот</span></div>`, { cls: 'drawer' });
+    const go = (fn) => () => { closeSheet(sh); setTimeout(fn, 120); };
+    $('#mnProfile', sh.sheet).addEventListener('click', go(openProfile));
+    $('#mnCats', sh.sheet).addEventListener('click', go(() => openCategoryEditor()));
+    $('#mnSettings', sh.sheet).addEventListener('click', go(openSettings));
+  }
+
+  // ---------- профиль: итоги недели и месяца ----------
+  function openProfile() {
+    const sh = openSheet(`
+      <div class="sheet-head"><h2>${t('profile')}</h2><button class="close">${t('done')}</button></div>
+      <div class="label-row"><span>${t('weekResults')}</span></div>
+      <div class="card pf-card" id="pfWeek"><div class="pf-loading"></div></div>
+      <div class="label-row"><span>${t('monthResults')}</span></div>
+      <div class="card pf-card" id="pfMonth"><div class="pf-loading"></div></div>`);
+    const S = sh.sheet;
+    $('.close', S).addEventListener('click', () => closeSheet(sh));
+    const stat = (label, value, cls = '') => `<div class="pf-stat"><small>${label}</small><b class="${cls}">${value}</b></div>`;
+    const top = (id) => id ? `<div class="pf-top"><span>${cat(id).emoji}</span><div><small>${t('topLbl')}</small><b>${esc(catName(id))}</b></div></div>` : '';
+    const change = (curV, prevV, label) => {
+      if (!prevV) return '';
+      const pct = Math.round((curV - prevV) / prevV * 100);
+      return `<div class="pf-change ${pct <= 0 ? 'good' : 'bad'}">${pct <= 0 ? '📉' : '📈'} ${pct > 0 ? '+' : pct < 0 ? '−' : ''}${Math.abs(pct)}% ${label}</div>`;
+    };
+    const storyBtn = (id) => `<button class="btn btn-secondary btn-block pf-story" data-story="${id}">${t('openStory')}</button>`;
+    const range = (a, b) => (a.slice(5, 7) === b.slice(5, 7) ? `${Number(a.slice(8, 10))}–${dayMonth(b)}` : `${dayMonth(a)} – ${dayMonth(b)}`);
+
+    api('/weekly?all=1').then((w) => {
+      const el = $('#pfWeek', S), s = w.summary;
+      if (!s) { el.innerHTML = `<div class="pf-empty">${t('notEnough')}</div>`; return; }
+      const story = state.lang === 'ru' ? buildWeekSummaryStory(w) : null;
+      el.innerHTML = `<div class="pf-period">${range(s.from, s.to)}</div>
+        <div class="pf-stats">${stat(t('spentLbl'), money(s.spent, w.base))}${s.avg ? stat(t('usualLbl'), money(s.avg, w.base)) : ''}</div>
+        ${s.avg ? change(s.spent, s.avg, t('vsUsual')) : ''}${top(s.top.category)}${story ? storyBtn('w') : ''}`;
+      if (story) $('[data-story="w"]', el).addEventListener('click', () => openStory(story));
+    }).catch(() => { $('#pfWeek', S).innerHTML = `<div class="pf-empty">${t('netError')}</div>`; });
+
+    const prev = shiftMonth(state.today.slice(0, 7), -1);
+    api(`/summary?month=${prev}`).then(({ summary: s }) => {
+      const el = $('#pfMonth', S);
+      if (!s || (!s.total && !s.income)) { el.innerHTML = `<div class="pf-empty">${t('notEnough')}</div>`; return; }
+      const mi = Number(prev.slice(5, 7)) - 1;
+      const story = state.lang === 'ru' ? buildMonthStory(s) : null;
+      el.innerHTML = `<div class="pf-period">${state.lang === 'ru' ? MONTHS.ru[mi] : MONTHS.en[mi]} ${prev.slice(0, 4)}</div>
+        <div class="pf-stats">${stat(t('spentLbl'), money(s.total, s.base))}${stat(t('incomeLbl'), money(s.income, s.base), 'pos')}${stat(t('balanceLbl'), signed(s.balance, s.base), s.balance >= 0 ? 'pos' : 'neg')}</div>
+        ${change(s.total, s.prevTotal, t('vsPrev'))}${top(s.categories[0] && s.categories[0].category)}${story ? storyBtn('m') : ''}`;
+      if (story) $('[data-story="m"]', el).addEventListener('click', () => openStory(story));
+    }).catch(() => { $('#pfMonth', S).innerHTML = `<div class="pf-empty">${t('netError')}</div>`; });
+  }
+
+  // ---------- редактор категорий ----------
+  function openCategoryEditor(kind = 'expense') {
+    const sh = openSheet(`
+      <div class="sheet-head"><h2>${t('catEditor')}</h2><button class="close">${t('done')}</button></div>
+      <div class="seg" id="ceTabs"><button data-k="expense">${t('expensesTab')}</button><button data-k="income">${t('incomesTab')}</button></div>
+      <div class="card list" id="ceList"></div>
+      <button class="btn btn-secondary btn-block" id="ceAdd">➕ ${t('newCat')}</button>`);
+    const S = sh.sheet;
+    let changed = false;
+    const draw = () => {
+      S.querySelectorAll('#ceTabs button').forEach((b) => b.classList.toggle('active', b.dataset.k === kind));
+      $('#ceList', S).innerHTML = catsOf(kind).map((c) => `<button class="row ce-row" data-c="${c.id}">
+        <span class="ce-name"><span class="ce-ico">${c.emoji}</span>${esc(catName(c.id))}${c.custom ? ` <span class="ce-badge">${t('ownCat')}</span>` : ''}</span>
+        <span class="settings-value">›</span></button>`).join('');
+      S.querySelectorAll('[data-c]').forEach((b) => b.addEventListener('click', async () => {
+        if (await createCategory(kind, b.dataset.c)) { changed = true; draw(); }
+      }));
+    };
+    S.querySelectorAll('#ceTabs button').forEach((b) => b.addEventListener('click', () => { kind = b.dataset.k; haptic('select'); draw(); }));
+    $('#ceAdd', S).addEventListener('click', async () => { if (await createCategory(kind)) { changed = true; draw(); } });
+    $('.close', S).addEventListener('click', () => closeSheet(sh));
+    sh.onClose = () => { if (changed) loadMonth(); };
+    draw();
+  }
+
   function openSettings() {
     const me = state.me;
     const sh = openSheet(`
@@ -1767,9 +1900,12 @@
     state.cats = me.categories;
     state.incomeCats = me.income_categories || [];
     state.catMap = Object.fromEntries([...me.categories, ...state.incomeCats].map((c) => [c.id, c]));
+    state.baseCats = { ...state.catMap };
     state.custom = [];
     state.customEmoji = me.custom_emoji || ['🏷️'];
     (me.custom_categories || []).forEach(addCustomCat);
+    state.prefs = Object.fromEntries((me.category_prefs || []).map((p) => [p.category_id, p]));
+    Object.keys(state.prefs).forEach(applyPref);
     state.currencies = me.currencies;
     state.today = me.today;
     state.daysSinceStart = me.daysSinceStart || 0;
@@ -1780,7 +1916,7 @@
 
     $('#prevMonth').addEventListener('click', () => { state.month = shiftMonth(state.month, -1); state.filter = null; haptic('select'); loadMonth(); });
     $('#nextMonth').addEventListener('click', () => { state.month = shiftMonth(state.month, 1); state.filter = null; haptic('select'); loadMonth(); });
-    $('#openSettings').addEventListener('click', openSettings);
+    $('#openMenu').addEventListener('click', () => { haptic('select'); openMenu(); });
     $('#addManual').addEventListener('click', () => openManual('expense'));
     $('#addIncome').addEventListener('click', () => openManual('income'));
     $('#addReceipt').addEventListener('click', () => { const f = $('#fileInput'); f.value = ''; f.click(); });

@@ -28,13 +28,14 @@ export async function monthSummary(env, userId, month, base) {
   const rates = await getRates(env);
   const conv = (eur) => Math.round(fromEur(eur, base, rates) * 100) / 100;
   const prevMonth = shiftMonth(month, -1);
-  const [cur, prev, daily, custom] = await Promise.all([
+  const [cur, prev, daily, custom, prefs] = await Promise.all([
     totalsByCategory(env, userId, month),
     totalsByCategory(env, userId, prevMonth),
     env.DB.prepare(
       `SELECT date, SUM(amount_eur) AS eur FROM entries WHERE user_id = ? AND kind = 'expense' AND date >= ? AND date <= ? GROUP BY date`
     ).bind(userId, `${month}-01`, `${month}-31`).all(),
     env.DB.prepare('SELECT id, kind, name, emoji FROM custom_categories WHERE user_id = ?').bind(userId).all(),
+    env.DB.prepare('SELECT category_id, name, emoji FROM category_prefs WHERE user_id = ?').bind(userId).all(),
   ]);
   const prevMap = Object.fromEntries(prev.map((r) => [`${r.kind}:${r.category}`, conv(r.eur)]));
   const rows = cur.map((r) => ({ kind: r.kind, category: r.category, amount: conv(r.eur), count: r.n, prev: prevMap[`${r.kind}:${r.category}`] || 0 }))
@@ -50,7 +51,7 @@ export async function monthSummary(env, userId, month, base) {
   const days = Array.from({ length: daysInMonth(month) }, () => 0);
   for (const r of daily.results) days[Number(r.date.slice(8, 10)) - 1] = conv(r.eur);
   return {
-    custom: customMap(custom.results),
+    custom: customMap(custom.results, prefs.results),
     month, base,
     total: r2(total),            // расходы
     income: r2(income),          // доходы
