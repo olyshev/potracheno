@@ -826,25 +826,33 @@
   const wkPage = (bg, tag, body) => `<div class="wr" style="background:${bg}"><div class="wr-tag">${tag}</div>${body}
     <div class="wr-logo">потрачено<span>БЮДЖЕТ-БОТ</span></div></div>`;
 
+  // ---- новые недельные истории (стиль приложения: жёлтый/чёрный/синий, Manrope, иллюстрации) ----
+  const w2Logo = '<div class="w2-logo">потрачено<span>БЮДЖЕТ-БОТ</span></div>';
+  const w2Range = (a, b) => (a.slice(5, 7) === b.slice(5, 7) ? `${Number(a.slice(8, 10))}–${dayMonth(b)}` : `${dayMonth(a)} – ${dayMonth(b)}`);
+  function w2Ico(id) {
+    const c = cat(id), name = window.ICONS && window.ICONS.CAT[id];
+    const pe = state.prefs && state.prefs[id] && state.prefs[id].emoji;
+    const own = c.custom || (pe && state.baseCats[id] && pe !== state.baseCats[id].emoji);
+    return `<div class="w2-ci" style="background:${tintOf(id)}">${name && !own ? ico(name, 62, '#000') : `<span style="font-size:64px">${esc(c.emoji)}</span>`}</div>`;
+  }
+  const w2Page = (bg, color, body) => `<div class="wr w2" style="background:${bg};color:${color}">${body}${w2Logo}</div>`;
+
   function buildPlanStory(w) {
     const slides = [];
-    const rows = (list, income) => list.map((it) => `<div class="wk-row">${emojiImg(twemoji(cat(it.category).emoji), 84)}
-      <div><div class="wk-amt">${wrMoney(it.amount, it.currency)}</div><div class="wk-what">${planLine(it, income, w.today)}</div></div></div>`).join('');
+    const tag = `<div class="w2-tag">План на неделю<small>${esc(w2Range(w.today, w.week.to))}</small></div>`;
+    const rows = (list, income) => list.map((it) => `<div class="w2-card w2-row">${w2Ico(it.category)}
+      <div><div class="w2-amt">${esc(money(it.amount, it.currency))}</div><div class="w2-what">${planLine(it, income, w.today)}</div></div></div>`).join('');
     if (w.plan.expenses.length) {
-      slides.push({ html: wkPage('linear-gradient(170deg,#1f7a8c 0%,#123f4a 50%,#0e0e10 100%)', 'План на неделю',
-        `<div class="wr-wrap" style="top:400px"><div class="wr-cap" style="margin-top:0">Запланированные расходы</div><div class="wk-rows">${rows(w.plan.expenses, false)}</div></div>`) });
+      slides.push({ html: w2Page('#000', '#fff', `<img class="w2-ill" src="illus/note.svg" alt="" style="right:-150px;top:-60px;width:520px;transform:rotate(-18deg)">${tag}
+        <div class="w2-wrap" style="top:440px"><div class="w2-cap">Запланированные<br>расходы</div><div class="w2-rows">${rows(w.plan.expenses, false)}</div></div>`) });
     }
     if (w.plan.incomes.length) {
-      slides.push({ html: wkPage('linear-gradient(170deg,#1f9d63 0%,#10533a 50%,#0e0e10 100%)', 'План на неделю',
-        `<div class="wr-wrap" style="top:400px"><div class="wr-cap" style="margin-top:0">Запланированные доходы</div><div class="wk-rows">${rows(w.plan.incomes, true)}</div></div>`) });
+      slides.push({ html: w2Page('#4d72f5', '#fff', `<img class="w2-ill" src="illus/coin.svg" alt="" style="right:-110px;bottom:200px;width:480px;transform:rotate(12deg)">
+        <img class="w2-ill" src="illus/star.svg" alt="" style="right:330px;bottom:520px;width:150px;transform:rotate(-12deg)">${tag}
+        <div class="w2-wrap" style="top:440px"><div class="w2-cap">Запланированные<br>доходы</div><div class="w2-rows">${rows(w.plan.incomes, true)}</div></div>`) });
     }
     if (!slides.length) return null;
-    return {
-      id: `week-plan-${w.week.from}`, langs: ['ru'], duration: 6000, dynamic: 'week',
-      title: { ru: 'План на неделю', en: 'Week plan' },
-      coverHtml: `<span class="story-img wk-cover" style="background:linear-gradient(165deg,#1f7a8c,#1f9d63)">${emojiImg('1f5d3', 40)}</span>`,
-      slides,
-    };
+    return { id: `week-plan-${w.week.from}`, langs: ['ru'], duration: 6000, dynamic: 'week', title: { ru: 'План на неделю', en: 'Week plan' }, slides };
   }
 
   function buildWeekSummaryStory(w) {
@@ -854,18 +862,17 @@
     if (s.avg) {
       const pct = Math.round(Math.abs(s.spent - s.avg) / s.avg * 100);
       const less = s.spent <= s.avg;
-      pill = pct === 0 ? `<div class="wk-pill">как обычно</div>`
-        : `<div class="wk-pill">${emojiImg(less ? '1f4c9' : '1f4c8', 56)} на ${pct}% ${less ? 'меньше' : 'больше'}, чем обычно</div>`;
+      pill = pct === 0 ? '<div class="w2-pill">как обычно</div>'
+        : `<div class="w2-pill">${ico(less ? 'trend_down' : 'trend_up', 52, '#000')} на ${pct}% ${less ? 'меньше' : 'больше'}, чем обычно</div>`;
     }
     return {
-      id: `week-sum-${w.week.from}`, langs: ['ru'], duration: 6000, dynamic: 'week',
-      title: { ru: 'Итоги недели', en: 'Week recap' },
-      coverHtml: `<span class="story-img wk-cover" style="background:linear-gradient(165deg,#1d5fae,#12345f)">${emojiImg('1f4ca', 40)}</span>`,
-      slides: [{ html: wkPage('linear-gradient(170deg,#1d5fae 0%,#12345f 50%,#0e0e10 100%)', 'Итоги недели',
-        `<div class="wr-wrap" style="top:470px"><div class="wr-cap" style="margin-top:0">На прошлой неделе вы потратили</div>
-         <div class="wr-num" style="margin-top:40px">${wrMoney(s.spent, w.base)}</div>${pill}
-         <div class="wk-top">${emojiImg(twemoji(cat(s.top.category).emoji), 110)}<div><div class="wk-k">Категория #1</div>
-         <div class="wk-v">${esc(catName(s.top.category).toLowerCase())}</div></div></div></div>`) }],
+      id: `week-sum-${w.week.from}`, langs: ['ru'], duration: 6000, dynamic: 'week', title: { ru: 'Итоги недели', en: 'Week recap' },
+      slides: [{ html: w2Page('#fff957', '#000', `<img class="w2-ill" src="illus/wallet.svg" alt="" style="right:-150px;bottom:30px;width:540px;transform:rotate(-14deg)">
+        <div class="w2-tag">Итоги недели<small>${esc(w2Range(s.from, s.to))}</small></div>
+        <div class="w2-wrap" style="top:470px"><div class="w2-cap">На прошлой неделе<br>вы потратили</div>
+          <div class="w2-num">${bigMoney(s.spent, w.base)}</div>${pill}
+          <div class="w2-card w2-top">${w2Ico(s.top.category)}<div><div class="w2-k">Категория #1</div><div class="w2-v">${esc(catName(s.top.category).toLowerCase())}</div></div></div>
+        </div>`) }],
     };
   }
 

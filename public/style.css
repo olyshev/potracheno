@@ -687,3 +687,24 @@ button.h-chip { cursor: pointer; }
 .h-ill { position: absolute; pointer-events: none; z-index: 1; }
 .h-coin { width: 168px; right: -38px; top: 2px; transform: rotate(14deg); }
 .h-star { width: 72px; right: 14px; top: 150px; transform: rotate(-12deg); }
+/* ---------- недельные истории v2 ---------- */
+.w2 { font-family: Man, sans-serif; }
+.w2-tag { position: absolute; top: 190px; left: 110px; font-weight: 800; font-size: 44px; letter-spacing: -.5px; }
+.w2-tag small { display: block; font-weight: 600; font-size: 34px; opacity: .6; margin-top: 6px; letter-spacing: 0; }
+.w2-wrap { position: absolute; left: 110px; right: 110px; }
+.w2-cap { font-weight: 800; font-size: 68px; line-height: 1.12; letter-spacing: -1.5px; }
+.w2-num { font-weight: 800; font-size: 230px; letter-spacing: -11px; line-height: .95; white-space: nowrap; display: flex; align-items: flex-start; margin-top: 30px; }
+.w2-num .fr { font-size: 96px; letter-spacing: -2px; margin: 22px 0 0 8px; }
+.w2-num .sg { font-size: 120px; margin: 40px 10px 0 0; }
+.w2-pill { display: inline-flex; align-items: center; gap: 16px; margin-top: 50px; padding: 22px 34px; border-radius: 99px; font-weight: 800; font-size: 44px;
+  background: #fff; color: #000; border: 5px solid #000; box-shadow: 10px 12px 0 #000; }
+.w2-card { display: flex; align-items: center; gap: 34px; padding: 34px 40px; border-radius: 52px; background: #fff; color: #000; border: 5px solid #000; box-shadow: 12px 14px 0 #000; }
+.w2-top { margin-top: 80px; width: 680px; }
+.w2-ci { width: 128px; height: 128px; border-radius: 50%; display: grid; place-items: center; flex: none; border: 5px solid #000; }
+.w2-k { font-weight: 700; font-size: 38px; opacity: .55; } .w2-v { font-weight: 800; font-size: 62px; letter-spacing: -1px; margin-top: 2px; line-height: 1.1; }
+.w2-rows { display: flex; flex-direction: column; gap: 30px; margin-top: 70px; }
+.w2-amt { font-weight: 800; font-size: 76px; letter-spacing: -2px; white-space: nowrap; }
+.w2-what { font-weight: 700; font-size: 42px; margin-top: 4px; line-height: 1.15; } .w2-what .wk-day { opacity: .55; }
+.w2-ill { position: absolute; pointer-events: none; }
+.w2-logo { position: absolute; bottom: 120px; left: 110px; font-weight: 800; font-size: 46px; letter-spacing: -1px; }
+.w2-logo span { font-size: 22px; letter-spacing: 6px; margin-left: 14px; opacity: .6; vertical-align: 8px; }
