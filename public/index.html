@@ -5,39 +5,65 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <title>Потрачено</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script>
+    // тема — до отрисовки, чтобы не мигало: тёмная или светлая по Telegram (или по системе)
+    (function () {
+      var tg = window.Telegram && window.Telegram.WebApp;
+      var dark = tg && tg.colorScheme ? tg.colorScheme === 'dark' : (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    })();
+  </script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- заставка: монетка падает, крутится в центре, пока грузятся данные, и улетает вниз -->
+  <!-- заставка: монетка падает, крутится в центре, пока грузятся данные, и улетает вниз; жёлтый фон становится шапкой главного экрана -->
   <div id="splash" aria-hidden="true">
+    <svg class="sp-rib sp-rib1" width="260" height="260" viewBox="0 0 300 300"><path d="M250 -20 C 170 60, 40 120, 70 200 C 95 265, 210 230, 240 150 C 262 92, 230 40, 180 70" fill="none" stroke="#000" stroke-width="44" stroke-linecap="round"/><path d="M250 -20 C 170 60, 40 120, 70 200 C 95 265, 210 230, 240 150 C 262 92, 230 40, 180 70" fill="none" stroke="#ffb08a" stroke-width="40" stroke-linecap="round"/></svg>
+    <svg class="sp-rib sp-rib2" width="260" height="260" viewBox="0 0 300 300"><path d="M250 -20 C 170 60, 40 120, 70 200 C 95 265, 210 230, 240 150 C 262 92, 230 40, 180 70" fill="none" stroke="#000" stroke-width="44" stroke-linecap="round"/><path d="M250 -20 C 170 60, 40 120, 70 200 C 95 265, 210 230, 240 150 C 262 92, 230 40, 180 70" fill="none" stroke="#4d72f5" stroke-width="40" stroke-linecap="round"/></svg>
     <div class="sp-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
     <div class="sp-drop"><div class="sp-bob"><div class="sp-coin">
-      <b class="sp-face sp-front"></b><i style="transform:translateZ(-0.9px)"></i><i style="transform:translateZ(-1.8px)"></i><i style="transform:translateZ(-2.7px)"></i><i style="transform:translateZ(-3.6px)"></i><i style="transform:translateZ(-4.5px)"></i><i style="transform:translateZ(-5.4px)"></i><i style="transform:translateZ(-6.3px)"></i><i style="transform:translateZ(-7.2px)"></i><i style="transform:translateZ(-8.1px)"></i><b class="sp-face sp-back"></b>
+      <b class="sp-face sp-front"></b><i style="transform:translateZ(-1.1px)"></i><i style="transform:translateZ(-2.2px)"></i><i style="transform:translateZ(-3.3px)"></i><i style="transform:translateZ(-4.4px)"></i><i style="transform:translateZ(-5.5px)"></i><i style="transform:translateZ(-6.6px)"></i><i style="transform:translateZ(-7.7px)"></i><i style="transform:translateZ(-8.8px)"></i><b class="sp-face sp-back"></b>
     </div></div></div>
     <div class="sp-text" id="splashText">Загружаем<span class="sp-dots"><i>.</i><i>.</i><i>.</i></span></div>
   </div>
+
   <div id="app">
-    <header class="top">
-      <button class="icon-btn" id="prevMonth" aria-label="Предыдущий месяц">‹</button>
-      <div class="month" id="monthLabel"></div>
-      <button class="icon-btn" id="nextMonth" aria-label="Следующий месяц">›</button>
-      <button class="icon-btn settings-btn burger" id="openMenu" aria-label="Меню"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-    </header>
+    <!-- ГЛАВНАЯ -->
+    <section class="view" id="viewHome">
+      <div class="hero2">
+        <svg class="rib" width="210" height="210" viewBox="0 0 300 300" aria-hidden="true"><path d="M250 -20 C 170 60, 40 120, 70 200 C 95 265, 210 230, 240 150 C 262 92, 230 40, 180 70" fill="none" stroke="#000" stroke-width="44" stroke-linecap="round"/><path d="M250 -20 C 170 60, 40 120, 70 200 C 95 265, 210 230, 240 150 C 262 92, 230 40, 180 70" fill="none" stroke="#ffb08a" stroke-width="40" stroke-linecap="round"/></svg>
+        <header class="top">
+          <button class="icon-btn" id="prevMonth" aria-label="Предыдущий месяц">‹</button>
+          <div class="month" id="monthLabel"></div>
+          <button class="icon-btn" id="nextMonth" aria-label="Следующий месяц">›</button>
+        </header>
+        <section id="storiesRow"></section>
+        <section id="hero"></section>
+        <div class="acts">
+          <button class="act" id="addReceipt"><span class="act-c" data-ico="invoice"></span><span data-i18n="addReceipt"></span></button>
+          <button class="act" id="addManual"><span class="act-c" data-ico="minus"></span><span data-i18n="addExpense"></span></button>
+          <button class="act" id="addIncome"><span class="act-c" data-ico="plus"></span><span data-i18n="addIncome"></span></button>
+        </div>
+      </div>
+      <main class="sheet2" id="main">
+        <section id="categoriesSection"></section>
+        <section id="incomeSection"></section>
+        <section id="upcomingSection"></section>
+        <section id="entriesSection"></section>
+        <div class="spacer"></div>
+      </main>
+    </section>
 
-    <main id="main">
-      <section id="storiesRow"></section>
-      <section class="hero card" id="hero"></section>
-      <section id="upcomingSection"></section>
-      <section id="categoriesSection"></section>
-      <section id="incomeSection"></section>
-      <section id="entriesSection"></section>
-      <div class="spacer"></div>
-    </main>
+    <!-- СТАТИСТИКА -->
+    <section class="view page" id="viewStats" hidden></section>
 
-    <nav class="bottom-bar">
-      <button class="btn btn-secondary" id="addIncome"><span class="pos-text">＋</span><span data-i18n="addIncome"></span></button>
-      <button class="btn btn-secondary" id="addManual"><span>−</span><span data-i18n="addExpense"></span></button>
-      <button class="btn btn-primary" id="addReceipt"><span>📷</span><span data-i18n="addReceipt"></span></button>
+    <!-- ПРОФИЛЬ -->
+    <section class="view page" id="viewProfile" hidden></section>
+
+    <nav class="tabbar">
+      <button class="tab active" data-tab="home"><span class="tab-i" data-ico="wallet"></span><span data-i18n="tabHome"></span></button>
+      <button class="tab" data-tab="stats"><span class="tab-i" data-ico="statistic"></span><span data-i18n="tabStats"></span></button>
+      <button class="tab" data-tab="profile"><span class="tab-i" data-ico="account"></span><span data-i18n="profile"></span></button>
     </nav>
     <input type="file" id="fileInput" accept="image/*,application/pdf" multiple hidden>
   </div>
@@ -46,6 +72,7 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <div id="tooltip" class="tooltip" hidden></div>
 
+  <script src="icons.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

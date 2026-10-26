@@ -22,7 +22,11 @@
       weekResults: 'Итоги недели', monthResults: 'Итоги месяца', openStory: 'Смотреть историю', notEnough: 'Пока мало данных: нужно хотя бы несколько трат.',
       spentLbl: 'Потрачено', incomeLbl: 'Доходы', balanceLbl: 'Остаток', usualLbl: 'Обычно', topLbl: 'Больше всего', vsPrev: 'к прошлому месяцу', vsUsual: 'к обычной неделе',
       firstEntryHint: 'Добавьте первую трату', daysWithUs: (n) => `Слежу за деньгами уже ${n} ${plural(n, ['день', 'дня', 'дней'])}`,
-      newCat: 'Новая категория', createCat: 'Создать', catNameLabel: 'Название', catNamePh: 'Например, хобби', catIcon: 'Значок', tooManyCats: 'Слишком много своих категорий', today: 'Сегодня', yesterday: 'Вчера', tomorrow: 'Завтра', otherDate: 'Другая дата', pickDate: 'Выбрать', emptyTitle: 'Пока пусто',
+      tabHome: 'Главная', tabStats: 'Статистика', spentIn: (m) => `Потрачено в ${{ 'январь': 'январе', 'февраль': 'феврале', 'март': 'марте', 'апрель': 'апреле', 'май': 'мае', 'июнь': 'июне', 'июль': 'июле', 'август': 'августе', 'сентябрь': 'сентябре', 'октябрь': 'октябре', 'ноябрь': 'ноябре', 'декабрь': 'декабре' }[String(m).toLowerCase()] || m}`,
+      earnedIn: (m) => `Заработано в ${{ 'январь': 'январе', 'февраль': 'феврале', 'март': 'марте', 'апрель': 'апреле', 'май': 'мае', 'июнь': 'июне', 'июль': 'июле', 'август': 'августе', 'сентябрь': 'сентябре', 'октябрь': 'октябре', 'ноябрь': 'ноябре', 'декабрь': 'декабре' }[String(m).toLowerCase()] || m}`,
+      repeatShort: 'регулярно', receiptShort: 'чек', byDay: 'По дням', noData: 'За этот месяц пока ничего нет', vsUsualShort: 'к обычной',
+      leftShare: (n) => `осталось ${n}% дохода`, overShort: 'расходы больше доходов',
+      newCat: 'Новая категория', createCat: 'Создать', catNameLabel: 'Название', catNamePh: 'Например, хобби', catIcon: 'Значок', tooManyCats: 'Слишком много своих категорий', moreCats: 'Ещё', addIncomeShort: 'Добавить доход', today: 'Сегодня', yesterday: 'Вчера', tomorrow: 'Завтра', otherDate: 'Другая дата', pickDate: 'Выбрать', emptyTitle: 'Пока пусто',
       emptyText: 'Сфотографируйте чек или внесите сумму вручную. Ещё можно просто отправить фото чека боту в чат.',
       emptyPast: 'В этом месяце записей нет.',
       newExpense: 'Новая трата', amount: 'Сумма', note: 'Что купили', notePh: 'Например, кофе', date: 'Дата',
@@ -79,7 +83,10 @@
       weekResults: 'Week results', monthResults: 'Month results', openStory: 'View story', notEnough: 'Not enough data yet: add a few expenses first.',
       spentLbl: 'Spent', incomeLbl: 'Income', balanceLbl: 'Left', usualLbl: 'Usually', topLbl: 'Top category', vsPrev: 'vs last month', vsUsual: 'vs a usual week',
       firstEntryHint: 'Add your first expense', daysWithUs: (n) => `Tracking my money for ${n} day${n === 1 ? '' : 's'}`,
-      newCat: 'New category', createCat: 'Create', catNameLabel: 'Name', catNamePh: 'e.g. Hobby', catIcon: 'Icon', tooManyCats: 'Too many custom categories', today: 'Today', yesterday: 'Yesterday', tomorrow: 'Tomorrow', otherDate: 'Other date', pickDate: 'Pick', emptyTitle: 'Nothing here yet',
+      tabHome: 'Home', tabStats: 'Statistics', spentIn: (m) => `Spent in ${m}`, earnedIn: (m) => `Earned in ${m}`,
+      repeatShort: 'recurring', receiptShort: 'receipt', byDay: 'By day', noData: 'Nothing here for this month yet', vsUsualShort: 'vs usual',
+      leftShare: (n) => `${n}% of income left`, overShort: 'spent more than earned',
+      newCat: 'New category', createCat: 'Create', catNameLabel: 'Name', catNamePh: 'e.g. Hobby', catIcon: 'Icon', tooManyCats: 'Too many custom categories', moreCats: 'More', addIncomeShort: 'Add income', today: 'Today', yesterday: 'Yesterday', tomorrow: 'Tomorrow', otherDate: 'Other date', pickDate: 'Pick', emptyTitle: 'Nothing here yet',
       emptyText: 'Snap a receipt or add an amount manually. You can also just send a receipt photo to the bot.',
       emptyPast: 'No entries this month.',
       newExpense: 'New expense', amount: 'Amount', note: 'What was it', notePh: 'e.g. coffee', date: 'Date',
@@ -161,6 +168,22 @@
     const all = i < 0 ? [...base, ...own] : [...base.slice(0, i), ...own, ...base.slice(i)];
     return all.filter((c) => !isHidden(c.id)).map((c) => state.catMap[c.id] || c);
   };
+  // ---------- иконки категорий: кружок пастельного цвета с линейной иконкой (свои категории — со своим эмодзи) ----------
+  const ico = (name, size = 24, color) => (window.ICONS ? window.ICONS.icon(name, size, color) : '');
+  const TINTS = ['#FFF957', '#EAEEFF', '#FFE1D0', '#E3F5EA', '#FFE8ED'];
+  const TINT_OF = { groceries: 0, cafe: 4, delivery: 2, transport: 1, taxi: 3, carsharing: 0, fuel: 2, car_service: 1, car_goods: 3, housing: 1,
+    utilities: 0, health: 3, beauty: 4, household: 2, clothes: 4, shopping: 0, fun: 1, sport: 2, subscriptions: 3, travel: 4, education: 0, kids: 1,
+    pets: 2, savings: 3, gifts: 4, other: 1, salary: 0, freelance: 1, business: 2, investments: 3, rent_in: 4, benefits: 1, refund: 0, gift_in: 4,
+    transfer_in: 3, other_income: 2 };
+  const tintOf = (id) => TINTS[TINT_OF[id] ?? ([...String(id)].reduce((a, ch) => a + ch.charCodeAt(0), 0) % TINTS.length)];
+  function catIco(id, size = 44) {
+    const c = cat(id);
+    const name = window.ICONS && window.ICONS.CAT[id];
+    const pe = state.prefs && state.prefs[id] && state.prefs[id].emoji;
+    const ownEmoji = c.custom || (pe && state.baseCats[id] && pe !== state.baseCats[id].emoji);
+    const inner = name && !ownEmoji ? ico(name, Math.round(size * 0.5), '#000') : esc(c.emoji);
+    return `<span class="ci s${size}" style="background:${tintOf(id)}">${inner}</span>`;
+  }
   const isHidden = (id) => !!(state.prefs && state.prefs[id] && state.prefs[id].hidden);
   // применить переименование стандартной категории
   const applyPref = (id) => {
@@ -287,11 +310,17 @@
     const el = $('#storiesRow');
     const list = visibleStories().map((s, k) => [s, k]).sort((a, b) => (Number(seenStory(a[0].id)) - Number(seenStory(b[0].id))) || (a[1] - b[1])).map((x) => x[0]);
     if (!list.length) { el.innerHTML = ''; return; }
-    el.innerHTML = `<div class="stories">${list.map((s) => `
+    // плитка: [иконка, фон, цвет иконки] по типу истории
+    const tile = (s) => (s.id.startsWith('milestone') ? ['gifts', '#ffffff', '#000'] : s.id.startsWith('week-sum') ? ['statistic', '#4d72f5', '#fff']
+      : s.id.startsWith('week-plan') ? ['calendar', '#000', '#fff957'] : s.id.startsWith('month') ? ['payment', '#ffb08a', '#000'] : ['education', '#ffffff', '#000']);
+    el.innerHTML = `<div class="stories">${list.map((s) => {
+      const [ic, bg, fg] = tile(s);
+      return `
       <button class="story-tile ${seenStory(s.id) ? 'seen' : ''}" data-story="${s.id}" aria-label="${esc(s.title[state.lang] || s.title.ru)}">
-        ${s.coverHtml || `<span class="story-img" style="background-image:url('${s.cover}')"></span>`}
-        <span class="story-title">${esc(s.title[state.lang] || s.title.ru)}</span>
-      </button>`).join('')}</div>`;
+        <span class="st-ring"><span class="st-tile" style="background:${bg}">${ico(ic, 26, fg)}</span></span>
+        <span class="st-label">${esc(s.title[state.lang] || s.title.ru)}</span>
+      </button>`;
+    }).join('')}</div>`;
     el.querySelectorAll('[data-story]').forEach((b) => b.addEventListener('click', () => {
       haptic('select');
       openStory(STORIES.find((s) => s.id === b.dataset.story));
@@ -893,6 +922,16 @@
     }
   }
 
+  // сумма крупно: целая часть большая, копейки и валюта мельче
+  function bigMoney(n, cur, withSign = false) {
+    const str = money(Math.abs(n), cur);
+    const m = str.match(/^(.*?\d)([.,]\d{2})?(\s*\D*)$/) || [null, str, '', ''];
+    const sign = withSign ? (n > 0 ? '+' : n < 0 ? '−' : '') : (n < 0 ? '−' : '');
+    // символ валюты перед числом (например, $) оставляем как есть
+    if (/^\D/.test(str)) return `${sign ? `<span class="sg">${sign}</span>` : ''}${esc(str)}`;
+    return `${sign ? `<span class="sg">${sign}</span>` : ''}${esc(m[1])}<span class="fr">${esc((m[2] || '') + (m[3] || ''))}</span>`;
+  }
+
   function render() {
     const { summary: s, entries } = state.data;
     const base = s.base;
@@ -903,55 +942,69 @@
     // динамика расходов к прошлому месяцу
     let delta = '';
     const pct = s.prevTotal > 0 ? Math.round(((s.total - s.prevTotal) / s.prevTotal) * 100) : 0;
-    if (s.prevTotal > 0 && s.total > 0 && Math.abs(pct) <= 300) { // при почти пустом прошлом месяце процент бессмыслен
+    if (s.prevTotal > 0 && s.total > 0 && Math.abs(pct) <= 300) {
       const prevIdx = (mm + 10) % 12;
       const prevName = state.lang === 'ru' ? MONTHS.ruDat[prevIdx] : MONTHS.en[prevIdx];
-      delta = pct === 0 ? `<span>${t('same')}</span>`
-        : `<span class="delta num">${pct > 0 ? '▲' : '▼'} ${Math.abs(pct)}%</span><span>${t('vs', prevName)}</span>`;
+      delta = pct === 0 ? t('same') : `${pct > 0 ? '▲' : '▼'} ${Math.abs(pct)}% ${t('vs', prevName)}`;
     }
-    const chart = s.total ? dailyChart(s.days, isCurrent ? Number(state.today.slice(8, 10)) : s.days.length, base) : '';
+    const forecast = s.projected !== null && s.projected !== undefined
+      ? `<div class="h-forecast">${t('projected')}: <b>${signed(s.projected, base)}</b></div>` : '';
 
-    // ---- главный блок: остаток, если есть доходы; иначе — сколько потрачено
+    // ---- жёлтая шапка: остаток (если есть доходы) или сколько потрачено
     if (s.income > 0) {
-      const share = s.total / s.income;
-      const over = s.balance < 0;
       $('#hero').innerHTML = `
-        <div class="hero-label">${esc(t('balanceOf', monthIn))}</div>
-        <div class="hero-total num ${over ? 'neg' : ''}">${signed(s.balance, base)}</div>
-        <div class="meter ${over ? 'over' : ''}" role="img" aria-label="${esc(t('spentOf', money(s.total, base), money(s.income, base)))}">
-          <i style="width:${Math.min(100, Math.max(share > 0 ? 1.5 : 0, share * 100))}%"></i></div>
-        <div class="hero-meta">${over ? `<span class="neg-text">${esc(t('overspent', money(-s.balance, base)))}</span>` : `<span>${esc(t('spentOf', money(s.total, base, { round: s.income >= 1000 }), money(s.income, base, { round: s.income >= 1000 })))}</span>`}</div>
-        <div class="hero-split">
-          <div><span>${t('income')}</span><b class="num pos-text">${signed(s.income, base)}</b></div>
-          <div><span>${t('expenses')}</span><b class="num">${signed(-s.total, base)}</b>${delta ? `<div class="hero-meta small">${delta}</div>` : ''}</div>
-        </div>
-        ${s.projected !== null && s.projected !== undefined ? `<div class="forecast"><span>${t('projected')}</span><b class="num ${s.projected < 0 ? 'neg-text' : ''}">${signed(s.projected, base)}</b></div>` : ''}
-        ${chart}`;
+        <div class="h-label">${esc(t('balanceOf', monthIn))}</div>
+        <div class="h-num num ${s.balance < 0 ? 'neg' : ''}">${bigMoney(s.balance, base, true)}</div>
+        <div class="h-chips"><span class="h-chip">${t('income')} <b>${signed(s.income, base)}</b></span>
+          <span class="h-chip">${t('expenses')} <b>${signed(-s.total, base)}</b></span></div>${forecast}`;
     } else {
       $('#hero').innerHTML = `
-        <div class="hero-label">${t('spent')}</div>
-        <div class="hero-total num">${money(s.total, base)}</div>
-        <div class="hero-meta">${delta}${delta ? '<span>·</span>' : ''}<span>${t('entries', s.count)}</span></div>
-        ${isCurrent && s.count ? `<button class="hint-link" id="heroAddIncome">💰 ${t('addIncomeHint')}</button>` : ''}
-        ${s.projected !== null && s.projected !== undefined ? `<div class="forecast"><span>${t('projected')}</span><b class="num ${s.projected < 0 ? 'neg-text' : ''}">${signed(s.projected, base)}</b></div>` : ''}
-        ${chart}`;
+        <div class="h-label">${t('spent')}</div>
+        <div class="h-num num">${bigMoney(s.total, base)}</div>
+        <div class="h-chips"><span class="h-chip">${t('entries', s.count)}</span>${delta ? `<span class="h-chip">${esc(delta)}</span>` : ''}
+          ${isCurrent && s.count ? `<button class="h-chip" id="heroAddIncome">+ ${t('addIncomeShort')}</button>` : ''}</div>${forecast}`;
       const hint = $('#heroAddIncome');
       if (hint) hint.addEventListener('click', () => openManual('income'));
     }
-    bindChart();
+
+    // ---- пусто
+    if (!s.categories.length && !s.incomeCategories.length) {
+      $('#categoriesSection').innerHTML = `<div class="empty"><div class="big">${ico('invoice', 30, '#000')}</div>
+        <b>${isCurrent ? t('emptyTitle') : t('emptyPast')}</b>${isCurrent ? esc(t('emptyTextIncome')) : ''}</div>`;
+      $('#incomeSection').innerHTML = '';
+      $('#upcomingSection').innerHTML = '';
+      $('#entriesSection').innerHTML = '';
+      renderStats();
+      return;
+    }
+
+    // ---- категории: горизонтальные «таблетки», нажатие фильтрует историю
+    const chips = (list, kind) => `<div class="chips-row">${list.map((c) => `
+      <button class="cchip ${kind === 'income' ? 'inc' : ''} ${state.filter === c.category ? 'selected' : ''}" data-cat="${c.category}">
+        ${catIco(c.category, 32)}${esc(catName(c.category))} <em class="num">${kind === 'income' ? '+' : ''}${money(c.amount, base, { round: true })}</em></button>`).join('')}</div>`;
+    $('#categoriesSection').innerHTML = s.categories.length
+      ? `<div class="section-title"><span>${esc(t('spentIn', monthIn))}</span><span class="num">${money(s.total, base)}</span></div>${chips(s.categories, 'expense')}` : '';
+    $('#incomeSection').innerHTML = s.incomeCategories.length
+      ? `<div class="section-title"><span>${t('income')}</span><span class="num">${money(s.income, base)}</span></div>${chips(s.incomeCategories, 'income')}` : '';
+    document.querySelectorAll('#categoriesSection [data-cat], #incomeSection [data-cat]').forEach((b) => b.addEventListener('click', () => {
+      haptic('select');
+      state.filter = state.filter === b.dataset.cat ? null : b.dataset.cat;
+      render();
+      if (state.filter) $('#entriesSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }));
 
     // ---- ожидается в этом месяце
     const up = s.upcoming || [];
     $('#upcomingSection').innerHTML = up.length ? `
       <div class="section-title"><span>${t('upcoming')}</span><button id="allRules">${t('showAll')}</button></div>
-      <div class="card list">${up.map((u) => `
+      <div class="list">${up.map((u) => `
         <button class="row" data-rule="${u.id}">
-          <div class="emoji ${u.kind === 'income' ? 'inc' : ''}">${cat(u.category).emoji}</div>
+          ${catIco(u.category)}
           <div class="row-main">
             <div class="row-title">${esc(u.note || catName(u.category))}</div>
-            <div class="row-sub">🔁 ${esc(dayMonth(u.date))}</div>
+            <div class="row-sub">${esc(dayMonth(u.date))} · ${esc(t('repeatShort'))}</div>
           </div>
-          <div class="row-amount num ${u.kind === 'income' ? 'pos-text' : ''}">${u.kind === 'income' ? '+' : ''}${money(u.amount, u.currency)}${u.currency !== base ? `<small>≈ ${money(u.amount_base, base)}</small>` : ''}</div>
+          <div class="row-amount num ${u.kind === 'income' ? 'pos-text' : ''}">${u.kind === 'income' ? '+' : '−'}${money(u.amount, u.currency)}${u.currency !== base ? `<small>≈ ${money(u.amount_base, base)}</small>` : ''}</div>
         </button>`).join('')}</div>` : '';
     if (up.length) {
       $('#allRules').addEventListener('click', openRecurringList);
@@ -961,39 +1014,6 @@
         if (r) openRuleEditor(r);
       }));
     }
-
-    // ---- пусто
-    if (!s.categories.length && !s.incomeCategories.length) {
-      $('#categoriesSection').innerHTML = `<div class="empty"><div class="big">🧾</div>
-        <b>${isCurrent ? t('emptyTitle') : t('emptyPast')}</b>${isCurrent ? esc(t('emptyTextIncome')) : ''}</div>`;
-      $('#incomeSection').innerHTML = '';
-      $('#entriesSection').innerHTML = '';
-      return;
-    }
-
-    // ---- категории расходов и доходов
-    const catList = (list, total, kind) => {
-      const top = list[0]?.amount || 1;
-      return `<div class="card list">${list.map((c) => `
-        <button class="row ${state.filter === c.category ? 'selected' : ''}" data-cat="${c.category}">
-          <div class="emoji ${kind === 'income' ? 'inc' : ''}">${cat(c.category).emoji}</div>
-          <div class="row-main">
-            <div class="row-title">${esc(catName(c.category))}</div>
-            <div class="share ${kind === 'income' ? 'inc' : ''}"><i style="width:${Math.max(2, (c.amount / top) * 100)}%"></i></div>
-          </div>
-          <div class="row-amount num ${kind === 'income' ? 'pos-text' : ''}">${kind === 'income' ? '+' : ''}${money(c.amount, base)}<small>${pctLabel(c.amount / (total || 1))}</small></div>
-        </button>`).join('')}</div>`;
-    };
-    $('#categoriesSection').innerHTML = s.categories.length
-      ? `<div class="section-title"><span>${t('spent')}</span><span class="num">${money(s.total, base)}</span></div>${catList(s.categories, s.total, 'expense')}` : '';
-    $('#incomeSection').innerHTML = s.incomeCategories.length
-      ? `<div class="section-title"><span>${t('income')}</span><span class="num">${money(s.income, base)}</span></div>${catList(s.incomeCategories, s.income, 'income')}` : '';
-    document.querySelectorAll('#categoriesSection [data-cat], #incomeSection [data-cat]').forEach((b) => b.addEventListener('click', () => {
-      haptic('select');
-      state.filter = state.filter === b.dataset.cat ? null : b.dataset.cat;
-      render();
-      if (state.filter) $('#entriesSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }));
 
     // ---- история по дням
     const list = state.filter ? entries.filter((e) => e.category === state.filter) : entries;
@@ -1013,17 +1033,17 @@
         const dayTotal = items.reduce((a, e) => a + val(e), 0);
         return `
         <div class="day-title"><span>${dayLabel(d)}</span><span class="num">${signed(dayTotal, base)}</span></div>
-        <div class="card list">${items.map((e) => {
+        <div class="list">${items.map((e) => {
           const inc = e.kind === 'income';
-          const rec = e.recurring_id && e.rec_active ? ' · 🔁' : '';
+          const rec = e.recurring_id && e.rec_active ? ` · ${t('repeatShort')}` : '';
           return `
           <button class="row" data-id="${e.id}">
-            <div class="emoji ${inc ? 'inc' : ''}">${cat(e.category).emoji}</div>
+            ${catIco(e.category)}
             <div class="row-main">
               <div class="row-title">${esc(e.note || e.merchant || catName(e.category))}</div>
-              <div class="row-sub">${esc(catName(e.category))}${e.source === 'receipt' ? ' · 🧾' : ''}${rec}</div>
+              <div class="row-sub">${esc(catName(e.category))}${e.source === 'receipt' ? ` · ${t('receiptShort')}` : ''}${rec}</div>
             </div>
-            <div class="row-amount num ${inc ? 'pos-text' : ''}">${inc ? '+' : ''}${e.currency !== base
+            <div class="row-amount num ${inc ? 'pos-text' : ''}">${inc ? '+' : '−'}${e.currency !== base
               ? `${money(e.amount, e.currency)}<small>≈ ${money(e.amount_base, base)}</small>`
               : money(e.amount, e.currency)}</div>
           </button>`;
@@ -1036,6 +1056,152 @@
       const e = entries.find((x) => x.id === b.dataset.id);
       if (e) openEntryEditor(e);
     }));
+    renderStats();
+  }
+
+  // ---------- вкладки ----------
+  function switchTab(tab) {
+    if (state.tab === tab) { window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+    state.tab = tab;
+    haptic('select');
+    document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
+    $('#viewHome').hidden = tab !== 'home';
+    $('#viewStats').hidden = tab !== 'stats';
+    $('#viewProfile').hidden = tab !== 'profile';
+    window.scrollTo(0, 0);
+    if (tab === 'stats') renderStats();
+    if (tab === 'profile') renderProfile();
+    paintChrome();
+  }
+  // цвет шапки Telegram: жёлтый на главной, цвет фона на остальных вкладках
+  function paintChrome() {
+    if (!tg) return;
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#ffffff';
+    try { tg.setHeaderColor(state.tab === 'home' || !state.tab ? '#fff957' : bg); } catch { /* */ }
+    try { tg.setBackgroundColor(bg); } catch { /* */ }
+    try { if (tg.setBottomBarColor) tg.setBottomBarColor(bg); } catch { /* */ }
+  }
+
+  // ---------- статистика ----------
+  function renderStats() {
+    const el = $('#viewStats');
+    if (!el || !state.data || state.tab !== 'stats') return;
+    const s = state.data.summary, base = s.base;
+    const kind = state.statKind || 'expense';
+    const list = kind === 'income' ? s.incomeCategories : s.categories;
+    const total = kind === 'income' ? s.income : s.total;
+    const [, mm] = s.month.split('-').map(Number);
+    const monthName = (state.lang === 'ru' ? MONTHS.ru : MONTHS.en)[mm - 1];
+    const sel = Math.min(state.statSel || 0, Math.max(0, list.length - 1));
+    // кольцо: до 4 крупных категорий цветом, остальное — серым
+    const COLORS = ['#4d72f5', '#fff957', '#ffb08a', 'var(--text)'];
+    const parts = list.slice(0, 4).map((c, i) => ({ frac: c.amount / (total || 1), col: COLORS[i], i }));
+    const rest = list.slice(4).reduce((a, c) => a + c.amount, 0);
+    if (rest > 0) parts.push({ frac: rest / (total || 1), col: 'var(--track)', i: -1 });
+    const R = 100, C = 2 * Math.PI * R;
+    let off = 0, bubble = '';
+    const arcs = parts.map((p) => {
+      const L = Math.max(0.5, p.frac * C - (parts.length > 1 ? 5 : 0));
+      const mid = (off + p.frac * C / 2) / C * 2 * Math.PI - Math.PI / 2;
+      if (p.i === sel && p.frac < 0.999) bubble = `<div class="pct-bub" style="left:${118 + Math.cos(mid) * R}px;top:${118 + Math.sin(mid) * R}px">${pctLabel(p.frac)}</div>`;
+      const arc = `<circle cx="118" cy="118" r="${R}" fill="none" stroke="${p.col}" stroke-width="${p.i === sel ? 30 : 24}" stroke-linecap="${parts.length > 1 ? 'round' : 'butt'}"
+        stroke-dasharray="${L} ${C - L}" stroke-dashoffset="${-off}" transform="rotate(-90 118 118)" data-i="${p.i}"/>`;
+      off += p.frac * C;
+      return arc;
+    }).join('');
+    const cur = list[sel];
+    const prevIdx = (mm + 10) % 12;
+    const prevName = state.lang === 'ru' ? MONTHS.ruDat[prevIdx] : MONTHS.en[prevIdx];
+    const prevTotal = kind === 'income' ? s.prevIncome : s.prevTotal;
+    let chg = '';
+    if (prevTotal > 0 && total > 0) {
+      const p = Math.round((total - prevTotal) / prevTotal * 100);
+      if (Math.abs(p) <= 300) {
+        const good = kind === 'income' ? p >= 0 : p <= 0;
+        chg = `<span class="chg ${good ? '' : 'bad'}">${p > 0 ? '▲' : p < 0 ? '▼' : ''} ${p > 0 ? '+' : p < 0 ? '−' : ''}${Math.abs(p)}% ${esc(t('vs', prevName))}</span>`;
+      }
+    }
+    const isCurrent = s.month === state.today.slice(0, 7);
+    el.innerHTML = `
+      <div class="pg-top"><h1>${t('tabStats')}</h1></div>
+      <div class="st-month"><button id="stPrev" aria-label="‹">‹</button><span>${esc(monthTitle(s.month))}</span><button id="stNext" ${isCurrent ? 'disabled' : ''} aria-label="›">›</button></div>
+      <div class="seg" id="stKind"><button data-k="expense" class="${kind === 'expense' ? 'active' : ''}">${t('expensesTab')}</button><button data-k="income" class="${kind === 'income' ? 'active' : ''}">${t('incomesTab')}</button></div>
+      ${list.length ? `
+      <div class="donut"><svg width="236" height="236">${arcs}</svg>${bubble}
+        <div class="mid">${cur ? `${catIco(cur.category, 52)}<b>${esc(catName(cur.category))}</b><span class="num">${money(cur.amount, base, { round: cur.amount >= 1000 })}</span>` : ''}</div></div>
+      <div class="st-total"><b class="num">${bigMoney(total, base).replace('class="fr"', 'class="fr" style="font-size:21px"')}</b>
+        <div><span>${esc(kind === 'income' ? t('earnedIn', monthName) : t('spentIn', monthName))}</span>${chg}</div></div>
+      <div class="st-list">${list.map((c, i) => `
+        <button class="st-row ${i === sel ? 'sel' : ''}" data-i="${i}">${catIco(c.category, 44)}
+          <div class="n"><b>${esc(catName(c.category))}</b><div class="bar"><i style="width:${Math.max(2, c.amount / (list[0].amount || 1) * 100)}%"></i></div></div>
+          <div class="a num">${money(c.amount, base)}<small>${pctLabel(c.amount / (total || 1))}</small></div></button>`).join('')}</div>
+      ${kind === 'expense' && s.total ? `<div class="st-chart"><div class="section-title" style="margin:0"><span>${t('byDay')}</span></div>${dailyChart(s.days, isCurrent ? Number(state.today.slice(8, 10)) : s.days.length, base)}</div>` : ''}`
+      : `<div class="empty"><div class="big">${ico('statistic', 30, '#000')}</div><b>${t('noData')}</b></div>`}
+      <div class="spacer"></div>`;
+    $('#stPrev', el).addEventListener('click', () => { state.month = shiftMonth(state.month, -1); state.filter = null; state.statSel = 0; haptic('select'); loadMonth(); });
+    $('#stNext', el).addEventListener('click', () => { state.month = shiftMonth(state.month, 1); state.filter = null; state.statSel = 0; haptic('select'); loadMonth(); });
+    el.querySelectorAll('#stKind button').forEach((b) => b.addEventListener('click', () => { state.statKind = b.dataset.k; state.statSel = 0; haptic('select'); renderStats(); }));
+    el.querySelectorAll('.st-row, .donut circle').forEach((b) => b.addEventListener('click', () => {
+      const i = Number(b.dataset.i);
+      if (i < 0) return;
+      state.statSel = i; haptic('select'); renderStats();
+    }));
+    bindChart(el);
+  }
+
+  // ---------- профиль ----------
+  function renderProfile() {
+    const el = $('#viewProfile');
+    const me = state.me;
+    const initial = (me.first_name || '?').trim().charAt(0).toUpperCase();
+    const hasHowto = STORIES.some((x) => x.id === 'howto-v1' && storyLang(x));
+    const mi = (id, icon, title, sub = '') => `<button class="pf-mi" id="${id}"><span class="c">${ico(icon, 19)}</span><b>${title}</b><small>${sub}</small>${ico('chevron', 16, 'var(--hint)')}</button>`;
+    el.innerHTML = `
+      <div class="pg-top"><h1>${t('profile')}</h1></div>
+      <div class="pf-me"><div class="pf-ava">${esc(initial)}</div><div><b>${esc(me.first_name || '')}</b>
+        <small>${state.daysTracking ? t('daysWithUs', state.daysTracking) : t('firstEntryHint')}</small></div></div>
+      <div class="pf-cards"><div class="pf-cd" id="pfWeek"><div class="t">${t('weekResults')}</div><div class="pf-loading" style="margin-top:10px"></div></div>
+        <div class="pf-cd" id="pfMonth"><div class="t">${t('monthResults')}</div><div class="pf-loading" style="margin-top:10px"></div></div></div>
+      <div class="pf-menu">
+        ${mi('pmCats', 'other', t('catEditor'))}
+        ${mi('pmRec', 'recurring', t('recurring'))}
+        ${hasHowto ? mi('pmHowto', 'education', t('howto')) : ''}
+        ${mi('pmSettings', 'settings', t('settings'))}
+      </div>
+      <div class="spacer"></div>`;
+    $('#pmCats', el).addEventListener('click', () => openCategoryEditor());
+    $('#pmRec', el).addEventListener('click', () => openRecurringList());
+    if ($('#pmHowto', el)) $('#pmHowto', el).addEventListener('click', () => openStory(STORIES.find((x) => x.id === 'howto-v1')));
+    $('#pmSettings', el).addEventListener('click', openSettings);
+    const topRow = (id) => (id ? `<div class="tp">${catIco(id, 32)}<span>${esc(catName(id))}</span></div>` : '');
+    const range = (a, b) => (a.slice(5, 7) === b.slice(5, 7) ? `${Number(a.slice(8, 10))}–${dayMonth(b)}` : `${dayMonth(a)} – ${dayMonth(b)}`);
+    api('/weekly?all=1').then((w) => {
+      const box = $('#pfWeek', el), s = w.summary;
+      if (!box) return;
+      if (!s) { box.innerHTML = `<div class="t">${t('weekResults')}</div><div class="e">${t('notEnough')}</div>`; return; }
+      const story = state.lang === 'ru' ? buildWeekSummaryStory(w) : null;
+      const p = s.avg ? Math.round((s.spent - s.avg) / s.avg * 100) : null;
+      box.innerHTML = `<div class="t">${t('weekResults')}</div><div class="p">${range(s.from, s.to)}</div>
+        <div class="v num">${money(s.spent, w.base, { round: s.spent >= 1000 })}</div>
+        ${p !== null ? `<div class="s ${p <= 0 ? 'g' : 'r'}">${p > 0 ? '+' : p < 0 ? '−' : ''}${Math.abs(p)}% ${t('vsUsualShort')}</div>` : ''}
+        ${topRow(s.top.category)}${story ? `<button class="btn btn-outline" data-s="w">${t('openStory')}</button>` : ''}`;
+      if (story) $('[data-s="w"]', box).addEventListener('click', () => openStory(story));
+    }).catch(() => { const b = $('#pfWeek', el); if (b) b.innerHTML = `<div class="t">${t('weekResults')}</div><div class="e">${t('netError')}</div>`; });
+    const prev = shiftMonth(state.today.slice(0, 7), -1);
+    api(`/summary?month=${prev}`).then(({ summary: s }) => {
+      const box = $('#pfMonth', el);
+      if (!box) return;
+      if (!s || (!s.total && !s.income)) { box.innerHTML = `<div class="t">${t('monthResults')}</div><div class="e">${t('notEnough')}</div>`; return; }
+      const mi2 = Number(prev.slice(5, 7)) - 1;
+      const story = state.lang === 'ru' ? buildMonthStory(s) : null;
+      const sub = s.income > 0
+        ? `<div class="s ${s.balance >= 0 ? 'g' : 'r'}">${s.balance >= 0 ? t('leftShare', Math.round(s.balance / s.income * 100)) : t('overShort')}</div>`
+        : (s.prevTotal > 0 ? `<div class="s ${s.total <= s.prevTotal ? 'g' : 'r'}">${s.total <= s.prevTotal ? '−' : '+'}${Math.abs(Math.round((s.total - s.prevTotal) / s.prevTotal * 100))}% ${t('vsPrev')}</div>` : '');
+      box.innerHTML = `<div class="t">${t('monthResults')}</div><div class="p">${(state.lang === 'ru' ? MONTHS.ru : MONTHS.en)[mi2]}</div>
+        <div class="v num">${s.income > 0 ? signed(s.balance, s.base) : money(s.total, s.base, { round: s.total >= 1000 })}</div>${sub}
+        ${topRow(s.categories[0] && s.categories[0].category)}${story ? `<button class="btn btn-outline" data-s="m">${t('openStory')}</button>` : ''}`;
+      if (story) $('[data-s="m"]', box).addEventListener('click', () => openStory(story));
+    }).catch(() => { const b = $('#pfMonth', el); if (b) b.innerHTML = `<div class="t">${t('monthResults')}</div><div class="e">${t('netError')}</div>`; });
   }
 
   // Столбики по дням: одна серия, цвет кнопки Telegram, будущие дни не рисуются.
@@ -1058,10 +1224,10 @@
       <line class="base" x1="0" x2="${W}" y1="${H - 0.5}" y2="${H - 0.5}"/>${bars}</svg>
       <div class="chart-axis num"><span>1</span><span>${t('maxDay', money(max, base, { round: true }))}</span><span>${lastDay}</span></div></div>`;
   }
-  function bindChart() {
+  function bindChart(root = document) {
     const tip = $('#tooltip');
     const [, mm] = state.month.split('-').map(Number);
-    $('#hero').querySelectorAll('.hit').forEach((r) => {
+    root.querySelectorAll('.chart .hit').forEach((r) => {
       const show = () => {
         const b = r.getBoundingClientRect();
         const day = Number(r.dataset.i) + 1;
@@ -1147,9 +1313,9 @@
       let picked = null;
       const sh = openSheet(`
         <div class="sheet-head"><h2>${t('category')}</h2><button class="close">${t('close')}</button></div>
-        <div class="chips">${catsOf(kind).map((c) => `
-          <button class="chip ${c.id === current ? 'active' : ''}" data-c="${c.id}">${c.emoji} ${esc(catName(c.id))}</button>`).join('')}
-          ${newCatChip()}
+        <div class="cgrid">${catsOf(kind).map((c) => `
+          <button class="cg ${c.id === current ? 'on' : ''}" data-c="${c.id}">${catIco(c.id, 52)}<span>${esc(catName(c.id))}</span></button>`).join('')}
+          <button class="cg more" data-new><span class="ci s52">${ico('plus', 22)}</span><span>${t('createCat')}</span></button>
         </div>`, { onClose: () => resolve(picked) });
       $('.close', sh.sheet).addEventListener('click', () => closeSheet(sh));
       $('[data-new]', sh.sheet).addEventListener('click', async () => {
@@ -1187,12 +1353,12 @@
   }
   function repeatBlock(prefix, { period = null, day = 1, date, ruleMode = false }) {
     const html = `
-      <div class="field toggle-field">
-        <div class="rep-title">🔁 ${t('repeat')}</div>
+      <div class="rep-wrap">
+        <div class="label-row"><span>${t('repeat')}</span></div>
         <div class="periods" id="${prefix}Periods" role="radiogroup">
           ${['week', '2weeks', 'month'].map((p) => `<button type="button" class="chip ${p === period ? 'active' : ''}" data-p="${p}" role="radio" aria-checked="${p === period}">${t({ week: 'pWeek', '2weeks': 'p2weeks', month: 'pMonth' }[p])}</button>`).join('')}
         </div>
-        <div class="rep-day" id="${prefix}RepDay" ${period === 'month' ? '' : 'hidden'}>
+        <div class="rep-day field" id="${prefix}RepDay" ${period === 'month' ? '' : 'hidden'}>
           <label for="${prefix}Day">${t('repeatDay')}</label>
           <select id="${prefix}Day">${Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}" ${i + 1 === day ? 'selected' : ''}>${i + 1}</option>`).join('')}</select>
           <div class="rep-hint" id="${prefix}Hint" ${day > 28 ? '' : 'hidden'}>${t('lastDayHint')}</div>
@@ -1279,7 +1445,9 @@
     // вид «колеса»: чем дальше от центра, тем мельче и прозрачнее
     const paint = () => {
       const mid = track.scrollLeft + track.clientWidth / 2;
+      const c = center();
       for (const el of items()) {
+        el.classList.toggle('on', el === c);
         const k = Math.min(1, Math.abs(el.offsetLeft + el.offsetWidth / 2 - mid) / (track.clientWidth / 2));
         el.style.opacity = String(1 - k * 0.55);
         el.style.transform = `scale(${1 - k * 0.2})`;
@@ -1325,18 +1493,18 @@
     let category = null, suggested = null, userPicked = false, timer = null, seq = 0;
     const rep = repeatBlock('m', { day: Number(state.today.slice(8, 10)), date: state.today });
     const sh = openSheet(`
-      <div class="sheet-head"><h2 id="mTitle"></h2><button class="close">${t('cancel')}</button></div>
+      <div class="sheet-head"><h2 id="mTitle"></h2><button class="close xbtn" aria-label="${t('cancel')}">${ico('close', 18)}</button></div>
       ${dateWheelHtml('mDate')}
       <div class="field amount-field">
         <span class="sign" id="mSign"></span>
         <input id="mAmount" inputmode="decimal" placeholder="0" autocomplete="off" aria-label="${t('amount')}">
-        <button class="cur-btn" id="mCur">${currency}</button>
+        <button class="cur-btn" id="mCur"><span>${currency}</span>${ico('chevdown', 14)}</button>
       </div>
       <div class="field"><label for="mNote" id="mNoteLabel"></label><input id="mNote" maxlength="120" autocomplete="off"></div>
       <div class="label-row"><span>${t('category')}</span></div>
-      <div class="chips" id="mCats"></div>
+      <div class="cgrid" id="mCats"></div>
       ${rep.html}
-      <button class="btn btn-primary btn-block" id="mSave">${t('save')}</button>`);
+      <div class="save-bar"><button class="btn btn-primary btn-block" id="mSave">${t('save')}</button></div>`);
     const S = sh.sheet;
     const amountEl = $('#mAmount', S), noteEl = $('#mNote', S), dateEl = bindDateWheel(S, 'mDate');
     setTimeout(() => amountEl.focus(), 280);
@@ -1348,11 +1516,13 @@
       const summary = state.data?.summary;
       const used = ((kind === 'income' ? summary?.incomeCategories : summary?.categories) || []).map((c) => c.category);
       const order = [...new Set([category, suggested, ...used, ...catsOf(kind).map((c) => c.id)].filter(Boolean))];
-      const LIMIT = 9;
+      // сетка по пять: 8 категорий + «Ещё» + «Создать» (если «Ещё» не нужно — 9 категорий)
+      const LIMIT = order.length > 9 ? 8 : 9;
       $('#mCats', S).innerHTML = order.slice(0, LIMIT).map((id) => `
-        <button class="chip ${id === category ? 'active' : ''}" data-c="${id}">${cat(id).emoji} ${esc(catName(id))}
-        ${id === suggested && !userPicked && kind === 'expense' ? `<span class="ai">${t('ai')}</span>` : ''}</button>`).join('') +
-        (order.length > LIMIT ? `<button class="chip" data-more>…</button>` : '') + newCatChip();
+        <button class="cg ${id === category ? 'on' : ''}" data-c="${id}">${catIco(id, 52)}<span>${esc(catName(id))}</span>
+        ${id === suggested && !userPicked && kind === 'expense' ? `<span class="ai">AI</span>` : ''}</button>`).join('') +
+        (order.length > LIMIT ? `<button class="cg more" data-more><span class="ci s52">${ico('other', 22)}</span><span>${t('moreCats')}</span></button>` : '') +
+        `<button class="cg more" data-new><span class="ci s52">${ico('plus', 22)}</span><span>${t('createCat')}</span></button>`;
       $('#mCats', S).querySelectorAll('[data-c]').forEach((b) => b.addEventListener('click', () => {
         category = b.dataset.c; userPicked = true; haptic('select'); drawCats();
       }));
@@ -1393,7 +1563,7 @@
     });
     $('#mCur', S).addEventListener('click', async () => {
       const c = await pickCurrency(currency);
-      if (c) { currency = c; $('#mCur', S).textContent = c; }
+      if (c) { currency = c; $('#mCur span', S).textContent = c; }
     });
     $('#mSave', S).addEventListener('click', async () => {
       const amount = parseAmount(amountEl.value);
@@ -1512,7 +1682,7 @@
           return `
           <div class="row tx-row ${x.on ? '' : 'off'}" data-i="${x.i}">
             <input type="checkbox" class="tx-check" ${x.on ? 'checked' : ''} aria-label="${esc(x.note)}">
-            <button class="emoji ${inc ? 'inc' : ''}" data-act="cat" aria-label="${t('category')}">${cat(x.category).emoji}</button>
+            <button class="emoji-btn2" data-act="cat" aria-label="${t('category')}">${catIco(x.category, 36)}</button>
             <div class="row-main" data-act="toggle">
               <div class="row-title">${esc(x.note || catName(x.category))}</div>
               <div class="row-sub">${esc(dayMonth(x.date))} · ${esc(x.kind === 'transfer' ? t('txTransferShort') : catName(x.category))}</div>${tag ? `<div class="row-sub tag">${esc(tag)}</div>` : ''}
@@ -1569,7 +1739,7 @@
         ${d.groups.map((g, i) => `
           <div class="group" data-g="${i}">
             <div class="group-head">
-              <button class="group-cat" data-act="cat"><span>${cat(g.category).emoji}</span><span>${esc(catName(g.category))}</span></button>
+              <button class="group-cat" data-act="cat">${catIco(g.category, 32)}<span>${esc(catName(g.category))}</span></button>
               <input class="group-amount num" data-act="amount" inputmode="decimal" value="${(Number(g.amount) || 0).toFixed(2).replace('.', state.lang === 'ru' ? ',' : '.')}">
               <button class="group-del" data-act="del" aria-label="${t('delete')}">×</button>
             </div>
@@ -1634,14 +1804,14 @@
     const hadRule = !!(e.recurring_id && e.rec_active !== null && e.rec_active !== undefined);
     const rep = repeatBlock('e', { period: hadRule ? (e.rec_period || 'month') : null, day: e.rec_day || Number(e.date.slice(8, 10)), date: e.date });
     const sh = openSheet(`
-      <div class="sheet-head"><h2>${inc ? t('editIncome') : t('edit')}</h2><button class="close">${t('cancel')}</button></div>
+      <div class="sheet-head"><h2>${inc ? t('editIncome') : t('edit')}</h2><button class="close xbtn" aria-label="${t('cancel')}">${ico('close', 18)}</button></div>
       <div class="field amount-field">
         <span class="sign ${inc ? 'pos-text' : ''}">${inc ? '+' : '−'}</span>
         <input id="eAmount" inputmode="decimal" value="${String(e.amount).replace('.', state.lang === 'ru' ? ',' : '.')}" aria-label="${t('amount')}">
         <button class="cur-btn" id="eCur">${currency}</button>
       </div>
       <div class="field"><label>${inc ? t('incomeNote') : t('note')}</label><input id="eNote" value="${esc(e.note || '')}" maxlength="120"></div>
-      <div class="field" style="padding:12px 14px"><button class="group-cat" id="eCat" style="width:100%"><span>${cat(category).emoji}</span><span>${esc(catName(category))}</span></button></div>
+      <div class="field" style="padding:12px 14px"><button class="group-cat" id="eCat" style="width:100%">${catIco(category, 32)}<span>${esc(catName(category))}</span></button></div>
       ${dateWheelHtml('eDate', e.date)}
       ${rep.html}
       ${e.source === 'recurring' ? `<div class="note" style="margin:-4px 4px 14px">🔁 ${t('auto')}</div>` : ''}
@@ -1653,7 +1823,7 @@
     $('.close', S).addEventListener('click', () => closeSheet(sh));
     $('#eCat', S).addEventListener('click', async () => {
       const c = await pickCategory(category, e.kind);
-      if (c) { category = c; $('#eCat', S).innerHTML = `<span>${cat(c).emoji}</span><span>${esc(catName(c))}</span>`; }
+      if (c) { category = c; $('#eCat', S).innerHTML = `${catIco(c, 32)}<span>${esc(catName(c))}</span>`; }
     });
     $('#eCur', S).addEventListener('click', async () => { const c = await pickCurrency(currency); if (c) { currency = c; $('#eCur', S).textContent = c; } });
     $('#eSave', S).addEventListener('click', async () => {
@@ -1692,7 +1862,7 @@
       <div class="section-title"><span>${title}</span><span class="num">${signed((kind === 'income' ? 1 : -1) * list.filter((r) => r.active).reduce((a, r) => a + r.amount_base, 0), base)}</span></div>
       <div class="card list rules-list">${list.map((r) => `
         <button class="row ${r.active ? '' : 'muted'}" data-rule="${r.id}">
-          <div class="emoji ${kind === 'income' ? 'inc' : ''}">${cat(r.category).emoji}</div>
+          ${catIco(r.category)}
           <div class="row-main">
             <div class="row-title">${esc(r.note || catName(r.category))}</div>
             <div class="row-sub">${esc(periodText(r.period || 'month', r.day, r.weekday))} · ${r.active ? esc(t('next', dayMonth(r.next))) : t('paused')}</div>
@@ -1722,7 +1892,7 @@
         <button class="cur-btn" id="rCur">${currency}</button>
       </div>
       <div class="field"><label>${inc ? t('incomeNote') : t('note')}</label><input id="rNote" value="${esc(r.note || '')}" maxlength="120"></div>
-      <div class="field" style="padding:12px 14px"><button class="group-cat" id="rCat" style="width:100%"><span>${cat(category).emoji}</span><span>${esc(catName(category))}</span></button></div>
+      <div class="field" style="padding:12px 14px"><button class="group-cat" id="rCat" style="width:100%">${catIco(category, 32)}<span>${esc(catName(category))}</span></button></div>
       ${rep.html}
       <div class="note">${t('ruleNote')}</div>
       <button class="btn btn-primary btn-block" id="rSave">${t('save')}</button>
@@ -1734,7 +1904,7 @@
     $('.close', S).addEventListener('click', () => closeSheet(sh));
     $('#rCat', S).addEventListener('click', async () => {
       const c = await pickCategory(category, r.kind);
-      if (c) { category = c; $('#rCat', S).innerHTML = `<span>${cat(c).emoji}</span><span>${esc(catName(c))}</span>`; }
+      if (c) { category = c; $('#rCat', S).innerHTML = `${catIco(c, 32)}<span>${esc(catName(c))}</span>`; }
     });
     $('#rCur', S).addEventListener('click', async () => { const c = await pickCurrency(currency); if (c) { currency = c; $('#rCur', S).textContent = c; } });
     $('#rSave', S).addEventListener('click', async () => {
@@ -1833,7 +2003,7 @@
     const draw = () => {
       S.querySelectorAll('#ceTabs button').forEach((b) => b.classList.toggle('active', b.dataset.k === kind));
       $('#ceList', S).innerHTML = catsOf(kind).map((c) => `<button class="row ce-row" data-c="${c.id}">
-        <span class="ce-name"><span class="ce-ico">${c.emoji}</span>${esc(catName(c.id))}${c.custom ? ` <span class="ce-badge">${t('ownCat')}</span>` : ''}</span>
+        <span class="ce-name">${catIco(c.id, 36)}${esc(catName(c.id))}${c.custom ? ` <span class="ce-badge">${t('ownCat')}</span>` : ''}</span>
         <span class="settings-value">›</span></button>`).join('');
       S.querySelectorAll('[data-c]').forEach((b) => b.addEventListener('click', async () => {
         if (await createCategory(kind, b.dataset.c)) { changed = true; draw(); }
@@ -2020,7 +2190,15 @@
 
     $('#prevMonth').addEventListener('click', () => { state.month = shiftMonth(state.month, -1); state.filter = null; haptic('select'); loadMonth(); });
     $('#nextMonth').addEventListener('click', () => { state.month = shiftMonth(state.month, 1); state.filter = null; haptic('select'); loadMonth(); });
-    $('#openMenu').addEventListener('click', () => { haptic('select'); openMenu(); });
+    // иконки в разметке (кнопки, вкладки)
+    document.querySelectorAll('[data-ico]').forEach((el) => { el.innerHTML = ico(el.dataset.ico, el.classList.contains('act-c') ? 30 : 22); });
+    document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+    state.tab = 'home';
+    paintChrome();
+    if (tg && tg.onEvent) tg.onEvent('themeChanged', () => {
+      document.documentElement.setAttribute('data-theme', tg.colorScheme === 'dark' ? 'dark' : 'light');
+      paintChrome();
+    });
     $('#addManual').addEventListener('click', () => openManual('expense'));
     $('#addIncome').addEventListener('click', () => openManual('income'));
     $('#addReceipt').addEventListener('click', () => { const f = $('#fileInput'); f.value = ''; f.click(); });
