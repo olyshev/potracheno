@@ -679,3 +679,11 @@ button.h-chip { cursor: pointer; }
 .btn-invert { background: var(--text); color: var(--bg); }
 .btn-red { background: var(--danger); color: #fff; }
 .card.list.settings-list { background: var(--card); border-radius: 20px; margin-bottom: 22px; }
+/* иллюстрации вместо лент */
+.sp-ill { position: absolute; pointer-events: none; animation: spIll .6s cubic-bezier(.2,.9,.3,1.2) both; }
+.sp-ill:nth-of-type(2) { animation-delay: .06s; } .sp-ill:nth-of-type(3) { animation-delay: .12s; } .sp-ill:nth-of-type(4) { animation-delay: .08s; }
+.sp-ill:nth-of-type(5) { animation-delay: .14s; } .sp-ill:nth-of-type(6) { animation-delay: .18s; }
+@keyframes spIll { from { opacity: 0; scale: .6; } }
+.h-ill { position: absolute; pointer-events: none; z-index: 1; }
+.h-coin { width: 116px; right: -22px; top: 26px; transform: rotate(14deg); }
+.h-star { width: 52px; right: 82px; top: 14px; transform: rotate(-12deg); }

@@ -18,8 +18,12 @@
 <body>
   <!-- заставка: монетка падает, крутится в центре, пока грузятся данные, и улетает вниз; жёлтый фон становится шапкой главного экрана -->
   <div id="splash" aria-hidden="true">
-    <svg class="sp-rib sp-rib1" width="260" height="260" viewBox="0 0 300 300"><path d="M250 -20 C 170 60, 40 120, 70 200 C 95 265, 210 230, 240 150 C 262 92, 230 40, 180 70" fill="none" stroke="#000" stroke-width="44" stroke-linecap="round"/><path d="M250 -20 C 170 60, 40 120, 70 200 C 95 265, 210 230, 240 150 C 262 92, 230 40, 180 70" fill="none" stroke="#ffb08a" stroke-width="40" stroke-linecap="round"/></svg>
-    <svg class="sp-rib sp-rib2" width="260" height="260" viewBox="0 0 300 300"><path d="M250 -20 C 170 60, 40 120, 70 200 C 95 265, 210 230, 240 150 C 262 92, 230 40, 180 70" fill="none" stroke="#000" stroke-width="44" stroke-linecap="round"/><path d="M250 -20 C 170 60, 40 120, 70 200 C 95 265, 210 230, 240 150 C 262 92, 230 40, 180 70" fill="none" stroke="#4d72f5" stroke-width="40" stroke-linecap="round"/></svg>
+    <img class="sp-ill" src="illus/note.svg" alt="" style="left:-14px;top:9%;width:132px;transform:rotate(-14deg)">
+    <img class="sp-ill" src="illus/star.svg" alt="" style="right:6%;top:6%;width:86px;transform:rotate(12deg)">
+    <img class="sp-ill" src="illus/euro.svg" alt="" style="right:-10px;top:30%;width:96px;transform:rotate(10deg)">
+    <img class="sp-ill" src="illus/wallet.svg" alt="" style="left:-6px;bottom:8%;width:132px;transform:rotate(8deg)">
+    <img class="sp-ill" src="illus/dollar.svg" alt="" style="right:4%;bottom:12%;width:92px;transform:rotate(-12deg)">
+    <img class="sp-ill" src="illus/ruble.svg" alt="" style="left:12%;top:34%;width:70px;transform:rotate(-10deg)">
     <div class="sp-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
     <div class="sp-drop"><div class="sp-bob"><div class="sp-coin">
       <b class="sp-face sp-front"></b><i style="transform:translateZ(-1.1px)"></i><i style="transform:translateZ(-2.2px)"></i><i style="transform:translateZ(-3.3px)"></i><i style="transform:translateZ(-4.4px)"></i><i style="transform:translateZ(-5.5px)"></i><i style="transform:translateZ(-6.6px)"></i><i style="transform:translateZ(-7.7px)"></i><i style="transform:translateZ(-8.8px)"></i><b class="sp-face sp-back"></b>
@@ -31,7 +35,8 @@
     <!-- ГЛАВНАЯ -->
     <section class="view" id="viewHome">
       <div class="hero2">
-        <svg class="rib" width="210" height="210" viewBox="0 0 300 300" aria-hidden="true"><path d="M250 -20 C 170 60, 40 120, 70 200 C 95 265, 210 230, 240 150 C 262 92, 230 40, 180 70" fill="none" stroke="#000" stroke-width="44" stroke-linecap="round"/><path d="M250 -20 C 170 60, 40 120, 70 200 C 95 265, 210 230, 240 150 C 262 92, 230 40, 180 70" fill="none" stroke="#ffb08a" stroke-width="40" stroke-linecap="round"/></svg>
+        <img class="h-ill h-coin" src="illus/coin.svg" alt="">
+        <img class="h-ill h-star" src="illus/star.svg" alt="">
         <header class="top">
           <button class="icon-btn" id="prevMonth" aria-label="Предыдущий месяц">‹</button>
           <div class="month" id="monthLabel"></div>
