@@ -1422,7 +1422,7 @@
     };
     const edge = (side) => {
       const c = custom && ((side === 'L' && custom < days[0]) || (side === 'R' && custom > days[7])) ? custom : null;
-      return `<div class="dw-item dw-edge" data-edge="${side}">${c ? `<b>${esc(dayMonth(c))}</b><small>${esc(wd(c))}</small>` : `<b>🗓️</b><small>${t('otherDate')}</small>`}
+      return `<div class="dw-item dw-edge" data-edge="${side}">${c ? `<b>${esc(dayMonth(c))}</b><small>${esc(wd(c))}</small>` : `<b class="dw-cal">${ico('calendar', 22)}</b><small>${t('otherDate')}</small>`}
         <input type="date" class="dw-native" aria-label="${t('otherDate')}" value="${c || c0}"></div>`;
     };
     const draw = () => { track.innerHTML = edge('L') + days.map((d, k) => item(d, k - 3)).join('') + edge('R'); bindNative(); };

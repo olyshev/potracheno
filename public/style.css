@@ -673,3 +673,4 @@ button.h-chip { cursor: pointer; }
 .row.ce-row { grid-template-columns: 1fr auto; }
 .ce-name { min-width: 0; }
 #recAdd .ic { margin-right: 2px; }
+.dw-cal { display: grid; place-items: center; height: 22px; }
