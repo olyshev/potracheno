@@ -26,7 +26,7 @@
       earnedIn: (m) => `Заработано в ${{ 'январь': 'январе', 'февраль': 'феврале', 'март': 'марте', 'апрель': 'апреле', 'май': 'мае', 'июнь': 'июне', 'июль': 'июле', 'август': 'августе', 'сентябрь': 'сентябре', 'октябрь': 'октябре', 'ноябрь': 'ноябре', 'декабрь': 'декабре' }[String(m).toLowerCase()] || m}`,
       repeatShort: 'регулярно', receiptShort: 'чек', byDay: 'По дням', noData: 'За этот месяц пока ничего нет', vsUsualShort: 'к обычной',
       leftShare: (n) => `осталось ${n}% дохода`, overShort: 'расходы больше доходов',
-      newCat: 'Новая категория', createCat: 'Создать', catNameLabel: 'Название', catNamePh: 'Например, хобби', catIcon: 'Значок', tooManyCats: 'Слишком много своих категорий', moreCats: 'Ещё', addPayment: 'Добавить платёж', paymentKindQ: 'Какой регулярный платёж добавить?', addIncomeShort: 'Добавить доход', today: 'Сегодня', yesterday: 'Вчера', tomorrow: 'Завтра', otherDate: 'Другая дата', pickDate: 'Выбрать', emptyTitle: 'Пока пусто',
+      newCat: 'Новая категория', createCat: 'Создать', catNameLabel: 'Название', catNamePh: 'Например, хобби', catIcon: 'Значок', tooManyCats: 'Слишком много своих категорий', moreCats: 'Ещё', restAll: 'Всё остальное', addPayment: 'Добавить платёж', paymentKindQ: 'Какой регулярный платёж добавить?', addIncomeShort: 'Добавить доход', today: 'Сегодня', yesterday: 'Вчера', tomorrow: 'Завтра', otherDate: 'Другая дата', pickDate: 'Выбрать', emptyTitle: 'Пока пусто',
       emptyText: 'Сфотографируйте чек или внесите сумму вручную. Ещё можно просто отправить фото чека боту в чат.',
       emptyPast: 'В этом месяце записей нет.',
       newExpense: 'Новая трата', amount: 'Сумма', note: 'Что купили', notePh: 'Например, кофе', date: 'Дата',
@@ -86,7 +86,7 @@
       tabHome: 'Home', tabStats: 'Statistics', spentIn: (m) => `Spent in ${m}`, earnedIn: (m) => `Earned in ${m}`,
       repeatShort: 'recurring', receiptShort: 'receipt', byDay: 'By day', noData: 'Nothing here for this month yet', vsUsualShort: 'vs usual',
       leftShare: (n) => `${n}% of income left`, overShort: 'spent more than earned',
-      newCat: 'New category', createCat: 'Create', catNameLabel: 'Name', catNamePh: 'e.g. Hobby', catIcon: 'Icon', tooManyCats: 'Too many custom categories', moreCats: 'More', addPayment: 'Add payment', paymentKindQ: 'What kind of recurring payment?', addIncomeShort: 'Add income', today: 'Today', yesterday: 'Yesterday', tomorrow: 'Tomorrow', otherDate: 'Other date', pickDate: 'Pick', emptyTitle: 'Nothing here yet',
+      newCat: 'New category', createCat: 'Create', catNameLabel: 'Name', catNamePh: 'e.g. Hobby', catIcon: 'Icon', tooManyCats: 'Too many custom categories', moreCats: 'More', restAll: 'Everything else', addPayment: 'Add payment', paymentKindQ: 'What kind of recurring payment?', addIncomeShort: 'Add income', today: 'Today', yesterday: 'Yesterday', tomorrow: 'Tomorrow', otherDate: 'Other date', pickDate: 'Pick', emptyTitle: 'Nothing here yet',
       emptyText: 'Snap a receipt or add an amount manually. You can also just send a receipt photo to the bot.',
       emptyPast: 'No entries this month.',
       newExpense: 'New expense', amount: 'Amount', note: 'What was it', notePh: 'e.g. coffee', date: 'Date',
@@ -1099,7 +1099,8 @@
     const total = kind === 'income' ? s.income : s.total;
     const [, mm] = s.month.split('-').map(Number);
     const monthName = (state.lang === 'ru' ? MONTHS.ru : MONTHS.en)[mm - 1];
-    const sel = Math.min(state.statSel || 0, Math.max(0, list.length - 1));
+    // -1 — выбран серый кусок «всё остальное»
+    const sel = state.statSel === -1 && list.length > 6 ? -1 : Math.min(Math.max(state.statSel || 0, 0), Math.max(0, list.length - 1));
     // кольцо: до 6 крупных категорий своим цветом, остальное — одним серым куском.
     // Значки и полоски категорий на этом экране красятся в цвет своего куска, чтобы кольцо читалось.
     const COLORS = ['#4d72f5', '#fff957', '#ffb08a', '#8fd9ae', '#ff8fb1', '#b59cff'];
@@ -1142,7 +1143,8 @@
       <div class="seg" id="stKind"><button data-k="expense" class="${kind === 'expense' ? 'active' : ''}">${t('expensesTab')}</button><button data-k="income" class="${kind === 'income' ? 'active' : ''}">${t('incomesTab')}</button></div>
       ${list.length ? `
       <div class="donut"><svg width="236" height="236">${arcs}</svg>${bubble}
-        <div class="mid">${cur ? `${stIco(cur.category, sel, 52)}<b>${esc(catName(cur.category))}</b><span class="num">${money(cur.amount, base, { round: cur.amount >= 1000 })}</span>` : ''}</div></div>
+        <div class="mid">${sel === -1 ? `<span class="ci s52" style="background:${REST}">${ico('other', 26, '#000')}</span><b>${t('restAll')}</b><span class="num">${money(rest, base, { round: rest >= 1000 })}</span>`
+          : cur ? `${stIco(cur.category, sel, 52)}<b>${esc(catName(cur.category))}</b><span class="num">${money(cur.amount, base, { round: cur.amount >= 1000 })}</span>` : ''}</div></div>
       <div class="st-total"><b class="num">${bigMoney(total, base).replace('class="fr"', 'class="fr" style="font-size:21px"')}</b>
         <div><span>${esc(kind === 'income' ? t('earnedIn', monthName) : t('spentIn', monthName))}</span>${chg}</div></div>
       <div class="st-list">${list.map((c, i) => `
@@ -1156,9 +1158,7 @@
     $('#stNext', el).addEventListener('click', () => { state.month = shiftMonth(state.month, 1); state.filter = null; state.statSel = 0; haptic('select'); loadMonth(); });
     el.querySelectorAll('#stKind button').forEach((b) => b.addEventListener('click', () => { state.statKind = b.dataset.k; state.statSel = 0; haptic('select'); renderStats(); }));
     el.querySelectorAll('.st-row, .donut circle').forEach((b) => b.addEventListener('click', () => {
-      const i = Number(b.dataset.i);
-      if (i < 0) return;
-      state.statSel = i; haptic('select'); renderStats();
+      state.statSel = Number(b.dataset.i); haptic('select'); renderStats();
     }));
     bindChart(el);
   }
