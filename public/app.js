@@ -26,7 +26,7 @@
       earnedIn: (m) => `Заработано в ${{ 'январь': 'январе', 'февраль': 'феврале', 'март': 'марте', 'апрель': 'апреле', 'май': 'мае', 'июнь': 'июне', 'июль': 'июле', 'август': 'августе', 'сентябрь': 'сентябре', 'октябрь': 'октябре', 'ноябрь': 'ноябре', 'декабрь': 'декабре' }[String(m).toLowerCase()] || m}`,
       repeatShort: 'регулярно', receiptShort: 'чек', byDay: 'По дням', noData: 'За этот месяц пока ничего нет', vsUsualShort: 'к обычной',
       leftShare: (n) => `осталось ${n}% дохода`, overShort: 'расходы больше доходов',
-      newCat: 'Новая категория', createCat: 'Создать', catNameLabel: 'Название', catNamePh: 'Например, хобби', catIcon: 'Значок', tooManyCats: 'Слишком много своих категорий', moreCats: 'Ещё', addIncomeShort: 'Добавить доход', today: 'Сегодня', yesterday: 'Вчера', tomorrow: 'Завтра', otherDate: 'Другая дата', pickDate: 'Выбрать', emptyTitle: 'Пока пусто',
+      newCat: 'Новая категория', createCat: 'Создать', catNameLabel: 'Название', catNamePh: 'Например, хобби', catIcon: 'Значок', tooManyCats: 'Слишком много своих категорий', moreCats: 'Ещё', addPayment: 'Добавить платёж', paymentKindQ: 'Какой регулярный платёж добавить?', addIncomeShort: 'Добавить доход', today: 'Сегодня', yesterday: 'Вчера', tomorrow: 'Завтра', otherDate: 'Другая дата', pickDate: 'Выбрать', emptyTitle: 'Пока пусто',
       emptyText: 'Сфотографируйте чек или внесите сумму вручную. Ещё можно просто отправить фото чека боту в чат.',
       emptyPast: 'В этом месяце записей нет.',
       newExpense: 'Новая трата', amount: 'Сумма', note: 'Что купили', notePh: 'Например, кофе', date: 'Дата',
@@ -86,7 +86,7 @@
       tabHome: 'Home', tabStats: 'Statistics', spentIn: (m) => `Spent in ${m}`, earnedIn: (m) => `Earned in ${m}`,
       repeatShort: 'recurring', receiptShort: 'receipt', byDay: 'By day', noData: 'Nothing here for this month yet', vsUsualShort: 'vs usual',
       leftShare: (n) => `${n}% of income left`, overShort: 'spent more than earned',
-      newCat: 'New category', createCat: 'Create', catNameLabel: 'Name', catNamePh: 'e.g. Hobby', catIcon: 'Icon', tooManyCats: 'Too many custom categories', moreCats: 'More', addIncomeShort: 'Add income', today: 'Today', yesterday: 'Yesterday', tomorrow: 'Tomorrow', otherDate: 'Other date', pickDate: 'Pick', emptyTitle: 'Nothing here yet',
+      newCat: 'New category', createCat: 'Create', catNameLabel: 'Name', catNamePh: 'e.g. Hobby', catIcon: 'Icon', tooManyCats: 'Too many custom categories', moreCats: 'More', addPayment: 'Add payment', paymentKindQ: 'What kind of recurring payment?', addIncomeShort: 'Add income', today: 'Today', yesterday: 'Yesterday', tomorrow: 'Tomorrow', otherDate: 'Other date', pickDate: 'Pick', emptyTitle: 'Nothing here yet',
       emptyText: 'Snap a receipt or add an amount manually. You can also just send a receipt photo to the bot.',
       emptyPast: 'No entries this month.',
       newExpense: 'New expense', amount: 'Amount', note: 'What was it', notePh: 'e.g. coffee', date: 'Date',
@@ -1487,11 +1487,11 @@
     return input;
   }
 
-  function openManual(startKind = 'expense') {
+  function openManual(startKind = 'expense', opts = {}) {
     let kind = startKind;
     let currency = state.lastCurrency || state.me.base_currency;
     let category = null, suggested = null, userPicked = false, timer = null, seq = 0;
-    const rep = repeatBlock('m', { day: Number(state.today.slice(8, 10)), date: state.today });
+    const rep = repeatBlock('m', { period: opts.period || null, day: Number(state.today.slice(8, 10)), date: state.today });
     const sh = openSheet(`
       <div class="sheet-head"><h2 id="mTitle"></h2><button class="close xbtn" aria-label="${t('cancel')}">${ico('close', 18)}</button></div>
       ${dateWheelHtml('mDate')}
@@ -1580,6 +1580,7 @@
         haptic('success'); toast(t('saved')); closeSheet(sh);
         state.month = date.slice(0, 7);
         loadMonth();
+        if (opts.onSaved) opts.onSaved();
       } catch (e) {
         btn.disabled = false; haptic('error'); toast(t('netError'));
       }
@@ -1855,31 +1856,39 @@
 
   // ---------- регулярные платежи ----------
   async function openRecurringList() {
+    const sh = openSheet(`
+      <div class="sheet-head"><h2>${t('recurring')}</h2><button class="close">${t('done')}</button></div>
+      <div id="recBody"><div class="loading"><div class="spinner"></div></div></div>
+      <div class="save-bar"><button class="btn btn-secondary btn-block" id="recAdd">${ico('plus', 20)}${t('addPayment')}</button></div>`);
+    $('.close', sh.sheet).addEventListener('click', () => closeSheet(sh));
+    const refresh = () => { closeSheet(sh); openRecurringList(); };
+    $('#recAdd', sh.sheet).addEventListener('click', async () => {
+      const income = await choiceBox(t('paymentKindQ'), t('expense'), t('incomeKind'));
+      if (income === null) return;
+      openManual(income ? 'income' : 'expense', { period: 'month', onSaved: refresh });
+    });
     let rules = [];
-    try { ({ rules } = await api('/recurring')); } catch { toast(t('netError')); return; }
+    try { ({ rules } = await api('/recurring')); } catch { $('#recBody', sh.sheet).innerHTML = `<div class="empty">${t('netError')}</div>`; return; }
     const base = state.me.base_currency;
     const block = (list, title, kind) => !list.length ? '' : `
       <div class="section-title"><span>${title}</span><span class="num">${signed((kind === 'income' ? 1 : -1) * list.filter((r) => r.active).reduce((a, r) => a + r.amount_base, 0), base)}</span></div>
-      <div class="card list rules-list">${list.map((r) => `
+      <div class="list rules-list">${list.map((r) => `
         <button class="row ${r.active ? '' : 'muted'}" data-rule="${r.id}">
           ${catIco(r.category)}
           <div class="row-main">
             <div class="row-title">${esc(r.note || catName(r.category))}</div>
             <div class="row-sub">${esc(periodText(r.period || 'month', r.day, r.weekday))} · ${r.active ? esc(t('next', dayMonth(r.next))) : t('paused')}</div>
           </div>
-          <div class="row-amount num ${kind === 'income' ? 'pos-text' : ''}">${kind === 'income' ? '+' : ''}${money(r.amount, r.currency)}${r.currency !== base ? `<small>≈ ${money(r.amount_base, base)}</small>` : ''}</div>
+          <div class="row-amount num ${kind === 'income' ? 'pos-text' : ''}">${kind === 'income' ? '+' : '−'}${money(r.amount, r.currency)}${r.currency !== base ? `<small>≈ ${money(r.amount_base, base)}</small>` : ''}</div>
         </button>`).join('')}</div>`;
-    const sh = openSheet(`
-      <div class="sheet-head"><h2>${t('recurring')}</h2><button class="close">${t('done')}</button></div>
-      ${rules.length ? block(rules.filter((r) => r.kind === 'income'), t('recIncome'), 'income') + block(rules.filter((r) => r.kind === 'expense'), t('recExpense'), 'expense')
-        : `<div class="empty"><div class="big">🔁</div>${esc(t('recurringEmpty'))}</div>`}`);
-    $('.close', sh.sheet).addEventListener('click', () => closeSheet(sh));
+    $('#recBody', sh.sheet).innerHTML = rules.length
+      ? block(rules.filter((r) => r.kind === 'income'), t('recIncome'), 'income') + block(rules.filter((r) => r.kind === 'expense'), t('recExpense'), 'expense')
+      : `<div class="empty"><div class="big">${ico('recurring', 28, '#000')}</div>${esc(t('recurringEmpty'))}</div>`;
     sh.sheet.querySelectorAll('[data-rule]').forEach((b) => b.addEventListener('click', () => {
       const r = rules.find((x) => x.id === b.dataset.rule);
-      if (r) openRuleEditor(r, () => { closeSheet(sh); openRecurringList(); });
+      if (r) openRuleEditor(r, refresh);
     }));
   }
-
   function openRuleEditor(r, onChange) {
     const inc = r.kind === 'income';
     let category = r.category, currency = r.currency;
@@ -2026,10 +2035,6 @@
       </div>
       <div class="note">${t('baseNote')}</div>
       <div class="card list settings-list">
-        <button class="row" id="sRec"><span>🔁 ${t('recurring')}</span><span class="settings-value">›</span></button>
-        ${STORIES.some((x) => x.id === 'howto-v1' && storyLang(x)) ? `<button class="row" id="sHowto"><span>📖 ${t('howto')}</span><span class="settings-value">›</span></button>` : ''}
-      </div>
-      <div class="card list settings-list">
         <div class="row"><span>${t('scans')}</span><span class="settings-value num">${me.scansUsed} ${t('from')} ${me.scans}</span></div>
         <button class="row" id="sReports"><span>${t('reports')}</span><span class="settings-value">${me.can_message ? t('reportsOn') : t('reportsOff')} ›</span></button>
         <button class="row" id="sNudges"><span>${t('nudges')}</span><span class="settings-value">${me.nudges ? t('reportsOn') : t('reportsOff')} ›</span></button>
@@ -2048,9 +2053,7 @@
         closeSheet(sh); loadMonth(); openSettings();
       }
     });
-    $('#sRec', S).addEventListener('click', () => openRecurringList());
-    const hb = $('#sHowto', S);
-    if (hb) hb.addEventListener('click', () => { closeSheet(sh); openStory(STORIES.find((x) => x.id === 'howto-v1')); });
+
     $('#sLang', S).addEventListener('click', async () => {
       state.lang = state.lang === 'ru' ? 'en' : 'ru';
       await api('/settings', { method: 'POST', body: { lang: state.lang } }).catch(() => {});

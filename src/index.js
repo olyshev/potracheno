@@ -37,17 +37,15 @@ const kindOf = (k) => (k === 'income' ? 'income' : 'expense');
 // ---------- пользователи и лимиты ----------
 
 async function upsertUser(env, tgUser, extra = {}) {
-  if (extra.tz && validTz(extra.tz)) {
-    await env.DB.prepare('UPDATE users SET tz = ? WHERE id = ? AND (tz IS NULL OR tz != ?)').bind(extra.tz, tgUser.id, extra.tz).run();
-  }
-  await env.DB.prepare(
-    `INSERT INTO users (id, first_name, username, lang, last_seen, can_message)
-     VALUES (?1, ?2, ?3, ?4, datetime('now'), ?5)
+  // один запрос к базе вместо четырёх: создать/обновить пользователя, часовой пояс и сразу вернуть строку
+  const tz = extra.tz && validTz(extra.tz) ? extra.tz : null;
+  return env.DB.prepare(
+    `INSERT INTO users (id, first_name, username, lang, last_seen, can_message, tz)
+     VALUES (?1, ?2, ?3, ?4, datetime('now'), ?5, ?6)
      ON CONFLICT(id) DO UPDATE SET first_name = ?2, username = ?3, last_seen = datetime('now'), nudge_stage = 0,
-       can_message = MAX(can_message, ?5)`
-  ).bind(tgUser.id, tgUser.first_name || '', tgUser.username || '', langOf(tgUser.language_code), extra.canMessage ? 1 : 0).run();
-  if (extra.tz && validTz(extra.tz)) await env.DB.prepare('UPDATE users SET tz = ? WHERE id = ? AND tz IS NULL').bind(extra.tz, tgUser.id).run();
-  return env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(tgUser.id).first();
+       can_message = MAX(can_message, ?5), tz = COALESCE(?6, tz)
+     RETURNING *`
+  ).bind(tgUser.id, tgUser.first_name || '', tgUser.username || '', langOf(tgUser.language_code), extra.canMessage ? 1 : 0, tz).first();
 }
 
 async function getUsage(env, userId) {

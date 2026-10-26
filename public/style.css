@@ -670,3 +670,6 @@ button.h-chip { cursor: pointer; }
 .sheet2 .section-title { text-transform: none; font-size: 14px; letter-spacing: 0; }
 .st-month span { text-transform: capitalize; }
 .hero2 .month { text-transform: capitalize; }
+.row.ce-row { grid-template-columns: 1fr auto; }
+.ce-name { min-width: 0; }
+#recAdd .ic { margin-right: 2px; }
