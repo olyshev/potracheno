@@ -21,7 +21,7 @@
       confirmDeleteCat: (n) => `Удалить категорию «${n}»? Уже записанные траты в ней останутся, но выбрать её больше будет нельзя.`, ownCat: 'своя',
       weekResults: 'Итоги недели', monthResults: 'Итоги месяца', openStory: 'Смотреть историю', notEnough: 'Пока мало данных: нужно хотя бы несколько трат.',
       spentLbl: 'Потрачено', incomeLbl: 'Доходы', balanceLbl: 'Остаток', usualLbl: 'Обычно', topLbl: 'Больше всего', vsPrev: 'к прошлому месяцу', vsUsual: 'к обычной неделе',
-      daysWithUs: (n) => `Слежу за деньгами уже ${n} ${plural(n, ['день', 'дня', 'дней'])}`,
+      firstEntryHint: 'Добавьте первую трату', daysWithUs: (n) => `Слежу за деньгами уже ${n} ${plural(n, ['день', 'дня', 'дней'])}`,
       newCat: 'Новая категория', createCat: 'Создать', catNameLabel: 'Название', catNamePh: 'Например, хобби', catIcon: 'Значок', tooManyCats: 'Слишком много своих категорий', today: 'Сегодня', yesterday: 'Вчера', tomorrow: 'Завтра', otherDate: 'Другая дата', pickDate: 'Выбрать', emptyTitle: 'Пока пусто',
       emptyText: 'Сфотографируйте чек или внесите сумму вручную. Ещё можно просто отправить фото чека боту в чат.',
       emptyPast: 'В этом месяце записей нет.',
@@ -78,7 +78,7 @@
       confirmDeleteCat: (n) => `Delete "${n}"? Existing entries keep it, but you won't be able to pick it anymore.`, ownCat: 'custom',
       weekResults: 'Week results', monthResults: 'Month results', openStory: 'View story', notEnough: 'Not enough data yet: add a few expenses first.',
       spentLbl: 'Spent', incomeLbl: 'Income', balanceLbl: 'Left', usualLbl: 'Usually', topLbl: 'Top category', vsPrev: 'vs last month', vsUsual: 'vs a usual week',
-      daysWithUs: (n) => `Tracking my money for ${n} day${n === 1 ? '' : 's'}`,
+      firstEntryHint: 'Add your first expense', daysWithUs: (n) => `Tracking my money for ${n} day${n === 1 ? '' : 's'}`,
       newCat: 'New category', createCat: 'Create', catNameLabel: 'Name', catNamePh: 'e.g. Hobby', catIcon: 'Icon', tooManyCats: 'Too many custom categories', today: 'Today', yesterday: 'Yesterday', tomorrow: 'Tomorrow', otherDate: 'Other date', pickDate: 'Pick', emptyTitle: 'Nothing here yet',
       emptyText: 'Snap a receipt or add an amount manually. You can also just send a receipt photo to the bot.',
       emptyPast: 'No entries this month.',
@@ -687,7 +687,8 @@
   const msGrad = (m) => `linear-gradient(165deg,${m.bg[0]} 0%,${m.bg[1]} 45%,${m.bg[2]} 80%,#0e0e10 100%)`;
   // текущий юбилей — неделю после наступления
   function currentMilestone() {
-    const days = (state.daysSinceStart || 0) + 1;
+    const days = state.daysTracking;
+    if (!days) return null;
     return MILESTONES.find((m) => days >= m.d && days < m.d + 7) || null;
   }
 
@@ -885,6 +886,7 @@
     $('#nextMonth').disabled = state.month >= state.today.slice(0, 7);
     try {
       state.data = await api(`/summary?month=${state.month}`);
+      if (!state.daysTracking && (state.data.entries || []).some((e) => e.source !== 'recurring')) state.daysTracking = 1; // первая запись — сегодня
       render();
     } catch (e) {
       toast(t('netError'));
@@ -1763,7 +1765,7 @@
       <span class="menu-txt"><b>${title}</b><small>${sub}</small></span><span class="menu-chev">›</span></button>`;
     const sh = openSheet(`
       <div class="menu-user"><div class="menu-ava">${esc(initial)}</div><div><b>${esc(me.first_name || '')}</b>
-        <small>${t('daysWithUs', (state.daysSinceStart || 0) + 1)}</small></div></div>
+        <small>${state.daysTracking ? t('daysWithUs', state.daysTracking) : t('firstEntryHint')}</small></div></div>
       <div class="menu-list">
         ${item('mnProfile', '👤', t('profile'), t('profileSub'))}
         ${item('mnCats', '🗂️', t('catEditor'), t('catEditorSub'))}
@@ -2010,6 +2012,7 @@
     state.currencies = me.currencies;
     state.today = me.today;
     state.daysSinceStart = me.daysSinceStart || 0;
+    state.daysTracking = me.daysTracking || null;
     state.month = me.today.slice(0, 7);
     state.lastCurrency = store.get('lastCurrency') || me.user.base_currency;
     if (!state.currencies.includes(state.lastCurrency)) state.lastCurrency = me.user.base_currency;

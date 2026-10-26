@@ -95,6 +95,13 @@ async function deleteRule(env, userId, ruleId) {
   ]);
 }
 
+// Сколько дней человек ведёт учёт: с дня первой внесённой записи (включительно); null — записей ещё нет
+async function trackingDays(env, user, now) {
+  const r = await env.DB.prepare(`SELECT MIN(created_at) AS t FROM entries WHERE user_id = ? AND source != 'recurring'`).bind(user.id).first();
+  if (!r || !r.t) return null;
+  return Math.floor((Date.parse(`${now}T00:00:00Z`) - Date.parse(`${localDate(r.t, user.tz)}T00:00:00Z`)) / 864e5) + 1;
+}
+
 async function pickCategory(env, userId, text) {
   // если такую же запись человек уже относил к своей категории — предлагаем её
   const t = String(text || '').trim();
@@ -223,6 +230,8 @@ async function handleApi(request, env, url) {
       seenStories: views.results.map((v) => v.story_id),
       today: now,
       // сколько дней прошло с первого запуска — «С чего начать» показываем первую неделю
+      // дней с первой записанной траты (по дате, когда её внесли, а не по дате самой траты) — для юбилеев и меню
+      daysTracking: await trackingDays(env, user, now),
       milestonesShared: (await env.DB.prepare('SELECT milestone FROM milestone_shares WHERE user_id = ?').bind(user.id).all()).results.map((r) => r.milestone),
       daysSinceStart: Math.max(0, Math.floor((Date.parse(`${now}T00:00:00Z`) - Date.parse(`${localDate(user.created_at, user.tz)}T00:00:00Z`)) / 864e5)),
     });
@@ -446,8 +455,8 @@ async function handleApi(request, env, url) {
   if (path === '/share/bonus' && method === 'POST' && body.milestone !== undefined) {
     // +5 сканов за репост юбилея — один раз за каждый юбилей и не больше BONUS_CAP бонусных сканов в месяц
     const m = Number(body.milestone);
-    const days = Math.floor((Date.parse(`${now}T00:00:00Z`) - Date.parse(`${localDate(user.created_at, user.tz)}T00:00:00Z`)) / 864e5) + 1;
-    if (!MILESTONES.includes(m) || days < m) return fail(400, 'bad_milestone');
+    const days = await trackingDays(env, user, now);
+    if (!MILESTONES.includes(m) || !days || days < m) return fail(400, 'bad_milestone');
     const first = await env.DB.prepare('INSERT OR IGNORE INTO milestone_shares (user_id, milestone) VALUES (?, ?)').bind(user.id, m).run();
     let granted = false;
     if (first.meta.changes > 0) {
