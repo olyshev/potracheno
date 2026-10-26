@@ -296,11 +296,11 @@ button.emoji { cursor: pointer; }
 
 /* ---------- персональная история «Ваш месяц» (слайды 1080×1920, масштабируются) ---------- */
 @font-face { font-family: WrU; src: url(fonts/unbounded-cyrillic-900-normal.woff2) format('woff2'); font-display: block; }
-@font-face { font-family: WrU; src: url(fonts/unbounded-latin-900-normal.woff2) format('woff2'); unicode-range: U+0000-00FF, U+20AC, U+20BD, U+2212; font-display: block; }
+@font-face { font-family: WrU; src: url(fonts/unbounded-latin-900-normal.woff2) format('woff2'); unicode-range: U+0000-00FF, U+2000-206F, U+20AC, U+20BD, U+2212; font-display: block; }
 @font-face { font-family: WrM; src: url(fonts/manrope-cyrillic-700-normal.woff2) format('woff2'); font-weight: 700; font-display: block; }
 @font-face { font-family: WrM; src: url(fonts/manrope-cyrillic-800-normal.woff2) format('woff2'); font-weight: 800; font-display: block; }
-@font-face { font-family: WrM; src: url(fonts/manrope-latin-700-normal.woff2) format('woff2'); font-weight: 700; unicode-range: U+0000-00FF, U+20AC; font-display: block; }
-@font-face { font-family: WrM; src: url(fonts/manrope-latin-800-normal.woff2) format('woff2'); font-weight: 800; unicode-range: U+0000-00FF, U+20AC; font-display: block; }
+@font-face { font-family: WrM; src: url(fonts/manrope-latin-700-normal.woff2) format('woff2'); font-weight: 700; unicode-range: U+0000-00FF, U+2000-206F, U+20AC; font-display: block; }
+@font-face { font-family: WrM; src: url(fonts/manrope-latin-800-normal.woff2) format('woff2'); font-weight: 800; unicode-range: U+0000-00FF, U+2000-206F, U+20AC; font-display: block; }
 .sv-html { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .wr { position: absolute; left: 50%; top: 50%; width: 1080px; height: 1920px; transform-origin: center; overflow: hidden;
   font-family: WrM, sans-serif; color: #fff; text-align: left; }
@@ -424,10 +424,10 @@ button.emoji { cursor: pointer; }
 @font-face { font-family: Man; src: url(fonts/manrope-cyrillic-600-normal.woff2) format('woff2'); font-weight: 600; font-display: swap; }
 @font-face { font-family: Man; src: url(fonts/manrope-cyrillic-700-normal.woff2) format('woff2'); font-weight: 700; font-display: swap; }
 @font-face { font-family: Man; src: url(fonts/manrope-cyrillic-800-normal.woff2) format('woff2'); font-weight: 800; font-display: swap; }
-@font-face { font-family: Man; src: url(fonts/manrope-latin-500-normal.woff2) format('woff2'); font-weight: 500; unicode-range: U+0000-00FF, U+20AC, U+2212, U+2013-2014; font-display: swap; }
-@font-face { font-family: Man; src: url(fonts/manrope-latin-600-normal.woff2) format('woff2'); font-weight: 600; unicode-range: U+0000-00FF, U+20AC, U+2212, U+2013-2014; font-display: swap; }
-@font-face { font-family: Man; src: url(fonts/manrope-latin-700-normal.woff2) format('woff2'); font-weight: 700; unicode-range: U+0000-00FF, U+20AC, U+2212, U+2013-2014; font-display: swap; }
-@font-face { font-family: Man; src: url(fonts/manrope-latin-800-normal.woff2) format('woff2'); font-weight: 800; unicode-range: U+0000-00FF, U+20AC, U+2212, U+2013-2014; font-display: swap; }
+@font-face { font-family: Man; src: url(fonts/manrope-latin-500-normal.woff2) format('woff2'); font-weight: 500; unicode-range: U+0000-00FF, U+2000-206F, U+20AC, U+2212; font-display: swap; }
+@font-face { font-family: Man; src: url(fonts/manrope-latin-600-normal.woff2) format('woff2'); font-weight: 600; unicode-range: U+0000-00FF, U+2000-206F, U+20AC, U+2212; font-display: swap; }
+@font-face { font-family: Man; src: url(fonts/manrope-latin-700-normal.woff2) format('woff2'); font-weight: 700; unicode-range: U+0000-00FF, U+2000-206F, U+20AC, U+2212; font-display: swap; }
+@font-face { font-family: Man; src: url(fonts/manrope-latin-800-normal.woff2) format('woff2'); font-weight: 800; unicode-range: U+0000-00FF, U+2000-206F, U+20AC, U+2212; font-display: swap; }
 
 :root[data-theme] { --yellow: #fff957; --blue: #4d72f5; --peach: #ffb08a; --radius: 20px; }
 :root[data-theme="light"] {

@@ -441,7 +441,7 @@
   // Суммы для слайдов: обычные пробелы (в шрифте Unbounded неразрывный пробел нулевой ширины)
   const wrMoney = (n, cur) => {
     try {
-      return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: cur, maximumFractionDigits: 0 }).format(Math.abs(n)).replace(/[  ]/g, ' ');
+      return new Intl.NumberFormat(state.lang === 'ru' ? 'ru-RU' : 'en-GB', { style: 'currency', currency: cur, maximumFractionDigits: 0 }).format(Math.abs(n)).replace(/[  ]/g, ' ');
     } catch { return `${Math.round(Math.abs(n))} ${cur}`; }
   };
 
@@ -461,6 +461,9 @@
     const top = s.categories[0];
     const busiest = s.days.reduce((b, v, d) => (v > b.v ? { v, d } : b), { v: 0, d: 0 });
     const user = state.me.first_name || '';
+    const ru = state.lang === 'ru';
+    const en = MONTHS.en[mi], prevEn = MONTHS.en[(mi + 11) % 12], nextEn = MONTHS.en[(mi + 1) % 12];
+    const catLow = (id) => (ru ? CAT_ACC[id] || catName(id).toLowerCase() : catName(id).toLowerCase());
     const G = {
       blue: 'linear-gradient(165deg,#2a78d6 0%,#163f73 45%,#0e0e10 100%)',
       green: 'linear-gradient(165deg,#1f9d63 0%,#10533a 45%,#0e0e10 100%)',
@@ -470,59 +473,61 @@
       final: 'linear-gradient(165deg,#2a78d6 0%,#1f9d63 55%,#0e0e10 100%)',
     };
     const slide = (bg, blob, body, stickers) => ({ html: `<div class="wr" style="background:${bg}">
-      <div class="wr-blob" style="${blob}"></div><div class="wr-tag">Ваш ${name}</div>${body}${stickers}
-      <div class="wr-logo">потрачено<span>БЮДЖЕТ-БОТ</span></div></div>` });
+      <div class="wr-blob" style="${blob}"></div><div class="wr-tag">${ru ? `Ваш ${name}` : `Your ${en}`}</div>${body}${stickers}
+      <div class="wr-logo">потрачено<span>${BRAND_SUB()}</span></div></div>` });
     const st = (code, size, pos) => `<div class="wr-sticker" style="${pos}">${emojiImg(code, size)}</div>`;
     const out = [];
     out.push(slide(G.blue, 'width:700px;height:700px;right:-220px;top:1050px;background:rgba(90,156,240,.35)',
-      `<div class="wr-wrap"><div class="wr-num">${wrMoney(s.total, cur)}</div><div class="wr-cap">вы потратили<br>в ${prep}</div></div>`,
+      `<div class="wr-wrap"><div class="wr-num">${wrMoney(s.total, cur)}</div><div class="wr-cap">${ru ? `вы потратили<br>в ${prep}` : `you spent<br>in ${en}`}</div></div>`,
       st('1f4b8', 300, 'right:110px;top:1240px;transform:rotate(12deg)')));
     if (hasPrev) {
       out.push(slide(less ? G.green : G.red, 'width:640px;height:640px;left:-200px;top:1150px;background:rgba(255,255,255,.12)',
-        `<div class="wr-wrap"><div class="wr-num">${less ? '−' : '+'}${pct}%</div><div class="wr-cap">Это на ${pct}% ${less ? 'меньше' : 'больше'}, чем в ${prevPrep}</div>
-         <div class="wr-small">${nw(s.total)} против ${nw(s.prevTotal)}</div></div>`,
+        `<div class="wr-wrap"><div class="wr-num">${less ? '−' : '+'}${pct}%</div><div class="wr-cap">${ru ? `Это на ${pct}% ${less ? 'меньше' : 'больше'}, чем в ${prevPrep}` : `That’s ${pct}% ${less ? 'less' : 'more'} than in ${prevEn}`}</div>
+         <div class="wr-small">${nw(s.total)} ${ru ? 'против' : 'vs'} ${nw(s.prevTotal)}</div></div>`,
         st(less ? '1f4c9' : '1f4c8', 290, 'right:120px;top:1260px;transform:rotate(-8deg)')));
     }
     if (s.income > 0) {
       out.push(slide(G.violet, 'width:720px;height:720px;right:-240px;top:980px;background:rgba(144,133,233,.3)',
-        `<div class="wr-wrap"><div class="wr-num">${wrMoney(s.income, cur)}</div><div class="wr-cap">вы заработали<br>в ${prep}</div></div>`,
+        `<div class="wr-wrap"><div class="wr-num">${wrMoney(s.income, cur)}</div><div class="wr-cap">${ru ? `вы заработали<br>в ${prep}` : `you earned<br>in ${en}`}</div></div>`,
         st('1f4b0', 300, 'right:120px;top:1250px;transform:rotate(10deg)')));
       out.push(slide(result >= 0 ? G.green : G.red, 'width:760px;height:760px;left:-260px;top:1080px;background:rgba(255,255,255,.1)',
-        `<div class="wr-wrap"><div class="wr-num">${result >= 0 ? '+' : '−'}${wrMoney(result, cur)}</div><div class="wr-cap">финансовый результат за месяц</div>
-         <div class="wr-small">${nw(s.income)} доходов − ${nw(s.total)} расходов</div></div>`,
+        `<div class="wr-wrap"><div class="wr-num">${result >= 0 ? '+' : '−'}${wrMoney(result, cur)}</div><div class="wr-cap">${ru ? 'финансовый результат за месяц' : 'your balance for the month'}</div>
+         <div class="wr-small">${ru ? `${nw(s.income)} доходов − ${nw(s.total)} расходов` : `${nw(s.income)} income − ${nw(s.total)} spending`}</div></div>`,
         st(result >= 0 ? '1f3c6' : '1f62c', 290, 'right:120px;top:1270px;transform:rotate(-10deg)')));
     }
     out.push(slide(G.amber, 'width:700px;height:700px;right:-200px;top:1120px;background:rgba(255,200,120,.22)',
-      `<div class="wr-wrap" style="top:470px"><div class="wr-cap" style="margin-top:0">Больше всего вы тратили на ${CAT_ACC[top.category] || catName(top.category).toLowerCase()}</div>
+      `<div class="wr-wrap" style="top:470px"><div class="wr-cap" style="margin-top:0">${ru ? 'Больше всего вы тратили на' : 'You spent the most on'} ${esc(catLow(top.category))}</div>
        <div class="wr-num" style="margin-top:50px">${wrMoney(top.amount, cur)}</div>
-       <div class="wr-small">${Math.round(top.amount / s.total * 100)}% всех трат за месяц</div></div>`,
+       <div class="wr-small">${Math.round(top.amount / s.total * 100)}% ${ru ? 'всех трат за месяц' : 'of all spending this month'}</div></div>`,
       st(twemoji(cat(top.category).emoji), 320, 'right:130px;top:1240px;transform:rotate(8deg)')));
     if (busiest.v > 0) {
       out.push(slide(G.blue, 'width:700px;height:700px;left:-220px;top:1120px;background:rgba(90,156,240,.3)',
-        `<div class="wr-wrap" style="top:470px"><div class="wr-cap" style="margin-top:0">Самый дорогой день месяца —</div>
-         <div class="wr-num" style="margin-top:40px;font-size:260px">${busiest.d + 1}</div><div class="wr-num wr-mid">${gen}</div>
-         <div class="wr-cap">Тогда вы потратили ${nw(busiest.v)}</div></div>`,
+        `<div class="wr-wrap" style="top:470px"><div class="wr-cap" style="margin-top:0">${ru ? 'Самый дорогой день месяца —' : 'Your priciest day of the month —'}</div>
+         <div class="wr-num" style="margin-top:40px;font-size:260px">${busiest.d + 1}</div><div class="wr-num wr-mid">${ru ? gen : en}</div>
+         <div class="wr-cap">${ru ? 'Тогда вы потратили' : 'You spent'} ${nw(busiest.v)}${ru ? '' : ' that day'}</div></div>`,
         st('1f525', 280, 'right:120px;top:1300px;transform:rotate(-8deg)')));
     }
-    const finalText = less ? `Так держать${user ? `, ${esc(user)}` : ''}!` : `Отличная работа${user ? `, ${esc(user)}` : ''}! Давайте постараемся в ${nextPrep}.`;
+    const nm = user ? `, ${esc(user)}` : '';
+    const finalText = ru ? (less ? `Так держать${nm}!` : `Отличная работа${nm}! Давайте постараемся в ${nextPrep}.`)
+      : (less ? `Keep it up${nm}!` : `Great job${nm}! Let’s do even better in ${nextEn}.`);
     out.push(slide(G.final, 'width:760px;height:760px;right:-240px;top:1060px;background:rgba(255,255,255,.12)',
       `<div class="wr-wrap" style="top:560px"><div class="wr-cap" style="font-size:${less ? 96 : 84}px;line-height:1.1;margin-top:0">${finalText}</div></div>`,
       st(less ? '1f64c' : '1f4aa', 300, `right:120px;top:1250px;transform:rotate(${less ? -8 : 8}deg)`) + st('1f389', 150, 'left:150px;top:1380px;transform:rotate(-14deg)')));
     // призыв поделиться: кнопка «Я в деле!» открывает карточку с типажом; слайд не листается сам
     out.push({ hold: true, html: `<div class="wr" style="background:linear-gradient(165deg,#6250d6 0%,#2a78d6 50%,#0e0e10 100%)">
       <div class="wr-blob" style="width:760px;height:760px;left:-260px;top:1000px;background:rgba(255,255,255,.1)"></div>
-      <div class="wr-tag">Ваш ${name}</div>
-      <div class="wr-wrap" style="top:330px"><div class="wr-cap" style="font-size:64px;line-height:1.15;margin-top:0">Узнайте свой финансовый типаж и поделитесь результатами с друзьями, а мы подарим вам 5 сканов</div></div>
-      <img src="stories/share-teaser.webp" alt="" style="position:absolute;left:330px;top:900px;width:420px;border-radius:36px;transform:rotate(-6deg);box-shadow:0 0 0 8px #fff,18px 22px 0 8px rgba(0,0,0,.35)">
+      <div class="wr-tag">${ru ? `Ваш ${name}` : `Your ${en}`}</div>
+      <div class="wr-wrap" style="top:330px"><div class="wr-cap" style="font-size:64px;line-height:1.15;margin-top:0">${ru ? 'Узнайте свой финансовый типаж и поделитесь результатами с друзьями, а мы подарим вам 5 сканов' : 'Discover your money personality and share it with friends — we’ll give you 5 free scans'}</div></div>
+      <img src="stories/share-teaser${ru ? '' : '-en'}.webp" alt="" style="position:absolute;left:330px;top:900px;width:420px;border-radius:36px;transform:rotate(-6deg);box-shadow:0 0 0 8px #fff,18px 22px 0 8px rgba(0,0,0,.35)">
       ${st('1f381', 220, 'right:120px;top:1180px;transform:rotate(14deg)')}
-      <button class="wr-action" data-share>Я в деле!</button>
-      <div class="wr-logo">потрачено<span>БЮДЖЕТ-БОТ</span></div></div>`,
+      <button class="wr-action" data-share>${ru ? 'Я в деле!' : 'I’m in!'}</button>
+      <div class="wr-logo">потрачено<span>${BRAND_SUB()}</span></div></div>`,
       onShow: (root, close) => {
         const b = root.querySelector('[data-share]');
         if (b) b.addEventListener('click', () => { haptic('select'); close(); openShareSheet(s); });
       } });
     return {
-      id: `month-${s.month}`, langs: ['ru'], duration: 5000,
+      id: `month-${s.month}`, duration: 5000,
       title: { ru: `Ваш ${name}`, en: `Your ${MONTHS.en[mi]}` },
       coverHtml: `<span class="story-img wr-cover">${emojiImg('1f4b8', 40)}</span>`,
       slides: out, dynamic: 'month',
@@ -540,20 +545,33 @@
     kids: ['Супер-родитель', '1f9b8'], savings: ['Акционер', '1f4c8'], gifts: ['Гуманист', '1f49d'],
   };
   const DEFAULT_ARCHETYPE = ['Финансовый стратег', '265f'];
+  const ARCHETYPES_EN = {
+    groceries: 'Home chef', cafe: 'Foodie', delivery: 'Every courier’s best friend', taxi: 'Passenger princess', carsharing: 'Carsharing hunter',
+    fuel: 'Gas station regular', housing: 'Homebody', clothes: 'Good fabric connoisseur', shopping: 'Chief shopping officer', fun: 'Life of the party',
+    sport: 'Cyborg', travel: 'Globetrotter', subscriptions: 'Favorite subscriber', education: 'A scholar of sorts', pets: 'Pet parent',
+    kids: 'Super parent', savings: 'Shareholder', gifts: 'Humanist',
+  };
 
   // Данные карточки из сводки месяца: без сумм, только проценты и достижения
   function shareData(s) {
     const mi = Number(s.month.slice(5, 7)) - 1;
     const top = s.categories[0];
-    const [title, icon] = ARCHETYPES[top.category] || DEFAULT_ARCHETYPE;
+    const ru = state.lang === 'ru';
+    const [ruTitle, icon] = ARCHETYPES[top.category] || DEFAULT_ARCHETYPE;
+    const title = ru ? ruTitle : (ARCHETYPES_EN[top.category] || 'Financial strategist');
     const facts = [];
     if (s.prevTotal > 0 && s.total < s.prevTotal) {
-      facts.push(['1f4c9', `−${Math.round((s.prevTotal - s.total) / s.prevTotal * 100)}% трат к ${MONTHS.ruDat[(mi + 11) % 12]}`]);
+      const p = Math.round((s.prevTotal - s.total) / s.prevTotal * 100);
+      facts.push(['1f4c9', ru ? `−${p}% трат к ${MONTHS.ruDat[(mi + 11) % 12]}` : `−${p}% spending vs ${MONTHS.en[(mi + 11) % 12]}`]);
     }
-    if (s.income > 0 && s.income > s.total) facts.push(['2705', `Месяц в плюсе: осталось ${Math.round((s.income - s.total) / s.income * 100)}% дохода`]);
-    facts.push([twemoji(cat(top.category).emoji), `Больше всего — на ${CAT_ACC[top.category] || catName(top.category).toLowerCase()}`]);
-    if (facts.length < 3) facts.push(['1f4d2', `Учёт вёлся ${s.days.filter((v) => v > 0).length} дней из ${s.days.length}`]);
-    return { month: MONTHS.ru[mi], title, icon, facts: facts.slice(0, 3) };
+    if (s.income > 0 && s.income > s.total) {
+      const p = Math.round((s.income - s.total) / s.income * 100);
+      facts.push(['2705', ru ? `Месяц в плюсе: осталось ${p}% дохода` : `Month in the black: ${p}% of income left`]);
+    }
+    facts.push([twemoji(cat(top.category).emoji), ru ? `Больше всего — на ${CAT_ACC[top.category] || catName(top.category).toLowerCase()}` : `Spent the most on ${catName(top.category).toLowerCase()}`]);
+    const tracked = s.days.filter((v) => v > 0).length;
+    if (facts.length < 3) facts.push(['1f4d2', ru ? `Учёт вёлся ${tracked} дней из ${s.days.length}` : `Tracked ${tracked} of ${s.days.length} days`]);
+    return { month: ru ? MONTHS.ru[mi] : MONTHS.en[mi], title, icon, facts: facts.slice(0, 3) };
   }
 
   const loadImg = (src) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
@@ -567,6 +585,15 @@
     }
     if (line) lines.push(line);
     return lines;
+  }
+  // кнопка внизу карточки: «Считаю деньги в @бот»; если не влезает — уменьшаем шрифт
+  function ctaText(ctx, L, CW, ctaY, ctaH, accent) {
+    const a = state.lang === 'ru' ? 'Считаю деньги в ' : 'I track money with ', b = `@${BOT_USERNAME}`;
+    let fs = 48;
+    do { fs -= 2; ctx.font = `800 ${fs}px WrM`; } while (ctx.measureText(a + b).width > CW - 70 && fs > 30);
+    const tw = ctx.measureText(a + b).width, tx = L + (CW - tw) / 2, ty = ctaY + ctaH / 2 + 16;
+    ctx.fillStyle = '#111'; ctx.fillText(a, tx, ty);
+    ctx.fillStyle = accent; ctx.fillText(b, tx + ctx.measureText(a).width, ty);
   }
   function spaced(ctx, text, x, y, gap) { for (const ch of text) { ctx.fillText(ch, x, y); x += ctx.measureText(ch).width + gap; } }
 
@@ -583,7 +610,8 @@
     blob(-20, 1390, 520, 'rgba(31,157,99,.38)'); blob(1000, 60, 420, 'rgba(120,180,255,.35)');
     ctx.fillStyle = '#fff'; ctx.textBaseline = 'alphabetic';
     // «Мой октябрь»
-    ctx.font = '900 46px WrU'; ctx.globalAlpha = 0.9; ctx.fillText(`Мой ${d.month}`, L, 246); ctx.globalAlpha = 1;
+    const ru = state.lang === 'ru';
+    ctx.font = '900 46px WrU'; ctx.globalAlpha = 0.9; ctx.fillText(ru ? `Мой ${d.month}` : `My ${d.month}`, L, 246); ctx.globalAlpha = 1;
     // иконка в плашке + «Мой типаж месяца»
     const ico = await loadImg(`stories/emoji/${d.icon}.svg`).catch(() => null);
     ctx.fillStyle = 'rgba(0,0,0,.3)'; rr(ctx, L + 8, 346, 150, 150, 40); ctx.fill();
@@ -591,7 +619,7 @@
     ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.lineWidth = 4; ctx.stroke();
     if (ico) ctx.drawImage(ico, L + 23, 359, 104, 104);
     ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = '800 42px WrM';
-    ctx.fillText('Мой типаж', L + 176, 402); ctx.fillText('месяца', L + 176, 452);
+    ctx.fillText(ru ? 'Мой типаж' : 'My money', L + 176, 402); ctx.fillText(ru ? 'месяца' : 'personality', L + 176, 452);
     // типаж: максимум две строки, слово не разрывается
     let fs = 116, lines;
     for (;;) {
@@ -623,14 +651,10 @@
     // логотип и кнопка с адресом бота
     const ctaH = 122, ctaY = H - 140 - ctaH;
     ctx.fillStyle = '#fff'; ctx.font = '900 50px WrU'; ctx.fillText('потрачено', L, ctaY - 70);
-    ctx.fillStyle = '#8fbaf5'; ctx.font = '800 22px WrM'; spaced(ctx, 'БЮДЖЕТ-БОТ', L, ctaY - 34, 7);
+    ctx.fillStyle = '#8fbaf5'; ctx.font = '800 22px WrM'; spaced(ctx, BRAND_SUB(), L, ctaY - 34, 7);
     ctx.fillStyle = 'rgba(0,0,0,.35)'; rr(ctx, L + 9, ctaY + 11, CW, ctaH, 34); ctx.fill();
     ctx.fillStyle = '#fff'; rr(ctx, L, ctaY, CW, ctaH, 34); ctx.fill();
-    ctx.font = '800 46px WrM';
-    const a = 'Считаю деньги в ', b = `@${BOT_USERNAME}`;
-    const tw = ctx.measureText(a + b).width, tx = L + (CW - tw) / 2, tyy = ctaY + ctaH / 2 + 16;
-    ctx.fillStyle = '#111'; ctx.fillText(a, tx, tyy);
-    ctx.fillStyle = '#2a78d6'; ctx.fillText(b, tx + ctx.measureText(a).width, tyy);
+    ctaText(ctx, L, CW, ctaY, ctaH, '#2a78d6');
     return c;
   }
 
@@ -647,7 +671,8 @@
   // Окно «Поделиться»: превью карточки, публикация в истории Telegram и сохранение картинки (для Instagram)
   async function openShareSheet(summary) {
     const d = shareData(summary);
-    return openShareCard({ draw: () => drawShareCard(d), storyText: `Мой типаж месяца — ${d.title}. Считаю деньги в @${BOT_USERNAME}`,
+    const storyText = state.lang === 'ru' ? `Мой типаж месяца — ${d.title}. Считаю деньги в @${BOT_USERNAME}` : `My money personality this month: ${d.title}. I track money with @${BOT_USERNAME}`;
+    return openShareCard({ draw: () => drawShareCard(d), storyText,
       file: `potracheno-${summary.month}.jpg`, hint: !state.me.sharedThisMonth, milestone: null });
   }
   // draw — рисует canvas; milestone — номер юбилея (бонус за юбилей) или null (бонус за итоги месяца)
@@ -711,6 +736,12 @@
     { d: 300, n: '300', unit: 'дней', phrase: '300 дней', title: '300 дней', icon: '1f3c6', bg: ['#1f7a8c', '#2a78d6', '#10213a'] },
     { d: 365, n: '1', unit: 'год', phrase: 'Год', title: 'Год с нами', icon: '1f382', bg: ['#1f9d63', '#1f7a8c', '#0f2f3a'] },
   ];
+  const MILESTONES_EN = {
+    30: { unit: 'month', phrase: 'One month', title: 'One month with us' }, 100: { unit: 'days', phrase: '100 days', title: '100 days' },
+    200: { unit: 'days', phrase: '200 days', title: '200 days' }, 300: { unit: 'days', phrase: '300 days', title: '300 days' },
+    365: { unit: 'year', phrase: 'One year', title: 'One year with us' },
+  };
+  const msT = (m) => (state.lang === 'ru' ? m : { ...m, ...MILESTONES_EN[m.d] });
   const CONFETTI = [[150, 1180, '#ffd84a', 0], [880, 1060, '#7fe0b0', 30], [300, 1500, '#ffffff', 60], [760, 1420, '#ff8fb1', 15],
     [520, 1240, '#9cc3f7', 45], [930, 1600, '#ffd84a', 70], [190, 1700, '#7fe0b0', 20]];
   const msGrad = (m) => `linear-gradient(165deg,${m.bg[0]} 0%,${m.bg[1]} 45%,${m.bg[2]} 80%,#0e0e10 100%)`;
@@ -733,66 +764,65 @@
     ctx.fillStyle = rg; ctx.fillRect(0, 900, W, 1020);
     for (const [x, y, col, r] of CONFETTI) { ctx.save(); ctx.translate(x + 17, y + 7); ctx.rotate(r * Math.PI / 180); ctx.fillStyle = col; rr(ctx, -17, -7, 34, 14, 6); ctx.fill(); ctx.restore(); }
     ctx.fillStyle = '#fff'; ctx.textBaseline = 'alphabetic';
-    ctx.font = '900 46px WrU'; ctx.globalAlpha = 0.9; ctx.fillText('Мой юбилей', L, 250); ctx.globalAlpha = 1;
+    const ru = state.lang === 'ru'; m = msT(m);
+    ctx.font = '900 46px WrU'; ctx.globalAlpha = 0.9; ctx.fillText(ru ? 'Мой юбилей' : 'My milestone', L, 250); ctx.globalAlpha = 1;
     const big = m.n.length < 3 ? 420 : 330;
     ctx.font = `900 ${big}px WrU`; ctx.fillText(m.n, L - 10, 430 + big * 0.78);
     const unitY = 430 + big * 0.9 + 110;
     ctx.font = '900 120px WrU'; ctx.fillText(m.unit, L - 4, unitY);
     ctx.font = '800 72px WrM';
-    wrapLines(ctx, `${m.phrase} слежу за деньгами`, CW).forEach((ln, k) => ctx.fillText(ln, L, unitY + 130 + k * 84));
+    wrapLines(ctx, ru ? `${m.phrase} слежу за деньгами` : `${m.phrase} of tracking my money`, CW).forEach((ln, k) => ctx.fillText(ln, L, unitY + 130 + k * 84));
     const ico = await loadImg(`stories/emoji/${m.icon}.svg`).catch(() => null);
     if (ico) { ctx.save(); ctx.translate(W - 130 - 150, 1080 + 150); ctx.rotate(-10 * Math.PI / 180); ctx.globalAlpha = 0.35; ctx.drawImage(ico, -150 + 10, -150 + 14, 300, 300); ctx.globalAlpha = 1; ctx.drawImage(ico, -150, -150, 300, 300); ctx.restore(); }
     const ctaH = 122, ctaY = H - 140 - ctaH;
     ctx.fillStyle = '#fff'; ctx.font = '900 50px WrU'; ctx.fillText('потрачено', L, ctaY - 70);
-    ctx.fillStyle = '#e8eeff'; ctx.font = '800 22px WrM'; spaced(ctx, 'БЮДЖЕТ-БОТ', L, ctaY - 34, 7);
+    ctx.fillStyle = '#e8eeff'; ctx.font = '800 22px WrM'; spaced(ctx, BRAND_SUB(), L, ctaY - 34, 7);
     ctx.fillStyle = 'rgba(0,0,0,.35)'; rr(ctx, L + 9, ctaY + 11, CW, ctaH, 34); ctx.fill();
     ctx.fillStyle = '#fff'; rr(ctx, L, ctaY, CW, ctaH, 34); ctx.fill();
-    ctx.font = '800 46px WrM';
-    const a = 'Считаю деньги в ', b = `@${BOT_USERNAME}`;
-    const tw = ctx.measureText(a + b).width, tx = L + (CW - tw) / 2, ty = ctaY + ctaH / 2 + 16;
-    ctx.fillStyle = '#111'; ctx.fillText(a, tx, ty);
-    ctx.fillStyle = '#6a3fd6'; ctx.fillText(b, tx + ctx.measureText(a).width, ty);
+    ctaText(ctx, L, CW, ctaY, ctaH, '#6a3fd6');
     return c;
   }
   function shareMilestone(m) {
-    return openShareCard({ draw: () => drawMilestoneCard(m), storyText: `${m.phrase} слежу за деньгами в @${BOT_USERNAME} 🎉`,
+    const mt = msT(m);
+    const storyText = state.lang === 'ru' ? `${mt.phrase} слежу за деньгами в @${BOT_USERNAME} 🎉` : `${mt.phrase} of tracking my money with @${BOT_USERNAME} 🎉`;
+    return openShareCard({ draw: () => drawMilestoneCard(m), storyText,
       file: `potracheno-${m.d}.jpg`, hint: !(state.me.milestonesShared || []).includes(m.d), milestone: m.d });
   }
-  function buildMilestoneStory(m) {
+  function buildMilestoneStory(m0) {
+    const ru = state.lang === 'ru', m = msT(m0);
     const conf = CONFETTI.map(([x, y, col, r]) => `<div style="position:absolute;left:${x}px;top:${y}px;width:34px;height:14px;border-radius:6px;background:${col};transform:rotate(${r}deg)"></div>`).join('');
     const st = (code, size, pos) => `<div class="wr-sticker" style="${pos}">${emojiImg(code, size)}</div>`;
     const congrats = `<div class="wr" style="background:${msGrad(m)}">
       <div class="wr-blob" style="width:760px;height:760px;right:-260px;top:-120px;background:rgba(255,255,255,.14)"></div>
-      <div class="wr-tag">Юбилей</div>${conf}
+      <div class="wr-tag">${ru ? 'Юбилей' : 'Milestone'}</div>${conf}
       <div class="wr-wrap" style="top:400px"><div class="wr-num" style="font-size:${m.n.length < 3 ? 420 : 330}px;letter-spacing:-12px;line-height:.9">${m.n}</div>
         <div class="wr-num" style="font-size:120px;letter-spacing:-3px;margin-top:10px">${m.unit}</div>
-        <div class="wr-cap" style="margin-top:60px">${m.phrase} вы следите за деньгами. Это не только привычка, но повод гордиться собой. Отличная работа!</div></div>
+        <div class="wr-cap" style="margin-top:60px">${ru ? `${m.phrase} вы следите за деньгами. Это не только привычка, но повод гордиться собой. Отличная работа!` : `${m.phrase} of tracking your money. It’s not just a habit — it’s something to be proud of. Great job!`}</div></div>
       ${st(m.icon, 260, 'right:130px;top:1420px;transform:rotate(12deg)')}
-      <div class="wr-logo">потрачено<span>БЮДЖЕТ-БОТ</span></div></div>`;
+      <div class="wr-logo">потрачено<span>${BRAND_SUB()}</span></div></div>`;
     const bonus = !(state.me.milestonesShared || []).includes(m.d);
     const cta = { hold: true, html: `<div class="wr" style="background:linear-gradient(165deg,#6250d6 0%,#2a78d6 50%,#0e0e10 100%)">
       <div class="wr-blob" style="width:760px;height:760px;left:-260px;top:1000px;background:rgba(255,255,255,.1)"></div>
-      <div class="wr-tag">Юбилей</div>
-      <div class="wr-wrap" style="top:330px"><div class="wr-cap" style="font-size:64px;line-height:1.15;margin-top:0">${bonus ? 'Поделитесь достижением с друзьями, а мы подарим вам 5 сканов' : 'Поделитесь достижением с друзьями'}</div></div>
+      <div class="wr-tag">${ru ? 'Юбилей' : 'Milestone'}</div>
+      <div class="wr-wrap" style="top:330px"><div class="wr-cap" style="font-size:64px;line-height:1.15;margin-top:0">${ru ? (bonus ? 'Поделитесь достижением с друзьями, а мы подарим вам 5 сканов' : 'Поделитесь достижением с друзьями') : (bonus ? 'Share your achievement with friends and get 5 free scans' : 'Share your achievement with friends')}</div></div>
       <img data-preview alt="" style="position:absolute;left:330px;top:820px;width:420px;aspect-ratio:9/16;border-radius:36px;transform:rotate(-6deg);box-shadow:0 0 0 8px #fff,18px 22px 0 8px rgba(0,0,0,.35);background:${msGrad(m)}">
       ${st('1f381', 220, 'right:120px;top:1120px;transform:rotate(14deg)')}
-      <button class="wr-action" data-share>Поделиться</button>
-      <div class="wr-logo">потрачено<span>БЮДЖЕТ-БОТ</span></div></div>`,
+      <button class="wr-action" data-share>${ru ? 'Поделиться' : 'Share'}</button>
+      <div class="wr-logo">потрачено<span>${BRAND_SUB()}</span></div></div>`,
       onShow: (root, close) => {
         const img = root.querySelector('[data-preview]');
-        if (img && !img.src) drawMilestoneCard(m).then((c) => { img.src = c.toDataURL('image/jpeg', 0.8); }).catch(() => {});
+        if (img && !img.src) drawMilestoneCard(m0).then((c) => { img.src = c.toDataURL('image/jpeg', 0.8); }).catch(() => {});
         const b = root.querySelector('[data-share]');
-        if (b) b.addEventListener('click', () => { haptic('select'); close(); shareMilestone(m); });
+        if (b) b.addEventListener('click', () => { haptic('select'); close(); shareMilestone(m0); });
       } };
     return {
-      id: `milestone-${m.d}`, langs: ['ru'], duration: 6000, dynamic: 'milestone',
-      title: { ru: m.title, en: m.title },
+      id: `milestone-${m.d}`, duration: 6000, dynamic: 'milestone',
+      title: { ru: m0.title, en: MILESTONES_EN[m0.d].title },
       coverHtml: `<span class="story-img wk-cover" style="background:${msGrad(m)}">${emojiImg(m.icon, 40)}</span>`,
       slides: [{ html: congrats }, cta],
     };
   }
   function loadMilestoneStory() {
-    if (state.lang !== 'ru') return;
     const m = currentMilestone();
     for (let i = STORIES.length - 1; i >= 0; i--) if (STORIES[i].dynamic === 'milestone') STORIES.splice(i, 1);
     if (m) { STORIES.unshift(buildMilestoneStory(m)); renderStories(); }
@@ -801,12 +831,16 @@
   // ---------- недельные истории: «План на неделю» и «Итоги недели» ----------
   const WEEKDAYS_ACC = ['в воскресенье', 'в понедельник', 'во вторник', 'в среду', 'в четверг', 'в пятницу', 'в субботу'];
   const dayWord = (date, today) => {
-    if (date === today) return 'сегодня';
+    const ru = state.lang === 'ru';
+    if (date === today) return ru ? 'сегодня' : 'today';
     const tm = new Date(`${today}T00:00:00Z`); tm.setUTCDate(tm.getUTCDate() + 1);
-    if (date === tm.toISOString().slice(0, 10)) return 'завтра';
-    return WEEKDAYS_ACC[new Date(`${date}T00:00:00Z`).getUTCDay()];
+    if (date === tm.toISOString().slice(0, 10)) return ru ? 'завтра' : 'tomorrow';
+    return (ru ? WEEKDAYS_ACC : WEEKDAYS_EN)[new Date(`${date}T00:00:00Z`).getUTCDay()];
   };
   const isCyr = (w) => /^[а-яё]/i.test(w);
+  const isRu = () => state.lang === 'ru';
+  const BRAND_SUB = () => (isRu() ? 'БЮДЖЕТ-БОТ' : 'BUDGET BOT');
+  const WEEKDAYS_EN = ['on Sunday', 'on Monday', 'on Tuesday', 'on Wednesday', 'on Thursday', 'on Friday', 'on Saturday'];
   const lowerFirst = (w) => (isCyr(w) ? w.charAt(0).toLowerCase() + w.slice(1) : w);
   // «Аренда» → «на аренду». Склоняем только одно слово; составные названия идут через тире
   function accusative(word) {
@@ -818,16 +852,17 @@
   function planLine(it, income, today) {
     const day = `<span class="wk-day">${dayWord(it.date, today)}</span>`;
     const note = (it.note || '').trim();
+    if (!isRu()) return `${esc(note || catName(it.category))} ${day}`;
     if (income) return `${esc(note ? lowerFirst(note) : catName(it.category).toLowerCase())} ${day}`;
     if (!note) return `на ${esc(CAT_ACC[it.category] || catName(it.category).toLowerCase())} ${day}`;
     if (/^\S+$/.test(note) && !/\d/.test(note)) return `на ${esc(accusative(note))} ${day}`;
     return `— ${esc(note)} ${day}`;
   }
   const wkPage = (bg, tag, body) => `<div class="wr" style="background:${bg}"><div class="wr-tag">${tag}</div>${body}
-    <div class="wr-logo">потрачено<span>БЮДЖЕТ-БОТ</span></div></div>`;
+    <div class="wr-logo">потрачено<span>${BRAND_SUB()}</span></div></div>`;
 
   // ---- новые недельные истории (стиль приложения: жёлтый/чёрный/синий, Manrope, иллюстрации) ----
-  const w2Logo = '<div class="w2-logo">потрачено<span>БЮДЖЕТ-БОТ</span></div>';
+  const w2Logo = () => `<div class="w2-logo">потрачено<span>${BRAND_SUB()}</span></div>`;
   const w2Range = (a, b) => (a.slice(5, 7) === b.slice(5, 7) ? `${Number(a.slice(8, 10))}–${dayMonth(b)}` : `${dayMonth(a)} – ${dayMonth(b)}`);
   function w2Ico(id) {
     const c = cat(id), name = window.ICONS && window.ICONS.CAT[id];
@@ -835,24 +870,24 @@
     const own = c.custom || (pe && state.baseCats[id] && pe !== state.baseCats[id].emoji);
     return `<div class="w2-ci" style="background:${tintOf(id)}">${name && !own ? ico(name, 62, '#000') : `<span style="font-size:64px">${esc(c.emoji)}</span>`}</div>`;
   }
-  const w2Page = (bg, color, body) => `<div class="wr w2" style="background:${bg};color:${color}">${body}${w2Logo}</div>`;
+  const w2Page = (bg, color, body) => `<div class="wr w2" style="background:${bg};color:${color}">${body}${w2Logo()}</div>`;
 
   function buildPlanStory(w) {
     const slides = [];
-    const tag = `<div class="w2-tag">План на неделю<small>${esc(w2Range(w.today, w.week.to))}</small></div>`;
+    const tag = `<div class="w2-tag">${isRu() ? 'План на неделю' : 'Week plan'}<small>${esc(w2Range(w.today, w.week.to))}</small></div>`;
     const rows = (list, income) => list.map((it) => `<div class="w2-card w2-row">${w2Ico(it.category)}
       <div><div class="w2-amt">${esc(money(it.amount, it.currency))}</div><div class="w2-what">${planLine(it, income, w.today)}</div></div></div>`).join('');
     if (w.plan.expenses.length) {
       slides.push({ html: w2Page('#000', '#fff', `<img class="w2-ill" src="illus/note.svg" alt="" style="right:-150px;top:-60px;width:520px;transform:rotate(-18deg)">${tag}
-        <div class="w2-wrap" style="top:440px"><div class="w2-cap">Запланированные<br>расходы</div><div class="w2-rows">${rows(w.plan.expenses, false)}</div></div>`) });
+        <div class="w2-wrap" style="top:440px"><div class="w2-cap">${isRu() ? 'Запланированные<br>расходы' : 'Planned<br>expenses'}</div><div class="w2-rows">${rows(w.plan.expenses, false)}</div></div>`) });
     }
     if (w.plan.incomes.length) {
       slides.push({ html: w2Page('#4d72f5', '#fff', `<img class="w2-ill" src="illus/coin.svg" alt="" style="right:-110px;bottom:200px;width:480px;transform:rotate(12deg)">
         <img class="w2-ill" src="illus/star.svg" alt="" style="right:330px;bottom:520px;width:150px;transform:rotate(-12deg)">${tag}
-        <div class="w2-wrap" style="top:440px"><div class="w2-cap">Запланированные<br>доходы</div><div class="w2-rows">${rows(w.plan.incomes, true)}</div></div>`) });
+        <div class="w2-wrap" style="top:440px"><div class="w2-cap">${isRu() ? 'Запланированные<br>доходы' : 'Planned<br>income'}</div><div class="w2-rows">${rows(w.plan.incomes, true)}</div></div>`) });
     }
     if (!slides.length) return null;
-    return { id: `week-plan-${w.week.from}`, langs: ['ru'], duration: 6000, dynamic: 'week', title: { ru: 'План на неделю', en: 'Week plan' }, slides };
+    return { id: `week-plan-${w.week.from}`, duration: 6000, dynamic: 'week', title: { ru: 'План на неделю', en: 'Week plan' }, slides };
   }
 
   function buildWeekSummaryStory(w) {
@@ -862,22 +897,22 @@
     if (s.avg) {
       const pct = Math.round(Math.abs(s.spent - s.avg) / s.avg * 100);
       const less = s.spent <= s.avg;
-      pill = pct === 0 ? '<div class="w2-pill">как обычно</div>'
-        : `<div class="w2-pill">${ico(less ? 'trend_down' : 'trend_up', 52, '#000')} на ${pct}% ${less ? 'меньше' : 'больше'}, чем обычно</div>`;
+      const ru = isRu();
+      pill = pct === 0 ? `<div class="w2-pill">${ru ? 'как обычно' : 'same as usual'}</div>`
+        : `<div class="w2-pill">${ico(less ? 'trend_down' : 'trend_up', 52, '#000')} ${ru ? `на ${pct}% ${less ? 'меньше' : 'больше'}, чем обычно` : `${pct}% ${less ? 'less' : 'more'} than usual`}</div>`;
     }
     return {
-      id: `week-sum-${w.week.from}`, langs: ['ru'], duration: 6000, dynamic: 'week', title: { ru: 'Итоги недели', en: 'Week recap' },
+      id: `week-sum-${w.week.from}`, duration: 6000, dynamic: 'week', title: { ru: 'Итоги недели', en: 'Week recap' },
       slides: [{ html: w2Page('#fff957', '#000', `<img class="w2-ill" src="illus/wallet.svg" alt="" style="right:-150px;bottom:30px;width:540px;transform:rotate(-14deg)">
-        <div class="w2-tag">Итоги недели<small>${esc(w2Range(s.from, s.to))}</small></div>
-        <div class="w2-wrap" style="top:470px"><div class="w2-cap">На прошлой неделе<br>вы потратили</div>
+        <div class="w2-tag">${isRu() ? 'Итоги недели' : 'Week recap'}<small>${esc(w2Range(s.from, s.to))}</small></div>
+        <div class="w2-wrap" style="top:470px"><div class="w2-cap">${isRu() ? 'На прошлой неделе<br>вы потратили' : 'Last week<br>you spent'}</div>
           <div class="w2-num">${bigMoney(s.spent, w.base)}</div>${pill}
-          <div class="w2-card w2-top">${w2Ico(s.top.category)}<div><div class="w2-k">Категория #1</div><div class="w2-v">${esc(catName(s.top.category).toLowerCase())}</div></div></div>
+          <div class="w2-card w2-top">${w2Ico(s.top.category)}<div><div class="w2-k">${isRu() ? 'Категория #1' : 'Top category'}</div><div class="w2-v">${esc(isRu() ? catName(s.top.category).toLowerCase() : catName(s.top.category))}</div></div></div>
         </div>`) }],
     };
   }
 
   async function loadWeeklyStories() {
-    if (state.lang !== 'ru') return;
     try {
       const w = await api('/weekly');
       for (let i = STORIES.length - 1; i >= 0; i--) if (STORIES[i].dynamic === 'week') STORIES.splice(i, 1);
@@ -890,7 +925,6 @@
   // История за прошлый месяц: подгружаем сводку и добавляем в начало ленты
   // В ленте — с 1-го по 7-е число по местному времени; по кнопке из сообщения бота открывается всегда
   async function loadMonthStory(force = false) {
-    if (state.lang !== 'ru') return;
     if (!force && Number(state.today.slice(8, 10)) > 7) return null;
     const prev = shiftMonth(state.today.slice(0, 7), -1);
     try {
@@ -1193,7 +1227,7 @@
       const box = $('#pfWeek', el), s = w.summary;
       if (!box) return;
       if (!s) { box.innerHTML = `<div class="t">${t('weekResults')}</div><div class="e">${t('notEnough')}</div>`; return; }
-      const story = state.lang === 'ru' ? buildWeekSummaryStory(w) : null;
+      const story = buildWeekSummaryStory(w);
       const p = s.avg ? Math.round((s.spent - s.avg) / s.avg * 100) : null;
       box.innerHTML = `<div class="t">${t('weekResults')}</div><div class="p">${range(s.from, s.to)}</div>
         <div class="v num">${money(s.spent, w.base, { round: s.spent >= 1000 })}</div>
@@ -1207,7 +1241,7 @@
       if (!box) return;
       if (!s || (!s.total && !s.income)) { box.innerHTML = `<div class="t">${t('monthResults')}</div><div class="e">${t('notEnough')}</div>`; return; }
       const mi2 = Number(prev.slice(5, 7)) - 1;
-      const story = state.lang === 'ru' ? buildMonthStory(s) : null;
+      const story = buildMonthStory(s);
       const sub = s.income > 0
         ? `<div class="s ${s.balance >= 0 ? 'g' : 'r'}">${s.balance >= 0 ? t('leftShare', Math.round(s.balance / s.income * 100)) : t('overShort')}</div>`
         : (s.prevTotal > 0 ? `<div class="s ${s.total <= s.prevTotal ? 'g' : 'r'}">${s.total <= s.prevTotal ? '−' : '+'}${Math.abs(Math.round((s.total - s.prevTotal) / s.prevTotal * 100))}% ${t('vsPrev')}</div>` : '');
@@ -1994,7 +2028,7 @@
     api('/weekly?all=1').then((w) => {
       const el = $('#pfWeek', S), s = w.summary;
       if (!s) { el.innerHTML = `<div class="pf-empty">${t('notEnough')}</div>`; return; }
-      const story = state.lang === 'ru' ? buildWeekSummaryStory(w) : null;
+      const story = buildWeekSummaryStory(w);
       el.innerHTML = `<div class="pf-period">${range(s.from, s.to)}</div>
         <div class="pf-stats">${stat(t('spentLbl'), money(s.spent, w.base))}${s.avg ? stat(t('usualLbl'), money(s.avg, w.base)) : ''}</div>
         ${s.avg ? change(s.spent, s.avg, t('vsUsual')) : ''}${top(s.top.category)}${story ? storyBtn('w') : ''}`;
@@ -2006,7 +2040,7 @@
       const el = $('#pfMonth', S);
       if (!s || (!s.total && !s.income)) { el.innerHTML = `<div class="pf-empty">${t('notEnough')}</div>`; return; }
       const mi = Number(prev.slice(5, 7)) - 1;
-      const story = state.lang === 'ru' ? buildMonthStory(s) : null;
+      const story = buildMonthStory(s);
       el.innerHTML = `<div class="pf-period">${state.lang === 'ru' ? MONTHS.ru[mi] : MONTHS.en[mi]} ${prev.slice(0, 4)}</div>
         <div class="pf-stats">${stat(t('spentLbl'), money(s.total, s.base))}${stat(t('incomeLbl'), money(s.income, s.base), 'pos')}${stat(t('balanceLbl'), signed(s.balance, s.base), s.balance >= 0 ? 'pos' : 'neg')}</div>
         ${change(s.total, s.prevTotal, t('vsPrev'))}${top(s.categories[0] && s.categories[0].category)}${story ? storyBtn('m') : ''}`;
