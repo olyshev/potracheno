@@ -30,7 +30,9 @@ export const CATEGORIES = [
 
 export const CATEGORY_IDS = CATEGORIES.map((c) => c.id);
 export const isCategory = (id) => CATEGORY_IDS.includes(id);
-export const catLabel = (id, lang) => {
+// custom — свои категории пользователя: { [id]: { emoji, name } }
+export const catLabel = (id, lang, custom = null) => {
+  if (custom && custom[id]) return `${custom[id].emoji} ${custom[id].name}`;
   const c = CATEGORIES.find((x) => x.id === id) || INCOME_CATEGORIES.find((x) => x.id === id) || CATEGORIES.at(-1);
   return `${c.emoji} ${lang === 'ru' ? c.ru : c.en}`;
 };
@@ -87,7 +89,12 @@ export const INCOME_CATEGORIES = [
   { id: 'other_income', emoji: '💰', ru: 'Другой доход',          en: 'Other income' },
 ];
 export const INCOME_IDS = INCOME_CATEGORIES.map((c) => c.id);
-export const isCategoryFor = (kind, id) => (kind === 'income' ? INCOME_IDS : CATEGORY_IDS).includes(id);
+// custom — список своих категорий пользователя ({ id, kind, … })
+export const isCategoryFor = (kind, id, custom = null) => (kind === 'income' ? INCOME_IDS : CATEGORY_IDS).includes(id)
+  || !!(custom && custom.some((c) => c.id === id && c.kind === kind));
+export const customMap = (list) => Object.fromEntries((list || []).map((c) => [c.id, { emoji: c.emoji, name: c.name, kind: c.kind }]));
+export const CUSTOM_LIMIT = 40;
+export const CUSTOM_EMOJI = ['🏷️', '💡', '🎨', '🎮', '🎸', '📚', '💊', '🍷', '🍺', '✂️', '💅', '🌿', '🛠️', '⚽', '✈️', '🏍️', '👶', '💻', '📱', '💸', '🧾', '🐶', '🏖️', '❤️'];
 
 const INCOME_RULES = {
   salary: ['зарплат', 'зп', 'аванс', 'оклад', 'премия', 'бонус', 'salary', 'payroll', 'nómina', 'nomina', 'sueldo', 'wage'],

@@ -16,7 +16,7 @@
     ru: {
       addManual: 'Вручную', addReceipt: 'Скан', spent: 'Потрачено', entries: (n) => `${n} ${plural(n, ['запись', 'записи', 'записей'])}`,
       vs: (m) => `к ${m}`, same: 'как в прошлом месяце', categories: 'Категории', history: 'История', showAll: 'Все',
-      today: 'Сегодня', yesterday: 'Вчера', tomorrow: 'Завтра', otherDate: 'Другая дата', pickDate: 'Выбрать', emptyTitle: 'Пока пусто',
+      newCat: 'Новая категория', createCat: 'Создать', catNameLabel: 'Название', catNamePh: 'Например, хобби', catIcon: 'Значок', tooManyCats: 'Слишком много своих категорий', today: 'Сегодня', yesterday: 'Вчера', tomorrow: 'Завтра', otherDate: 'Другая дата', pickDate: 'Выбрать', emptyTitle: 'Пока пусто',
       emptyText: 'Сфотографируйте чек или внесите сумму вручную. Ещё можно просто отправить фото чека боту в чат.',
       emptyPast: 'В этом месяце записей нет.',
       newExpense: 'Новая трата', amount: 'Сумма', note: 'Что купили', notePh: 'Например, кофе', date: 'Дата',
@@ -67,7 +67,7 @@
     en: {
       addManual: 'Manual', addReceipt: 'Scan', spent: 'Spent', entries: (n) => `${n} ${n === 1 ? 'entry' : 'entries'}`,
       vs: (m) => `vs ${m}`, same: 'same as last month', categories: 'Categories', history: 'History', showAll: 'All',
-      today: 'Today', yesterday: 'Yesterday', tomorrow: 'Tomorrow', otherDate: 'Other date', pickDate: 'Pick', emptyTitle: 'Nothing here yet',
+      newCat: 'New category', createCat: 'Create', catNameLabel: 'Name', catNamePh: 'e.g. Hobby', catIcon: 'Icon', tooManyCats: 'Too many custom categories', today: 'Today', yesterday: 'Yesterday', tomorrow: 'Tomorrow', otherDate: 'Other date', pickDate: 'Pick', emptyTitle: 'Nothing here yet',
       emptyText: 'Snap a receipt or add an amount manually. You can also just send a receipt photo to the bot.',
       emptyPast: 'No entries this month.',
       newExpense: 'New expense', amount: 'Amount', note: 'What was it', notePh: 'e.g. coffee', date: 'Date',
@@ -141,7 +141,17 @@
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const cat = (id) => state.catMap[id] || state.catMap.other || { emoji: '📦', ru: id, en: id };
   const catName = (id) => cat(id)[state.lang === 'ru' ? 'ru' : 'en'];
-  const catsOf = (kind) => (kind === 'income' ? state.incomeCats : state.cats);
+  // свои категории встают перед «Другое»
+  const catsOf = (kind) => {
+    const base = kind === 'income' ? state.incomeCats : state.cats;
+    const own = (state.custom || []).filter((c) => c.kind === kind).map((c) => state.catMap[c.id]);
+    const i = base.findIndex((c) => c.id === (kind === 'income' ? 'other_income' : 'other'));
+    return i < 0 ? [...base, ...own] : [...base.slice(0, i), ...own, ...base.slice(i)];
+  };
+  const addCustomCat = (c) => {
+    if (!state.custom.some((x) => x.id === c.id)) state.custom.push(c);
+    state.catMap[c.id] = { id: c.id, emoji: c.emoji, ru: c.name, en: c.name, custom: true, kind: c.kind };
+  };
   const dayMonth = (d) => {
     const n = Number(d.slice(8, 10)), m = Number(d.slice(5, 7)) - 1;
     return state.lang === 'ru' ? `${n} ${MONTHS.ruGen[m]}` : `${MONTHS.en[m]} ${n}`;
@@ -945,6 +955,45 @@
     document.addEventListener('scroll', () => (tip.hidden = true), { passive: true, once: true });
   }
 
+  // ---------- своя категория ----------
+  // Окно с названием и значком; возвращает id новой категории (или null, если закрыли)
+  function createCategory(kind = 'expense') {
+    return new Promise((resolve) => {
+      let created = null, emoji = state.customEmoji[0];
+      const sh = openSheet(`
+        <div class="sheet-head"><h2>${t('newCat')}</h2><button class="close">${t('cancel')}</button></div>
+        <div class="field"><label for="ncName">${t('catNameLabel')}</label><input id="ncName" maxlength="30" autocomplete="off" placeholder="${t('catNamePh')}"></div>
+        <div class="label-row"><span>${t('catIcon')}</span></div>
+        <div class="emoji-grid" id="ncEmoji">${state.customEmoji.map((e, k) => `<button class="emoji-btn ${k ? '' : 'active'}" data-e="${e}">${e}</button>`).join('')}</div>
+        <button class="btn btn-primary btn-block" id="ncSave" disabled>${t('createCat')}</button>`, { onClose: () => resolve(created) });
+      const S = sh.sheet, nameEl = $('#ncName', S), save = $('#ncSave', S);
+      setTimeout(() => nameEl.focus(), 280);
+      $('.close', S).addEventListener('click', () => closeSheet(sh));
+      nameEl.addEventListener('input', () => { save.disabled = !nameEl.value.trim(); });
+      nameEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !save.disabled) save.click(); });
+      S.querySelectorAll('[data-e]').forEach((b) => b.addEventListener('click', () => {
+        emoji = b.dataset.e; haptic('select');
+        S.querySelectorAll('[data-e]').forEach((x) => x.classList.toggle('active', x === b));
+      }));
+      save.addEventListener('click', async () => {
+        const name = nameEl.value.trim();
+        if (!name) return;
+        save.disabled = true;
+        try {
+          const r = await api('/categories', { method: 'POST', body: { kind, name, emoji } });
+          addCustomCat(r.category);
+          created = r.category.id;
+          haptic('success');
+          closeSheet(sh);
+        } catch (e) {
+          save.disabled = false;
+          toast(e.code === 'too_many' ? t('tooManyCats') : t('netError'));
+        }
+      });
+    });
+  }
+  const newCatChip = () => `<button class="chip chip-new" data-new>➕ ${t('createCat').toLowerCase()}</button>`;
+
   // ---------- выбор категории / валюты ----------
   function pickCategory(current, kind = 'expense') {
     return new Promise((resolve) => {
@@ -953,8 +1002,13 @@
         <div class="sheet-head"><h2>${t('category')}</h2><button class="close">${t('close')}</button></div>
         <div class="chips">${catsOf(kind).map((c) => `
           <button class="chip ${c.id === current ? 'active' : ''}" data-c="${c.id}">${c.emoji} ${esc(catName(c.id))}</button>`).join('')}
+          ${newCatChip()}
         </div>`, { onClose: () => resolve(picked) });
       $('.close', sh.sheet).addEventListener('click', () => closeSheet(sh));
+      $('[data-new]', sh.sheet).addEventListener('click', async () => {
+        const id = await createCategory(kind);
+        if (id) { picked = id; closeSheet(sh); }
+      });
       sh.sheet.querySelectorAll('[data-c]').forEach((b) => b.addEventListener('click', () => {
         picked = b.dataset.c; haptic('select'); closeSheet(sh);
       }));
@@ -1147,10 +1201,11 @@
       const summary = state.data?.summary;
       const used = ((kind === 'income' ? summary?.incomeCategories : summary?.categories) || []).map((c) => c.category);
       const order = [...new Set([category, suggested, ...used, ...catsOf(kind).map((c) => c.id)].filter(Boolean))];
-      $('#mCats', S).innerHTML = order.slice(0, kind === 'income' ? 10 : 9).map((id) => `
+      const LIMIT = 9;
+      $('#mCats', S).innerHTML = order.slice(0, LIMIT).map((id) => `
         <button class="chip ${id === category ? 'active' : ''}" data-c="${id}">${cat(id).emoji} ${esc(catName(id))}
         ${id === suggested && !userPicked && kind === 'expense' ? `<span class="ai">${t('ai')}</span>` : ''}</button>`).join('') +
-        (kind === 'expense' ? `<button class="chip" data-more>…</button>` : '');
+        (order.length > LIMIT ? `<button class="chip" data-more>…</button>` : '') + newCatChip();
       $('#mCats', S).querySelectorAll('[data-c]').forEach((b) => b.addEventListener('click', () => {
         category = b.dataset.c; userPicked = true; haptic('select'); drawCats();
       }));
@@ -1158,6 +1213,10 @@
       if (more) more.addEventListener('click', async () => {
         const c = await pickCategory(category, kind);
         if (c) { category = c; userPicked = true; drawCats(); }
+      });
+      $('[data-new]', S).addEventListener('click', async () => {
+        const id = await createCategory(kind);
+        if (id) { category = id; userPicked = true; drawCats(); }
       });
     };
     const setKind = (k) => {
@@ -1708,6 +1767,9 @@
     state.cats = me.categories;
     state.incomeCats = me.income_categories || [];
     state.catMap = Object.fromEntries([...me.categories, ...state.incomeCats].map((c) => [c.id, c]));
+    state.custom = [];
+    state.customEmoji = me.custom_emoji || ['🏷️'];
+    (me.custom_categories || []).forEach(addCustomCat);
     state.currencies = me.currencies;
     state.today = me.today;
     state.daysSinceStart = me.daysSinceStart || 0;

@@ -1,5 +1,5 @@
 // Сводка за месяц (для экрана и для бота) и ежемесячная рассылка итогов.
-import { catLabel } from './categories.js';
+import { catLabel, customMap } from './categories.js';
 import { getRates, fromEur } from './rates.js';
 import { tg, openAppKeyboard } from './telegram.js';
 import { localToday, localHour } from './recurring.js';
@@ -28,12 +28,13 @@ export async function monthSummary(env, userId, month, base) {
   const rates = await getRates(env);
   const conv = (eur) => Math.round(fromEur(eur, base, rates) * 100) / 100;
   const prevMonth = shiftMonth(month, -1);
-  const [cur, prev, daily] = await Promise.all([
+  const [cur, prev, daily, custom] = await Promise.all([
     totalsByCategory(env, userId, month),
     totalsByCategory(env, userId, prevMonth),
     env.DB.prepare(
       `SELECT date, SUM(amount_eur) AS eur FROM entries WHERE user_id = ? AND kind = 'expense' AND date >= ? AND date <= ? GROUP BY date`
     ).bind(userId, `${month}-01`, `${month}-31`).all(),
+    env.DB.prepare('SELECT id, kind, name, emoji FROM custom_categories WHERE user_id = ?').bind(userId).all(),
   ]);
   const prevMap = Object.fromEntries(prev.map((r) => [`${r.kind}:${r.category}`, conv(r.eur)]));
   const rows = cur.map((r) => ({ kind: r.kind, category: r.category, amount: conv(r.eur), count: r.n, prev: prevMap[`${r.kind}:${r.category}`] || 0 }))
@@ -49,6 +50,7 @@ export async function monthSummary(env, userId, month, base) {
   const days = Array.from({ length: daysInMonth(month) }, () => 0);
   for (const r of daily.results) days[Number(r.date.slice(8, 10)) - 1] = conv(r.eur);
   return {
+    custom: customMap(custom.results),
     month, base,
     total: r2(total),            // расходы
     income: r2(income),          // доходы
@@ -107,7 +109,7 @@ export function reportText(s, lang) {
   const top = s.categories.slice(0, 6);
   for (const c of top) {
     const share = s.total ? Math.round((c.amount / s.total) * 100) : 0;
-    lines.push(`${esc(catLabel(c.category, lang))} — ${m(c.amount)} · ${share}%`);
+    lines.push(`${esc(catLabel(c.category, lang, s.custom))} — ${m(c.amount)} · ${share}%`);
   }
   const rest = s.categories.slice(6).reduce((a, c) => a + c.amount, 0);
   if (rest > 0) lines.push(`${ru ? '… остальное' : '… the rest'} — ${m(rest)}`);
@@ -117,8 +119,8 @@ export function reportText(s, lang) {
     const up = changes.filter((c) => c.diff > 0).sort((a, b) => b.diff - a.diff)[0];
     const down = changes.filter((c) => c.diff < 0).sort((a, b) => a.diff - b.diff)[0];
     if (up || down) lines.push('');
-    if (up && up.diff >= s.total * 0.03) lines.push(`${ru ? '📈 Выросло больше всего' : '📈 Grew the most'}: ${esc(catLabel(up.category, lang))} +${m(up.diff)}`);
-    if (down && -down.diff >= s.total * 0.03) lines.push(`${ru ? '📉 Сэкономили' : '📉 Saved'}: ${esc(catLabel(down.category, lang))} −${m(-down.diff)}`);
+    if (up && up.diff >= s.total * 0.03) lines.push(`${ru ? '📈 Выросло больше всего' : '📈 Grew the most'}: ${esc(catLabel(up.category, lang, s.custom))} +${m(up.diff)}`);
+    if (down && -down.diff >= s.total * 0.03) lines.push(`${ru ? '📉 Сэкономили' : '📉 Saved'}: ${esc(catLabel(down.category, lang, s.custom))} −${m(-down.diff)}`);
   }
   const busiest = s.days.reduce((best, v, d) => (v > best.v ? { v, d } : best), { v: 0, d: 0 });
   if (busiest.v > 0) {
