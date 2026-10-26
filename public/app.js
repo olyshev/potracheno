@@ -1100,11 +1100,18 @@
     const [, mm] = s.month.split('-').map(Number);
     const monthName = (state.lang === 'ru' ? MONTHS.ru : MONTHS.en)[mm - 1];
     const sel = Math.min(state.statSel || 0, Math.max(0, list.length - 1));
-    // кольцо: до 4 крупных категорий цветом, остальное — серым
-    const COLORS = ['#4d72f5', '#fff957', '#ffb08a', 'var(--text)'];
-    const parts = list.slice(0, 4).map((c, i) => ({ frac: c.amount / (total || 1), col: COLORS[i], i }));
-    const rest = list.slice(4).reduce((a, c) => a + c.amount, 0);
-    if (rest > 0) parts.push({ frac: rest / (total || 1), col: 'var(--track)', i: -1 });
+    // кольцо: до 6 крупных категорий своим цветом, остальное — одним серым куском.
+    // Значки и полоски категорий на этом экране красятся в цвет своего куска, чтобы кольцо читалось.
+    const COLORS = ['#4d72f5', '#fff957', '#ffb08a', '#8fd9ae', '#ff8fb1', '#b59cff'];
+    const REST = '#a3a7b0';
+    const colOf = (i) => (i < COLORS.length ? COLORS[i] : REST);
+    const parts = list.slice(0, COLORS.length).map((c, i) => ({ frac: c.amount / (total || 1), col: COLORS[i], i }));
+    const rest = list.slice(COLORS.length).reduce((a, c) => a + c.amount, 0);
+    if (rest > 0) parts.push({ frac: rest / (total || 1), col: REST, i: -1 });
+    const stIco = (id, i, size) => {
+      const h = catIco(id, size).replace(/style="background:[^"]*"/, `style="background:${colOf(i)}"`);
+      return i === 0 ? h.replace(/#000/g, '#fff') : h; // на синем значок белый
+    };
     const R = 100, C = 2 * Math.PI * R;
     let off = 0, bubble = '';
     const arcs = parts.map((p) => {
@@ -1135,12 +1142,12 @@
       <div class="seg" id="stKind"><button data-k="expense" class="${kind === 'expense' ? 'active' : ''}">${t('expensesTab')}</button><button data-k="income" class="${kind === 'income' ? 'active' : ''}">${t('incomesTab')}</button></div>
       ${list.length ? `
       <div class="donut"><svg width="236" height="236">${arcs}</svg>${bubble}
-        <div class="mid">${cur ? `${catIco(cur.category, 52)}<b>${esc(catName(cur.category))}</b><span class="num">${money(cur.amount, base, { round: cur.amount >= 1000 })}</span>` : ''}</div></div>
+        <div class="mid">${cur ? `${stIco(cur.category, sel, 52)}<b>${esc(catName(cur.category))}</b><span class="num">${money(cur.amount, base, { round: cur.amount >= 1000 })}</span>` : ''}</div></div>
       <div class="st-total"><b class="num">${bigMoney(total, base).replace('class="fr"', 'class="fr" style="font-size:21px"')}</b>
         <div><span>${esc(kind === 'income' ? t('earnedIn', monthName) : t('spentIn', monthName))}</span>${chg}</div></div>
       <div class="st-list">${list.map((c, i) => `
-        <button class="st-row ${i === sel ? 'sel' : ''}" data-i="${i}">${catIco(c.category, 44)}
-          <div class="n"><b>${esc(catName(c.category))}</b><div class="bar"><i style="width:${Math.max(2, c.amount / (list[0].amount || 1) * 100)}%"></i></div></div>
+        <button class="st-row ${i === sel ? 'sel' : ''}" data-i="${i}">${stIco(c.category, i, 44)}
+          <div class="n"><b>${esc(catName(c.category))}</b><div class="bar"><i style="width:${Math.max(2, c.amount / (list[0].amount || 1) * 100)}%;background:${colOf(i)}"></i></div></div>
           <div class="a num">${money(c.amount, base)}<small>${pctLabel(c.amount / (total || 1))}</small></div></button>`).join('')}</div>
       ${kind === 'expense' && s.total ? `<div class="st-chart"><div class="section-title" style="margin:0"><span>${t('byDay')}</span></div>${dailyChart(s.days, isCurrent ? Number(state.today.slice(8, 10)) : s.days.length, base)}</div>` : ''}`
       : `<div class="empty"><div class="big">${ico('statistic', 30, '#000')}</div><b>${t('noData')}</b></div>`}
