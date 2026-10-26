@@ -299,7 +299,7 @@
       id: 'howto-v1', langs: ['ru'], duration: 6000, days: 7, // в ленте — первую неделю, потом только в настройках
       title: { ru: 'С чего начать', en: 'Getting started' },
       cover: 'stories/howto/cover.webp',
-      slides: [1, 2, 3, 4, 5, 6, 7].map((n) => `stories/howto/${n}.webp`),
+      slides: Array.from({ length: 12 }, (_, i) => `stories/howto2/${i + 1}.webp`),
     },
   ];
   const seenStory = (id) => (state.me.seenStories || []).includes(id);

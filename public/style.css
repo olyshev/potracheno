@@ -604,7 +604,7 @@ button.h-chip { cursor: pointer; }
 .pf-me b { display: block; font-size: 19px; } .pf-me small { font-size: 13.5px; font-weight: 600; opacity: .7; }
 .pf-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
 .pf-cd { background: var(--card); border-radius: 22px; padding: 14px; display: flex; flex-direction: column; min-width: 0; }
-.pf-cd .t { font-size: 12.5px; font-weight: 700; color: var(--hint); } .pf-cd .p { font-size: 11.5px; color: var(--hint); font-weight: 600; margin-top: 1px; text-transform: capitalize; }
+.pf-cd .t { font-size: 12.5px; font-weight: 700; color: var(--hint); } .pf-cd .p { font-size: 11.5px; color: var(--hint); font-weight: 600; margin-top: 1px; } .pf-cd .p::first-letter { text-transform: uppercase; }
 .pf-cd .v { font-size: 22px; font-weight: 800; letter-spacing: -.5px; margin-top: 10px; white-space: nowrap; } .pf-cd .s { font-size: 12.5px; font-weight: 700; margin-top: 4px; }
 .pf-cd .s.g { color: var(--pos); } .pf-cd .s.r { color: var(--neg); }
 .pf-cd .tp { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--sep); font-size: 12.5px; font-weight: 700; min-width: 0; }
