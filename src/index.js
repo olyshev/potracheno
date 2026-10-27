@@ -58,7 +58,7 @@ async function bumpUsage(env, userId, field) {
      ON CONFLICT(user_id, month) DO UPDATE SET ${field} = ${field} + 1`
   ).bind(userId, thisMonth()).run();
 }
-const scanLimit = (env, usage) => Number(env.FREE_SCANS_PER_MONTH || 60) + (usage?.bonus || 0);
+const scanLimit = (env, usage) => Number(env.FREE_SCANS_PER_MONTH || 10) + (usage?.bonus || 0);
 const SHARE_BONUS = 5;
 const BONUS_CAP = 10; // всего бонусных сканов за репосты в месяц
 const MILESTONES = [30, 100, 200, 300, 365]; // юбилеи: дней с первого запуска

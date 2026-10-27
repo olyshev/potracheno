@@ -19,6 +19,6 @@ crons = ["*/10 * * * *"]
 
 [vars]
 CLAUDE_MODEL = "claude-haiku-5-5"
-FREE_SCANS_PER_MONTH = "60"
+FREE_SCANS_PER_MONTH = "10"
 FREE_SUGGESTS_PER_MONTH = "400"
 REPORT_BATCH = "40"
