@@ -683,7 +683,7 @@ async function handleApi(request, env, url) {
 
 const BOT_TEXT = {
   ru: {
-    start: (name) => `Привет${name ? `, ${name}` : ''}! Я помогу вести учёт расходов и доходов 👋\n\nОтслеживайте ежедневные траты, добавляйте лимиты и получайте награды. Каждую неделю и месяц приложение будет формировать отчёт, чтобы вы увидели картину целиком.\n\nВозьмите свои деньги под контроль! Откройте приложение, чтобы перестать жить от зарплаты до зарплаты 🫂\n\n⬇️⬇️⬇️`,
+    start: (name) => `Привет${name ? `, ${name}` : ''}! Я помогу вести учёт расходов и доходов 👋\n\nОтслеживайте ежедневные траты, добавляйте лимиты и получайте награды. Каждую неделю и месяц приложение будет формировать отчёт, чтобы вы увидели картину целиком.\n\nВозьмите свои деньги под контроль! Откройте приложение, чтобы перестать жить от зарплаты до зарплаты 🫂`,
     startBtn: 'Вперёд!',
     open: 'Открыть',
     reading: '🔍 Читаю…',
@@ -700,7 +700,7 @@ const BOT_TEXT = {
     fix: 'Поправить',
   },
   en: {
-    start: (name) => `Hi${name ? `, ${name}` : ''}! I'll help you keep track of your expenses and income 👋\n\nTrack your daily spending, set limits and earn rewards. Every week and every month the app will put together a report so you can see the whole picture.\n\nTake control of your money! Open the app and stop living paycheck to paycheck 🫂\n\n⬇️⬇️⬇️`,
+    start: (name) => `Hi${name ? `, ${name}` : ''}! I'll help you keep track of your expenses and income 👋\n\nTrack your daily spending, set limits and earn rewards. Every week and every month the app will put together a report so you can see the whole picture.\n\nTake control of your money! Open the app and stop living paycheck to paycheck 🫂`,
     startBtn: 'Let’s go!',
     open: 'Open',
     reading: '🔍 Reading…',
