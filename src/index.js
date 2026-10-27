@@ -683,7 +683,7 @@ async function handleApi(request, env, url) {
 
 const BOT_TEXT = {
   ru: {
-    start: (name) => `Привет${name ? `, ${name}` : ''}! Это приложение поможет вести учёт расходов и доходов.\n\nМожно указывать покупки вручную, а можно прислать фото чека, скрин из банка или выписку — алгоритм разберёт операции по категориям и включит в список.\n\nДобавьте постоянные расходы на аренду, подписки или страховку — приложение запомнит дату и сумму, чтобы вам не пришлось вводить их из раза в раз.\n\nКаждого 1-го числа бот будет присылать итоги месяца.\n\nЗапускайте приложение, чтобы перестать жить от зарплаты до зарплаты:`,
+    start: (name) => `Привет${name ? `, ${name}` : ''}! Я помогу вести учёт расходов и доходов 👋\n\nОтслеживайте ежедневные траты, добавляйте лимиты и получайте награды. Каждую неделю и месяц приложение будет формировать отчёт, чтобы вы увидели картину целиком.\n\nВозьмите свои деньги под контроль! Откройте приложение, чтобы перестать жить от зарплаты до зарплаты 🫂\n\n⬇️⬇️⬇️`,
     startBtn: 'Вперёд!',
     open: 'Открыть',
     reading: '🔍 Читаю…',
@@ -700,7 +700,7 @@ const BOT_TEXT = {
     fix: 'Поправить',
   },
   en: {
-    start: (name) => `Hi${name ? `, ${name}` : ''}! This app helps you keep track of your expenses and income.\n\nYou can add purchases manually, or send a photo of a receipt, a screenshot from your banking app or a statement — the algorithm will sort the transactions into categories and add them to your list.\n\nAdd your regular expenses like rent, subscriptions or insurance — the app will remember the date and amount, so you don't have to enter them again and again.\n\nOn the 1st of every month the bot will send you a monthly summary.\n\nOpen the app and stop living paycheck to paycheck:`,
+    start: (name) => `Hi${name ? `, ${name}` : ''}! I'll help you keep track of your expenses and income 👋\n\nTrack your daily spending, set limits and earn rewards. Every week and every month the app will put together a report so you can see the whole picture.\n\nTake control of your money! Open the app and stop living paycheck to paycheck 🫂\n\n⬇️⬇️⬇️`,
     startBtn: 'Let’s go!',
     open: 'Open',
     reading: '🔍 Reading…',
