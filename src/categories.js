@@ -23,7 +23,7 @@ export const CATEGORIES = [
   { id: 'education',     emoji: '📚', ru: 'Обучение',        en: 'Education' },
   { id: 'kids',          emoji: '🧸', ru: 'Дети',            en: 'Kids' },
   { id: 'pets',          emoji: '🐾', ru: 'Питомцы',         en: 'Pets' },
-  { id: 'savings',       emoji: '🏦', ru: 'Инвестиции и сбережения', en: 'Investments & savings' },
+  { id: 'savings',       emoji: '🏦', ru: 'Сбережения', en: 'Savings' },
   { id: 'gifts',         emoji: '🎁', ru: 'Подарки',         en: 'Gifts' },
   { id: 'other',         emoji: '📦', ru: 'Другое',          en: 'Other' },
 ];

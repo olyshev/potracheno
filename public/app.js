@@ -441,7 +441,7 @@
     carsharing: 'каршеринг', fuel: 'топливо', car_service: 'обслуживание авто', car_goods: 'товары для авто',
     housing: 'жильё', utilities: 'связь и ЖКУ', health: 'здоровье', beauty: 'уход и гигиену', household: 'дом и быт',
     clothes: 'одежду и обувь', shopping: 'покупки', fun: 'развлечения', sport: 'спорт', subscriptions: 'подписки',
-    travel: 'путешествия', education: 'обучение', kids: 'детей', pets: 'питомцев', savings: 'инвестиции и сбережения', gifts: 'подарки', other: 'прочее',
+    travel: 'путешествия', education: 'обучение', kids: 'детей', pets: 'питомцев', savings: 'сбережения', gifts: 'подарки', other: 'прочее',
   };
   // Суммы для слайдов: обычные пробелы (в шрифте Unbounded неразрывный пробел нулевой ширины)
   const wrMoney = (n, cur) => {
