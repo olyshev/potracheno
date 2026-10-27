@@ -748,3 +748,23 @@ button.h-chip { cursor: pointer; }
 .lm-bar { height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--hint) 25%, transparent); margin-top: 6px; overflow: hidden; }
 .lm-bar i { display: block; height: 100%; border-radius: 2px; }
 .cg.lm-taken { opacity: .3; }
+
+/* ---- история «Запустили лимиты» ---- */
+.ls-big { font-weight: 800; font-size: 150px; letter-spacing: -6px; line-height: 1; }
+.ls-mk { display: inline-block; line-height: 1; background: #000; color: #fff957; padding: 4px 24px 18px; border-radius: 30px; margin-top: 14px; }
+.ls-sub { font-weight: 700; font-size: 48px; line-height: 1.25; margin-top: 44px; opacity: .75; width: 760px; }
+.ls-cap { font-weight: 800; font-size: 76px; line-height: 1.1; letter-spacing: -2px; }
+.ls-card { background: #fff; color: #000; border: 5px solid #000; box-shadow: 14px 16px 0 #000; border-radius: 56px; padding: 40px 42px 44px; margin-top: 26px; }
+.ls-head { display: flex; align-items: center; gap: 28px; }
+.ls-head .w2-ci { width: 104px; height: 104px; }
+.ls-head b { flex: 1; font-size: 46px; font-weight: 800; letter-spacing: -.5px; }
+.ls-val { font-size: 48px; font-weight: 800; white-space: nowrap; } .ls-val small { font-size: 32px; color: #999; font-weight: 700; }
+.ls-sl { position: relative; height: 64px; margin: 34px 6px 0; display: block; }
+.ls-sl i { position: absolute; display: block; }
+.ls-tr { left: 0; right: 0; top: 25px; height: 14px; border-radius: 7px; background: #e2e2e8; }
+.ls-fl { left: 0; top: 25px; height: 14px; border-radius: 7px; background: #000; }
+.ls-th { top: 0; width: 64px; height: 64px; margin-left: -32px; border-radius: 50%; background: #fff957; border: 9px solid #000; box-sizing: border-box; }
+.ls-ends { display: flex; justify-content: space-between; font-size: 30px; font-weight: 700; color: #999; margin-top: 10px; }
+.ls-pr { font-size: 34px; font-weight: 700; color: #666; margin-top: 22px; } .ls-pr b { color: #E53D60; }
+.ls-bar { height: 12px; border-radius: 6px; background: #e8e8ec; margin-top: 14px; overflow: hidden; } .ls-bar i { display: block; height: 100%; border-radius: 6px; }
+.ls-path { display: inline-flex; align-items: center; gap: 20px; margin-top: 50px; background: #fff; color: #000; border: 5px solid #000; box-shadow: 10px 12px 0 #000; border-radius: 99px; padding: 22px 38px; font-weight: 800; font-size: 44px; }

@@ -318,7 +318,7 @@
     const list = visibleStories().map((s, k) => [s, k]).sort((a, b) => (Number(seenStory(a[0].id)) - Number(seenStory(b[0].id))) || (a[1] - b[1])).map((x) => x[0]);
     if (!list.length) { el.innerHTML = ''; return; }
     // плитка: [иконка, фон, цвет иконки] по типу истории
-    const tile = (s) => (s.id.startsWith('milestone') ? ['gifts', '#ffffff', '#000'] : s.id.startsWith('week-sum') ? ['statistic', '#4d72f5', '#fff']
+    const tile = (s) => (s.id.startsWith('limits') ? ['payment', '#ffffff', '#000'] : s.id.startsWith('milestone') ? ['gifts', '#ffffff', '#000'] : s.id.startsWith('week-sum') ? ['statistic', '#4d72f5', '#fff']
       : s.id.startsWith('week-plan') ? ['calendar', '#000', '#fff957'] : s.id.startsWith('month') ? ['payment', '#ffb08a', '#000'] : ['education', '#ffffff', '#000']);
     el.innerHTML = `<div class="stories">${list.map((s) => {
       const [ic, bg, fg] = tile(s);
@@ -820,6 +820,46 @@
       } };
     return { id: `milestone-${m.d}`, duration: 6000, dynamic: 'milestone', title: { ru: m0.title, en: MILESTONES_EN[m0.d].title }, slides: [{ html: congrats }, cta] };
   }
+  // ---------- история о запуске лимитов ----------
+  // В ленте до LIMITS_STORY_UNTIL, и только тем, у кого ещё нет ни одного лимита
+  const LIMITS_STORY_UNTIL = '2026-11-10';
+  function buildLimitsStory() {
+    const ru = isRu(), cur = state.me.base_currency || 'EUR', lad = limitLadder(cur), N = lad.length;
+    const f = (v) => esc(money(v, cur, { round: true }));
+    const at = (v) => nearestIdx(lad, v * (LIMIT_FACTOR[cur] || 1));
+    const tag = w3Tag(ru ? 'Новое в приложении' : 'New in the app');
+    const card = (id, name, limE, spentE) => {
+      const i = at(limE), lim = lad[i], spent = spentE * (LIMIT_FACTOR[cur] || 1), p = spent / lim * 100;
+      const col = p >= 100 ? '#E53D60' : p >= 80 ? '#F98646' : '#000';
+      const txt = spent > lim ? (ru ? `Потрачено ${f(spent)} · <b>больше на ${f(spent - lim)}</b>` : `Spent ${f(spent)} · <b>${f(spent - lim)} over</b>`)
+        : (ru ? `Потрачено ${f(spent)} · осталось ${f(lim - spent)}` : `Spent ${f(spent)} · ${f(lim - spent)} left`);
+      return `<div class="ls-card"><div class="ls-head">${w2Ico(id)}<b>${name}</b><span class="ls-val">${f(lim)}<small> ${ru ? '/ мес' : '/ mo'}</small></span></div>
+        <div class="ls-sl"><i class="ls-tr"></i><i class="ls-fl" style="width:${i / N * 100}%"></i><i class="ls-th" style="left:${i / N * 100}%"></i></div>
+        <div class="ls-ends"><span>${f(lad[0])}</span><span>${ru ? 'без лимита' : 'no limit'}</span></div>
+        <div class="ls-pr">${txt}<div class="ls-bar"><i style="width:${Math.min(100, p)}%;background:${col}"></i></div></div></div>`;
+    };
+    const slides = [
+      { html: w2Page('#fff957', '#000', w3Ill('wallet', 'right:-140px;bottom:120px;width:600px;transform:rotate(-14deg)')
+        + w3Ill('coin', 'left:-90px;bottom:430px;width:300px;transform:rotate(14deg)') + w3Ill('star', 'right:120px;top:300px;width:170px;transform:rotate(12deg)') + tag
+        + `<div class="w2-wrap" style="top:560px"><div class="ls-big">${ru ? 'Запустили<br><span class="ls-mk">лимиты</span>' : 'Meet<br><span class="ls-mk">limits</span>'}</div>
+          <div class="ls-sub">${ru ? 'Решите, сколько готовы тратить на каждую категорию в месяц' : 'Decide how much you’re ready to spend on each category per month'}</div></div>`) },
+      { html: w2Page('#fff', '#000', tag + `<div class="w2-wrap" style="top:430px"><div class="ls-cap">${ru ? 'Подвиньте слайдер — и лимит готов' : 'Move the slider — and your limit is set'}</div>
+          <div style="margin-top:80px">${card('cafe', catName('cafe'), 300, 120)}</div></div>`) },
+      { html: w2Page('#4d72f5', '#fff', tag + `<div class="w2-wrap" style="top:430px"><div class="ls-cap">${ru ? 'Приложение покажет, сколько ещё можно потратить' : 'The app shows how much you can still spend'}</div>
+          <div style="margin-top:60px;display:flex;flex-direction:column;gap:14px">${card('taxi', catName('taxi'), 100, 92)}${card('clothes', catName('clothes'), 400, 455)}</div></div>`) },
+      { hold: true, html: w2Page('#000', '#fff', w3Ill('note', 'right:-150px;top:-60px;width:520px;transform:rotate(-18deg)') + tag
+        + `<div class="w2-wrap" style="top:600px"><div class="ls-big" style="font-size:130px">${ru ? 'Задайте<br>первый лимит' : 'Set your<br>first limit'}</div>
+          <div class="ls-path">${ico('account', 44, '#000')}${ru ? 'Профиль → Лимиты' : 'Profile → Limits'}</div></div>
+        <button class="w3-btn" data-go style="bottom:270px">${ru ? 'Попробовать' : 'Try it'}</button>`),
+        onShow: (root, close) => { const b = root.querySelector('[data-go]'); if (b) b.addEventListener('click', () => { haptic('select'); close(); openLimits(); }); } },
+    ];
+    return { id: 'limits-launch', dynamic: 'limits', duration: 6000, title: { ru: 'Лимиты', en: 'Limits' }, slides };
+  }
+  function loadLimitsStory() {
+    for (let i = STORIES.length - 1; i >= 0; i--) if (STORIES[i].dynamic === 'limits') STORIES.splice(i, 1);
+    if (!state.limitsCount && state.today <= LIMITS_STORY_UNTIL) STORIES.unshift(buildLimitsStory());
+  }
+
   function loadMilestoneStory() {
     const m = currentMilestone();
     for (let i = STORIES.length - 1; i >= 0; i--) if (STORIES[i].dynamic === 'milestone') STORIES.splice(i, 1);
@@ -1948,6 +1988,7 @@
       try {
         await api('/cat-limits', { method: 'POST', body: { category: it.category, amount: it.idx >= N ? null : lad[it.idx] } });
         state.limitsCount = items.filter((x) => x.idx < N).length;
+        loadLimitsStory(); renderStories();
       } catch { toast(t('netError')); }
     };
     // слайдер не перерисовываем, пока его тянут: обновляем только подписи и заливку
@@ -2350,6 +2391,7 @@
     $('#fileInput').addEventListener('change', (e) => onScanFiles(e.target.files));
 
     await loadMonth();
+    loadLimitsStory();
     renderStories();
     const startParam = tg && tg.initDataUnsafe ? tg.initDataUnsafe.start_param : '';
     const wantMonth = new URLSearchParams(location.search).get('story') === 'month' || startParam === 'month';
