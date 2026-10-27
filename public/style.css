@@ -1,6 +1,8 @@
 /* Цвета берутся из темы Telegram (переменные --tg-theme-* задаёт сам Telegram).
    Запасные значения — для просмотра в обычном браузере. */
 :root {
+  /* салатовый из кита Coinstar (карта на экране «Setup Debit Card»): основной и тёмный — для боковой грани/тени; пока в запасе */
+  --lime: #C1E378; --lime-dark: #ACCE62;
   --bg: var(--tg-theme-secondary-bg-color, #f1f1f4);
   --card: var(--tg-theme-section-bg-color, var(--tg-theme-bg-color, #ffffff));
   --text: var(--tg-theme-text-color, #111114);
