@@ -26,7 +26,7 @@
       earnedIn: (m) => `Заработано в ${{ 'январь': 'январе', 'февраль': 'феврале', 'март': 'марте', 'апрель': 'апреле', 'май': 'мае', 'июнь': 'июне', 'июль': 'июле', 'август': 'августе', 'сентябрь': 'сентябре', 'октябрь': 'октябре', 'ноябрь': 'ноябре', 'декабрь': 'декабре' }[String(m).toLowerCase()] || m}`,
       repeatShort: 'регулярно', receiptShort: 'чек', byDay: 'По дням', noData: 'За этот месяц пока ничего нет', vsUsualShort: 'к обычной',
       leftShare: (n) => `осталось ${n}% дохода`, overShort: 'расходы больше доходов',
-      newCat: 'Новая категория', createCat: 'Создать', catNameLabel: 'Название', catNamePh: 'Например, хобби', catIcon: 'Значок', tooManyCats: 'Слишком много своих категорий', moreCats: 'Ещё', restAll: 'Всё остальное', addPayment: 'Добавить платёж', paymentKindQ: 'Какой регулярный платёж добавить?', addIncomeShort: 'Добавить доход', today: 'Сегодня', yesterday: 'Вчера', tomorrow: 'Завтра', otherDate: 'Другая дата', pickDate: 'Выбрать', emptyTitle: 'Пока пусто',
+      newCat: 'Новая категория', createCat: 'Создать', catNameLabel: 'Название', catNamePh: 'Например, хобби', catIcon: 'Значок', tooManyCats: 'Слишком много своих категорий', moreCats: 'Ещё', restAll: 'Всё остальное', limits: 'Лимиты', limitsSub: 'Сколько готовы тратить в месяц. Сдвиньте вправо до конца, чтобы снять лимит', perMonth: '/ мес', noLimit: 'Без лимита', noLimitShort: 'без лимита', limSpent: (s, l) => `Потрачено ${s} · осталось ${l}`, limOver: (s, o) => `Потрачено ${s} · <b>больше на ${o}</b>`, addLimit: 'Добавить лимит', limitFor: 'Лимит на категорию', limitTaken: 'Серые — уже с лимитом', limitsEmpty: 'Задайте, сколько готовы тратить в месяц на кафе, такси или покупки, — приложение покажет, сколько осталось.', addPayment: 'Добавить платёж', paymentKindQ: 'Какой регулярный платёж добавить?', addIncomeShort: 'Добавить доход', today: 'Сегодня', yesterday: 'Вчера', tomorrow: 'Завтра', otherDate: 'Другая дата', pickDate: 'Выбрать', emptyTitle: 'Пока пусто',
       emptyText: 'Сфотографируйте чек или внесите сумму вручную. Ещё можно просто отправить фото чека боту в чат.',
       emptyPast: 'В этом месяце записей нет.',
       newExpense: 'Новая трата', amount: 'Сумма', note: 'Что купили', notePh: 'Например, кофе', date: 'Дата',
@@ -86,7 +86,7 @@
       tabHome: 'Home', tabStats: 'Statistics', spentIn: (m) => `Spent in ${m}`, earnedIn: (m) => `Earned in ${m}`,
       repeatShort: 'recurring', receiptShort: 'receipt', byDay: 'By day', noData: 'Nothing here for this month yet', vsUsualShort: 'vs usual',
       leftShare: (n) => `${n}% of income left`, overShort: 'spent more than earned',
-      newCat: 'New category', createCat: 'Create', catNameLabel: 'Name', catNamePh: 'e.g. Hobby', catIcon: 'Icon', tooManyCats: 'Too many custom categories', moreCats: 'More', restAll: 'Everything else', addPayment: 'Add payment', paymentKindQ: 'What kind of recurring payment?', addIncomeShort: 'Add income', today: 'Today', yesterday: 'Yesterday', tomorrow: 'Tomorrow', otherDate: 'Other date', pickDate: 'Pick', emptyTitle: 'Nothing here yet',
+      newCat: 'New category', createCat: 'Create', catNameLabel: 'Name', catNamePh: 'e.g. Hobby', catIcon: 'Icon', tooManyCats: 'Too many custom categories', moreCats: 'More', restAll: 'Everything else', limits: 'Limits', limitsSub: 'How much you’re ready to spend per month. Slide all the way right to remove a limit', perMonth: '/ mo', noLimit: 'No limit', noLimitShort: 'no limit', limSpent: (s, l) => `Spent ${s} · ${l} left`, limOver: (s, o) => `Spent ${s} · <b>${o} over</b>`, addLimit: 'Add limit', limitFor: 'Limit for a category', limitTaken: 'Grey ones already have a limit', limitsEmpty: 'Set how much you’re ready to spend per month on cafes, taxis or shopping — the app will show what’s left.', addPayment: 'Add payment', paymentKindQ: 'What kind of recurring payment?', addIncomeShort: 'Add income', today: 'Today', yesterday: 'Yesterday', tomorrow: 'Tomorrow', otherDate: 'Other date', pickDate: 'Pick', emptyTitle: 'Nothing here yet',
       emptyText: 'Snap a receipt or add an amount manually. You can also just send a receipt photo to the bot.',
       emptyPast: 'No entries this month.',
       newExpense: 'New expense', amount: 'Amount', note: 'What was it', notePh: 'e.g. coffee', date: 'Date',
@@ -1206,12 +1206,14 @@
       <div class="pf-cards"><div class="pf-cd" id="pfWeek"><div class="t">${t('weekResults')}</div><div class="pf-loading" style="margin-top:10px"></div></div>
         <div class="pf-cd" id="pfMonth"><div class="t">${t('monthResults')}</div><div class="pf-loading" style="margin-top:10px"></div></div></div>
       <div class="pf-menu">
+        ${mi('pmLimits', 'payment', t('limits'), state.limitsCount ? String(state.limitsCount) : '')}
         ${mi('pmCats', 'other', t('catEditor'))}
         ${mi('pmRec', 'recurring', t('recurring'))}
         ${hasHowto ? mi('pmHowto', 'education', t('howto')) : ''}
         ${mi('pmSettings', 'settings', t('settings'))}
       </div>
       <div class="spacer"></div>`;
+    $('#pmLimits', el).addEventListener('click', () => openLimits());
     $('#pmCats', el).addEventListener('click', () => openCategoryEditor());
     $('#pmRec', el).addEventListener('click', () => openRecurringList());
     if ($('#pmHowto', el)) $('#pmHowto', el).addEventListener('click', () => openStory(STORIES.find((x) => x.id === 'howto-v1')));
@@ -1898,6 +1900,102 @@
   }
 
   // ---------- регулярные платежи ----------
+  // ---------- лимиты по категориям ----------
+  // Шкала слайдера: от «минимума» шагом 50 € (до 1000 €), дальше шагом 100 € до 2000 €, правее — «без лимита».
+  // Для других валют — те же ступени, умноженные на примерный курс и округлённые до «красивых» чисел.
+  const LIMIT_FACTOR = { RUB: 100, UAH: 50, KZT: 500, BYN: 4, TRY: 40, AMD: 400, GEL: 3, RSD: 100, PLN: 4, CZK: 25, HUF: 400, SEK: 10, NOK: 10,
+    DKK: 7.5, CNY: 8, JPY: 150, THB: 40, IDR: 17000, VND: 25000, INR: 100, MXN: 20, BRL: 6, ARS: 1000, UZS: 14000, KGS: 100, AZN: 2, MDL: 20,
+    AED: 4, ILS: 4, CAD: 1.5 };
+  const niceNum = (x) => { const p = 10 ** Math.floor(Math.log10(x)); const m = x / p; return [10, 5, 2.5, 2, 1].find((k) => k <= m * 1.0001) * p; };
+  function limitLadder(cur) {
+    const f = LIMIT_FACTOR[cur] || 1, min = niceNum(25 * f), step = niceNum(50 * f);
+    const out = [min];
+    for (let v = step; v <= step * 20; v += step) if (v > min) out.push(v);
+    for (let v = step * 22; v <= step * 40; v += step * 2) out.push(v);
+    return out;
+  }
+  const nearestIdx = (lad, v) => lad.reduce((b, x, i) => (Math.abs(x - v) < Math.abs(lad[b] - v) ? i : b), 0);
+
+  async function openLimits() {
+    const sh = openSheet(`
+      <div class="sheet-head"><h2>${t('limits')}</h2><button class="close">${t('done')}</button></div>
+      <div class="note" style="margin:-4px 4px 14px">${esc(t('limitsSub'))}</div>
+      <div id="lmBody"><div class="loading"><div class="spinner"></div></div></div>
+      <div class="save-bar"><button class="btn btn-primary btn-block" id="lmAdd">${ico('plus', 20)}${t('addLimit')}</button></div>`);
+    $('.close', sh.sheet).addEventListener('click', () => closeSheet(sh));
+    let data;
+    try { data = await api('/cat-limits'); } catch { $('#lmBody', sh.sheet).innerHTML = `<div class="empty">${t('netError')}</div>`; return; }
+    const base = data.base, lad = limitLadder(base), N = lad.length;
+    const known = new Set(catsOf('expense').map((c) => c.id));
+    // список карточек: { category, idx } — idx === N означает «без лимита»
+    const items = data.limits.filter((l) => known.has(l.category)).map((l) => ({ category: l.category, idx: nearestIdx(lad, l.amount) }));
+    const fmt = (v) => money(v, base, { round: true });
+    const valHtml = (it) => (it.idx >= N ? t('noLimit') : `${esc(fmt(lad[it.idx]))}<small> ${t('perMonth')}</small>`);
+    const progHtml = (it) => {
+      if (it.idx >= N) return '';
+      const lim = lad[it.idx], spent = data.spent[it.category] || 0, p = spent / lim * 100;
+      const col = p >= 100 ? '#E53D60' : p >= 80 ? '#F98646' : 'var(--text)';
+      return `${spent > lim ? t('limOver', esc(fmt(spent)), esc(fmt(spent - lim))) : esc(t('limSpent', fmt(spent), fmt(lim - spent)))}
+        <div class="lm-bar"><i style="width:${Math.min(100, p)}%;background:${col}"></i></div>`;
+    };
+    const card = (it) => `<div class="lm-head">${catIco(it.category, 40)}<b>${esc(catName(it.category))}</b>
+        <span class="lm-val ${it.idx >= N ? 'off' : ''}">${valHtml(it)}</span></div>
+      <input type="range" class="lm-range" min="0" max="${N}" step="1" value="${it.idx}" style="--p:${it.idx / N * 100}%" aria-label="${esc(catName(it.category))}">
+      <div class="lm-ends"><span>${esc(fmt(lad[0]))}</span><span>${t('noLimitShort')}</span></div>
+      <div class="lm-prog">${progHtml(it)}</div>`;
+    const body = $('#lmBody', sh.sheet);
+    const save = async (it) => {
+      try {
+        await api('/cat-limits', { method: 'POST', body: { category: it.category, amount: it.idx >= N ? null : lad[it.idx] } });
+        state.limitsCount = items.filter((x) => x.idx < N).length;
+      } catch { toast(t('netError')); }
+    };
+    // слайдер не перерисовываем, пока его тянут: обновляем только подписи и заливку
+    const bindCard = (el, it) => {
+      let timer = null;
+      const r = $('.lm-range', el), val = $('.lm-val', el), prog = $('.lm-prog', el);
+      r.addEventListener('input', () => {
+        const v = Number(r.value);
+        if (v !== it.idx) haptic('select');
+        it.idx = v;
+        r.style.setProperty('--p', `${v / N * 100}%`);
+        val.innerHTML = valHtml(it); val.classList.toggle('off', v >= N);
+        prog.innerHTML = progHtml(it);
+        clearTimeout(timer); timer = setTimeout(() => save(it), 500);
+      });
+    };
+    const draw = () => {
+      body.innerHTML = items.length ? items.map((it, i) => `<div class="lm-card" data-i="${i}">${card(it)}</div>`).join('')
+        : `<div class="empty"><div class="big">${ico('payment', 28, '#000')}</div>${esc(t('limitsEmpty'))}</div>`;
+      body.querySelectorAll('.lm-card').forEach((el) => bindCard(el, items[Number(el.dataset.i)]));
+    };
+    draw();
+    $('#lmAdd', sh.sheet).addEventListener('click', () => {
+      const taken = new Set(items.filter((x) => x.idx < N).map((x) => x.category));
+      const pick = openSheet(`
+        <div class="sheet-head"><h2>${t('limitFor')}</h2><button class="close">${t('close')}</button></div>
+        ${taken.size ? `<div class="note" style="margin:-4px 4px 12px">${t('limitTaken')}</div>` : ''}
+        <div class="cgrid">${catsOf('expense').map((c) => `
+          <button class="cg ${taken.has(c.id) ? 'lm-taken' : ''}" data-c="${c.id}" ${taken.has(c.id) ? 'disabled' : ''}>${catIco(c.id, 52)}<span>${esc(catName(c.id))}</span></button>`).join('')}</div>`);
+      $('.close', pick.sheet).addEventListener('click', () => closeSheet(pick));
+      pick.sheet.querySelectorAll('[data-c]:not([disabled])').forEach((b) => b.addEventListener('click', () => {
+        const id = b.dataset.c;
+        haptic('select'); closeSheet(pick);
+        // стартовое значение — ближайшая ступень не ниже средних трат за 3 месяца, иначе около 200 €
+        const avg = data.avg[id] || 0;
+        let idx = avg > 0 ? lad.findIndex((v) => v >= avg) : nearestIdx(lad, niceNum(200 * (LIMIT_FACTOR[base] || 1)));
+        if (idx < 0) idx = N - 1;
+        const ex = items.find((x) => x.category === id);
+        const it = ex || { category: id, idx };
+        it.idx = idx;
+        if (!ex) items.push(it);
+        draw(); save(it);
+        const el = body.querySelector(`.lm-card[data-i="${items.indexOf(it)}"]`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }));
+    });
+  }
+
   async function openRecurringList() {
     const sh = openSheet(`
       <div class="sheet-head"><h2>${t('recurring')}</h2><button class="close">${t('done')}</button></div>
@@ -2229,6 +2327,7 @@
     state.today = me.today;
     state.daysSinceStart = me.daysSinceStart || 0;
     state.daysTracking = me.daysTracking || null;
+    state.limitsCount = me.limitsCount || 0;
     state.month = me.today.slice(0, 7);
     state.lastCurrency = store.get('lastCurrency') || me.user.base_currency;
     if (!state.currencies.includes(state.lastCurrency)) state.lastCurrency = me.user.base_currency;

@@ -728,3 +728,23 @@ button.h-chip { cursor: pointer; }
   font-weight: 800; font-size: 42px; line-height: 1.15; }
 .w3-fact .w2-ci { width: 96px; height: 96px; }
 .w3-facts { display: flex; flex-direction: column; gap: 26px; margin-top: 70px; }
+
+/* ---- лимиты по категориям ---- */
+.lm-card { background: var(--track); border-radius: 24px; padding: 16px 16px 18px; margin-bottom: 12px; }
+.lm-head { display: flex; align-items: center; gap: 12px; }
+.lm-head b { flex: 1; font-size: 16px; font-weight: 700; min-width: 0; }
+.lm-val { font-size: 16px; font-weight: 800; white-space: nowrap; }
+.lm-val small { font-size: 13px; font-weight: 600; color: var(--hint); }
+.lm-val.off { color: var(--hint); font-weight: 700; }
+.lm-range { -webkit-appearance: none; appearance: none; width: 100%; height: 28px; margin: 14px 0 0; background: transparent; touch-action: pan-y; }
+.lm-range::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(to right, var(--text) var(--p), color-mix(in srgb, var(--hint) 30%, transparent) var(--p)); }
+.lm-range::-moz-range-track { height: 6px; border-radius: 3px; background: linear-gradient(to right, var(--text) var(--p), color-mix(in srgb, var(--hint) 30%, transparent) var(--p)); }
+.lm-range::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; margin-top: -11px; border-radius: 50%; background: #fff957; border: 4px solid #000; box-sizing: border-box; }
+.lm-range::-moz-range-thumb { width: 28px; height: 28px; border-radius: 50%; background: #fff957; border: 4px solid #000; box-sizing: border-box; }
+.lm-ends { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--hint); margin: 4px 2px 0; }
+.lm-prog { font-size: 13px; font-weight: 600; color: var(--hint); margin-top: 10px; }
+.lm-prog:empty { display: none; }
+.lm-prog b { color: #E53D60; font-weight: 700; }
+.lm-bar { height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--hint) 25%, transparent); margin-top: 6px; overflow: hidden; }
+.lm-bar i { display: block; height: 100%; border-radius: 2px; }
+.cg.lm-taken { opacity: .3; }

@@ -210,10 +210,11 @@ async function handleApi(request, env, url) {
   const getCatMap = async () => customMap(await getCustom(), await getPrefs());
 
   if (path === '/me' && method === 'GET') {
-    const [usage, cnt, views] = await Promise.all([
+    const [usage, cnt, views, limCnt] = await Promise.all([
       getUsage(env, user.id),
       env.DB.prepare('SELECT COUNT(*) AS n FROM entries WHERE user_id = ?').bind(user.id).first(),
       env.DB.prepare('SELECT story_id FROM story_views WHERE user_id = ?').bind(user.id).all(),
+      env.DB.prepare('SELECT COUNT(*) AS n FROM category_limits WHERE user_id = ?').bind(user.id).first(),
     ]);
     return json({
       user: { id: user.id, first_name: user.first_name, lang: user.lang, base_currency: user.base_currency, can_message: !!user.can_message, nudges: user.nudges !== 0 },
@@ -225,6 +226,7 @@ async function handleApi(request, env, url) {
       currencies: CURRENCIES,
       limits: { scans: scanLimit(env, usage), scansUsed: usage.scans, shareBonus: SHARE_BONUS, sharedThisMonth: usage.shared },
       hasEntries: cnt.n > 0,
+      limitsCount: limCnt ? limCnt.n : 0,
       seenStories: views.results.map((v) => v.story_id),
       today: now,
       // сколько дней прошло с первого запуска — «С чего начать» показываем первую неделю
@@ -233,6 +235,46 @@ async function handleApi(request, env, url) {
       milestonesShared: (await env.DB.prepare('SELECT milestone FROM milestone_shares WHERE user_id = ?').bind(user.id).all()).results.map((r) => r.milestone),
       daysSinceStart: Math.max(0, Math.floor((Date.parse(`${now}T00:00:00Z`) - Date.parse(`${localDate(user.created_at, user.tz)}T00:00:00Z`)) / 864e5)),
     });
+  }
+
+  // ---- лимиты по категориям (на месяц) ----
+  // GET: лимиты в основной валюте + сколько потрачено в этом месяце и в среднем за 3 прошлых месяца по категориям
+  if (path === '/cat-limits' && method === 'GET') {
+    const base = user.base_currency || 'EUR';
+    const rates = await getRates(env);
+    const conv = (eur) => round2(fromEur(eur, base, rates));
+    const monthStart = `${curMonth}-01`;
+    const d = new Date(`${monthStart}T00:00:00Z`); d.setUTCMonth(d.getUTCMonth() - 3);
+    const from3 = d.toISOString().slice(0, 10);
+    const [lim, cur, past] = await Promise.all([
+      env.DB.prepare('SELECT category_id, amount, currency, amount_eur FROM category_limits WHERE user_id = ? ORDER BY updated_at').bind(user.id).all(),
+      env.DB.prepare("SELECT category, SUM(amount_eur) AS eur FROM entries WHERE user_id = ? AND kind = 'expense' AND date >= ? AND date <= ? GROUP BY category").bind(user.id, monthStart, now).all(),
+      env.DB.prepare("SELECT category, SUM(amount_eur) AS eur FROM entries WHERE user_id = ? AND kind = 'expense' AND date >= ? AND date < ? GROUP BY category").bind(user.id, from3, monthStart).all(),
+    ]);
+    return json({
+      base,
+      limits: lim.results.map((r) => ({ category: r.category_id, amount: r.currency === base ? r.amount : conv(r.amount_eur) })),
+      spent: Object.fromEntries(cur.results.map((r) => [r.category, conv(r.eur)])),
+      avg: Object.fromEntries(past.results.map((r) => [r.category, conv(r.eur / 3)])),
+    });
+  }
+  // POST { category, amount } — задать лимит; amount: null — снять
+  if (path === '/cat-limits' && method === 'POST') {
+    const category = String(body.category || '');
+    const hidden = await getHidden();
+    if (!isCategoryFor('expense', category, await getCustom(), hidden)) return fail(400, 'bad_category');
+    if (body.amount === null) {
+      await env.DB.prepare('DELETE FROM category_limits WHERE user_id = ? AND category_id = ?').bind(user.id, category).run();
+      return json({ ok: true });
+    }
+    const amount = Number(body.amount);
+    if (!(amount > 0 && amount < 1e9)) return fail(400, 'bad_amount');
+    const base = user.base_currency || 'EUR';
+    const rates = await getRates(env);
+    await env.DB.prepare(`INSERT INTO category_limits (user_id, category_id, amount, currency, amount_eur, updated_at) VALUES (?, ?, ?, ?, ?, datetime('now'))
+      ON CONFLICT(user_id, category_id) DO UPDATE SET amount = excluded.amount, currency = excluded.currency, amount_eur = excluded.amount_eur`)
+      .bind(user.id, category, amount, base, toEur(amount, base, rates)).run();
+    return json({ ok: true });
   }
 
   // создать свою категорию: { kind, name, emoji }; такое же название — вернём уже созданную
