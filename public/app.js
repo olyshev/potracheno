@@ -170,10 +170,10 @@
   };
   // ---------- иконки категорий: кружок пастельного цвета с линейной иконкой (свои категории — со своим эмодзи) ----------
   const ico = (name, size = 24, color) => (window.ICONS ? window.ICONS.icon(name, size, color) : '');
-  const TINTS = ['#FFF957', '#EAEEFF', '#FFE1D0', '#E3F5EA', '#FFE8ED'];
+  const TINTS = ['#FFF957', '#EAEEFF', '#FFE1D0', '#E3F5EA', '#FFE8ED', '#C1E378']; // 6-й — салатовый из кита
   const TINT_OF = { groceries: 0, cafe: 4, delivery: 2, transport: 1, taxi: 3, carsharing: 0, fuel: 2, car_service: 1, car_goods: 3, housing: 1,
-    utilities: 0, health: 3, beauty: 4, household: 2, clothes: 4, shopping: 0, fun: 1, sport: 2, subscriptions: 3, travel: 4, education: 0, kids: 1,
-    pets: 2, savings: 3, gifts: 4, other: 1, salary: 0, freelance: 1, business: 2, investments: 3, rent_in: 4, benefits: 1, refund: 0, gift_in: 4,
+    utilities: 5, health: 3, beauty: 4, household: 2, clothes: 4, shopping: 0, fun: 5, sport: 5, subscriptions: 3, travel: 4, education: 0, kids: 1,
+    pets: 2, savings: 5, gifts: 4, other: 1, salary: 0, freelance: 1, business: 2, investments: 3, rent_in: 4, benefits: 5, refund: 5, gift_in: 4,
     transfer_in: 3, other_income: 2 };
   const tintOf = (id) => TINTS[TINT_OF[id] ?? ([...String(id)].reduce((a, ch) => a + ch.charCodeAt(0), 0) % TINTS.length)];
   function catIco(id, size = 44) {
