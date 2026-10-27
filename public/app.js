@@ -821,8 +821,8 @@
     return { id: `milestone-${m.d}`, duration: 6000, dynamic: 'milestone', title: { ru: m0.title, en: MILESTONES_EN[m0.d].title }, slides: [{ html: congrats }, cta] };
   }
   // ---------- история о запуске лимитов ----------
-  // В ленте до LIMITS_STORY_UNTIL, и только тем, у кого ещё нет ни одного лимита
-  const LIMITS_STORY_UNTIL = '2026-11-10';
+  // В ленте у всех; после первого просмотра — ещё 7 дней
+  const LIMITS_STORY_DAYS = 7;
   function buildLimitsStory() {
     const ru = isRu(), cur = state.me.base_currency || 'EUR', lad = limitLadder(cur), N = lad.length;
     const f = (v) => esc(money(v, cur, { round: true }));
@@ -857,7 +857,9 @@
   }
   function loadLimitsStory() {
     for (let i = STORIES.length - 1; i >= 0; i--) if (STORIES[i].dynamic === 'limits') STORIES.splice(i, 1);
-    if (!state.limitsCount && state.today <= LIMITS_STORY_UNTIL) STORIES.unshift(buildLimitsStory());
+    const seen = (state.me.storySeenAt || {})['limits-launch'];
+    const daysSince = seen ? Math.floor((Date.parse(`${state.today}T00:00:00Z`) - Date.parse(`${seen}T00:00:00Z`)) / 864e5) : 0;
+    if (daysSince < LIMITS_STORY_DAYS) STORIES.unshift(buildLimitsStory());
   }
 
   function loadMilestoneStory() {
@@ -1988,7 +1990,6 @@
       try {
         await api('/cat-limits', { method: 'POST', body: { category: it.category, amount: it.idx >= N ? null : lad[it.idx] } });
         state.limitsCount = items.filter((x) => x.idx < N).length;
-        loadLimitsStory(); renderStories();
       } catch { toast(t('netError')); }
     };
     // слайдер не перерисовываем, пока его тянут: обновляем только подписи и заливку

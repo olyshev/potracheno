@@ -213,7 +213,7 @@ async function handleApi(request, env, url) {
     const [usage, cnt, views, limCnt] = await Promise.all([
       getUsage(env, user.id),
       env.DB.prepare('SELECT COUNT(*) AS n FROM entries WHERE user_id = ?').bind(user.id).first(),
-      env.DB.prepare('SELECT story_id FROM story_views WHERE user_id = ?').bind(user.id).all(),
+      env.DB.prepare('SELECT story_id, at FROM story_views WHERE user_id = ?').bind(user.id).all(),
       env.DB.prepare('SELECT COUNT(*) AS n FROM category_limits WHERE user_id = ?').bind(user.id).first(),
     ]);
     return json({
@@ -228,6 +228,8 @@ async function handleApi(request, env, url) {
       hasEntries: cnt.n > 0,
       limitsCount: limCnt ? limCnt.n : 0,
       seenStories: views.results.map((v) => v.story_id),
+      // когда историю открыли впервые (по местной дате) — некоторые висят в ленте N дней после первого просмотра
+      storySeenAt: Object.fromEntries(views.results.map((v) => [v.story_id, localDate(v.at, user.tz)])),
       today: now,
       // сколько дней прошло с первого запуска — «С чего начать» показываем первую неделю
       // дней с первой записанной траты (по дате, когда её внесли, а не по дате самой траты) — для юбилеев и меню
