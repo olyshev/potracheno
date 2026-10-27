@@ -843,7 +843,7 @@
         + w3Ill('coin', 'left:-90px;bottom:430px;width:300px;transform:rotate(14deg)') + w3Ill('star', 'right:120px;top:300px;width:170px;transform:rotate(12deg)') + tag
         + `<div class="w2-wrap" style="top:560px"><div class="ls-big">${ru ? 'Запустили<br><span class="ls-mk">лимиты</span>' : 'Meet<br><span class="ls-mk">limits</span>'}</div>
           <div class="ls-sub">${ru ? 'Решите, сколько готовы тратить на каждую категорию в месяц' : 'Decide how much you’re ready to spend on each category per month'}</div></div>`) },
-      { html: w2Page('#fff', '#000', tag + `<div class="w2-wrap" style="top:430px"><div class="ls-cap">${ru ? 'Подвиньте слайдер — и лимит готов' : 'Move the slider — and your limit is set'}</div>
+      { html: w2Page('#fff', '#000', tag + `<div class="w2-wrap" style="top:430px"><div class="ls-cap">${ru ? 'Подвиньте слайдер — и лимит готов' : 'Move the slider —<br>and your limit is set'}</div>
           <div style="margin-top:80px">${card('cafe', catName('cafe'), 300, 120)}</div></div>`) },
       { html: w2Page('#4d72f5', '#fff', tag + `<div class="w2-wrap" style="top:430px"><div class="ls-cap">${ru ? 'Приложение покажет, сколько ещё можно потратить' : 'The app shows how much you can still spend'}</div>
           <div style="margin-top:60px;display:flex;flex-direction:column;gap:14px">${card('taxi', catName('taxi'), 100, 92)}${card('clothes', catName('clothes'), 400, 455)}</div></div>`) },
