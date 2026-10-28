@@ -16,6 +16,7 @@ import { getRates, isCurrency, toEur, fromEur, round2, CURRENCIES } from './rate
 import { parseDocument, receiptToDraft, transactionsToDraft, suggestCategory } from './ai.js';
 import { monthSummary, reportText, runMonthlyReports, MONTH_RE, money } from './report.js';
 import { tg, sendDocument, downloadFile, openAppKeyboard } from './telegram.js';
+import { AWARDS, AWARD_IDS, goalIn } from './awards.js';
 
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8' } });
@@ -193,6 +194,39 @@ async function scanDocument(env, user, files) {
 
 // ---------- API мини-аппа ----------
 
+
+// ---- награды ----
+// Включены, когда AWARDS_ENABLED=1; до запуска можно показать отдельным людям: AWARDS_PREVIEW_USERS=id,id
+const awardsOn = (env, userId) => env.AWARDS_ENABLED === '1' || String(env.AWARDS_PREVIEW_USERS || '').split(',').map((x) => x.trim()).includes(String(userId));
+// Считает суммарные траты по категориям за всё время, выдаёт новые награды и возвращает полный список
+async function syncAwards(env, user) {
+  const base = user.base_currency || 'EUR';
+  const [rates, tot, have] = await Promise.all([
+    getRates(env),
+    env.DB.prepare("SELECT category, SUM(amount_eur) AS eur FROM entries WHERE user_id = ? AND kind = 'expense' GROUP BY category").bind(user.id).all(),
+    env.DB.prepare('SELECT award_id, earned_at, seen FROM awards WHERE user_id = ?').bind(user.id).all(),
+  ]);
+  const eur = Object.fromEntries(tot.results.map((r) => [r.category, r.eur || 0]));
+  const got = new Map(have.results.map((r) => [r.award_id, r]));
+  const fresh = [];
+  const list = AWARDS.map((a) => {
+    const goal = goalIn(a.goal, base);
+    const spent = round2(fromEur(eur[a.cat] || 0, base, rates));
+    let row = got.get(a.id);
+    if (!row && spent >= goal) { fresh.push(a.id); row = { earned_at: new Date().toISOString().slice(0, 19).replace('T', ' '), seen: 0 }; }
+    return { id: a.id, icon: a.icon, category: a.cat, ru: a.ru, en: a.en, goal, spent: Math.min(spent, goal), earned: !!row, earnedAt: row ? row.earned_at : null, seen: row ? !!row.seen : false };
+  });
+  if (fresh.length) await env.DB.batch(fresh.map((id) => env.DB.prepare('INSERT OR IGNORE INTO awards (user_id, award_id) VALUES (?, ?)').bind(user.id, id)));
+  return { base, list };
+}
+
+async function awardsSummary(env, user) {
+  try {
+    const { list } = await syncAwards(env, user);
+    return { total: list.length, earned: list.filter((a) => a.earned).length, fresh: list.filter((a) => a.earned && !a.seen).map((a) => a.id) };
+  } catch { return null; }
+}
+
 async function handleApi(request, env, url) {
   const tgUser = await authUser(request, env);
   if (!tgUser) return fail(401, 'unauthorized', 'Open the app from Telegram');
@@ -227,6 +261,7 @@ async function handleApi(request, env, url) {
       limits: { scans: scanLimit(env, usage), scansUsed: usage.scans, shareBonus: SHARE_BONUS, sharedThisMonth: usage.shared },
       hasEntries: cnt.n > 0,
       limitsCount: limCnt ? limCnt.n : 0,
+      awards: awardsOn(env, user.id) ? await awardsSummary(env, user) : null,
       seenStories: views.results.map((v) => v.story_id),
       // когда историю открыли впервые (по местной дате) — некоторые висят в ленте N дней после первого просмотра
       storySeenAt: Object.fromEntries(views.results.map((v) => [v.story_id, localDate(v.at, user.tz)])),
@@ -237,6 +272,18 @@ async function handleApi(request, env, url) {
       milestonesShared: (await env.DB.prepare('SELECT milestone FROM milestone_shares WHERE user_id = ?').bind(user.id).all()).results.map((r) => r.milestone),
       daysSinceStart: Math.max(0, Math.floor((Date.parse(`${now}T00:00:00Z`) - Date.parse(`${localDate(user.created_at, user.tz)}T00:00:00Z`)) / 864e5)),
     });
+  }
+
+  // ---- награды ----
+  if (path === '/awards' && method === 'GET') {
+    if (!awardsOn(env, user.id)) return fail(404, 'not_found');
+    return json(await syncAwards(env, user));
+  }
+  if (path === '/awards/seen' && method === 'POST') {
+    if (!awardsOn(env, user.id)) return fail(404, 'not_found');
+    const ids = (Array.isArray(body.ids) ? body.ids : []).filter((x) => AWARD_IDS.includes(x)).slice(0, 40);
+    if (ids.length) await env.DB.batch(ids.map((id) => env.DB.prepare('UPDATE awards SET seen = 1 WHERE user_id = ? AND award_id = ?').bind(user.id, id)));
+    return json({ ok: true });
   }
 
   // ---- лимиты по категориям (на месяц) ----

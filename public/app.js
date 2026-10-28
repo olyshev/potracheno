@@ -26,6 +26,7 @@
       earnedIn: (m) => `Заработано в ${{ 'январь': 'январе', 'февраль': 'феврале', 'март': 'марте', 'апрель': 'апреле', 'май': 'мае', 'июнь': 'июне', 'июль': 'июле', 'август': 'августе', 'сентябрь': 'сентябре', 'октябрь': 'октябре', 'ноябрь': 'ноябре', 'декабрь': 'декабре' }[String(m).toLowerCase()] || m}`,
       repeatShort: 'регулярно', receiptShort: 'чек', byDay: 'По дням', noData: 'За этот месяц пока ничего нет', vsUsualShort: 'к обычной',
       leftShare: (n) => `осталось ${n}% дохода`, overShort: 'расходы больше доходов',
+      awards: 'Награды', awardsGot: 'Получено', awardsWip: 'В процессе', awardShare: 'Поделиться', awardsNewTitle: 'Новая награда!', awardsNewMany: 'Новые награды!', awardsOpenAll: 'Все награды',
       newCat: 'Новая категория', createCat: 'Создать', catNameLabel: 'Название', catNamePh: 'Например, хобби', catIcon: 'Значок', tooManyCats: 'Слишком много своих категорий', moreCats: 'Ещё', restAll: 'Всё остальное', limits: 'Лимиты', limitsSub: 'Сколько готовы тратить в месяц. Сдвиньте вправо до конца, чтобы снять лимит', perMonth: '/ мес', noLimit: 'Без лимита', noLimitShort: 'без лимита', limSpent: (s, l) => `Потрачено ${s} · осталось ${l}`, limOver: (s, o) => `Потрачено ${s} · <b>больше на ${o}</b>`, addLimit: 'Добавить лимит', limitFor: 'Лимит на категорию', limitTaken: 'Серые — уже с лимитом', limitsEmpty: 'Задайте, сколько готовы тратить в месяц на кафе, такси или покупки, — приложение покажет, сколько осталось.', addPayment: 'Добавить платёж', paymentKindQ: 'Какой регулярный платёж добавить?', addIncomeShort: 'Добавить доход', today: 'Сегодня', yesterday: 'Вчера', tomorrow: 'Завтра', otherDate: 'Другая дата', pickDate: 'Выбрать', emptyTitle: 'Пока пусто',
       emptyText: 'Сфотографируйте чек или внесите сумму вручную. Ещё можно просто отправить фото чека боту в чат.',
       emptyPast: 'В этом месяце записей нет.',
@@ -86,6 +87,7 @@
       tabHome: 'Home', tabStats: 'Statistics', spentIn: (m) => `Spent in ${m}`, earnedIn: (m) => `Earned in ${m}`,
       repeatShort: 'recurring', receiptShort: 'receipt', byDay: 'By day', noData: 'Nothing here for this month yet', vsUsualShort: 'vs usual',
       leftShare: (n) => `${n}% of income left`, overShort: 'spent more than earned',
+      awards: 'Awards', awardsGot: 'Earned', awardsWip: 'In progress', awardShare: 'Share', awardsNewTitle: 'New award!', awardsNewMany: 'New awards!', awardsOpenAll: 'All awards',
       newCat: 'New category', createCat: 'Create', catNameLabel: 'Name', catNamePh: 'e.g. Hobby', catIcon: 'Icon', tooManyCats: 'Too many custom categories', moreCats: 'More', restAll: 'Everything else', limits: 'Limits', limitsSub: 'How much you’re ready to spend per month. Slide all the way right to remove a limit', perMonth: '/ mo', noLimit: 'No limit', noLimitShort: 'no limit', limSpent: (s, l) => `Spent ${s} · ${l} left`, limOver: (s, o) => `Spent ${s} · <b>${o} over</b>`, addLimit: 'Add limit', limitFor: 'Limit for a category', limitTaken: 'Grey ones already have a limit', limitsEmpty: 'Set how much you’re ready to spend per month on cafes, taxis or shopping — the app will show what’s left.', addPayment: 'Add payment', paymentKindQ: 'What kind of recurring payment?', addIncomeShort: 'Add income', today: 'Today', yesterday: 'Yesterday', tomorrow: 'Tomorrow', otherDate: 'Other date', pickDate: 'Pick', emptyTitle: 'Nothing here yet',
       emptyText: 'Snap a receipt or add an amount manually. You can also just send a receipt photo to the bot.',
       emptyPast: 'No entries this month.',
@@ -688,7 +690,7 @@
       file: `potracheno-${summary.month}.jpg`, hint: !state.me.sharedThisMonth, milestone: null });
   }
   // draw — рисует canvas; milestone — номер юбилея (бонус за юбилей) или null (бонус за итоги месяца)
-  async function openShareCard({ draw, storyText, file, hint, milestone }) {
+  async function openShareCard({ draw, storyText, file, hint, milestone, bonus = true }) {
     const sh = openSheet(`<div class="loading"><div class="spinner"></div><b>${t('shareMaking')}</b></div>`);
     let canvas;
     try { canvas = await draw(); } catch (e) { closeSheet(sh); toast(t('netError')); return; }
@@ -719,7 +721,7 @@
             params.widget_link = { url: `https://t.me/${BOT_USERNAME}?start=ref_${state.me.id}`, name: 'Потрачено' };
           }
           tg.shareToStory(mediaUrl, params);
-          grantShareBonus(milestone);
+          if (bonus) grantShareBonus(milestone);
         } else {
           toast(t('shareNoStory'));
         }
@@ -734,7 +736,7 @@
         } else {
           const a = document.createElement('a'); a.href = jpeg; a.download = file; document.body.append(a); a.click(); a.remove();
         }
-        grantShareBonus(milestone);
+        if (bonus) grantShareBonus(milestone);
       } catch { toast(t('netError')); }
       btn.disabled = false;
     });
@@ -1249,6 +1251,7 @@
         <div class="pf-cd" id="pfMonth"><div class="t">${t('monthResults')}</div><div class="pf-loading" style="margin-top:10px"></div></div></div>
       <div class="pf-menu">
         ${mi('pmLimits', 'payment', `${t('limits')}${STORIES.some((x) => x.dynamic === 'limits') ? '<i class="pf-new">NEW</i>' : ''}`, state.limitsCount ? String(state.limitsCount) : '')}
+        ${state.me.awards ? mi('pmAwards', 'award', `${t('awards')}${(state.me.awards.fresh || []).length || !awOpened() ? '<i class="pf-new">NEW</i>' : ''}`, `${state.me.awards.earned}/${state.me.awards.total}`) : ''}
         ${mi('pmCats', 'other', t('catEditor'))}
         ${mi('pmRec', 'recurring', t('recurring'))}
         ${hasHowto ? mi('pmHowto', 'education', t('howto')) : ''}
@@ -1256,6 +1259,7 @@
       </div>
       <div class="spacer"></div>`;
     $('#pmLimits', el).addEventListener('click', () => openLimits());
+    const pa = $('#pmAwards', el); if (pa) pa.addEventListener('click', () => openAwards());
     $('#pmCats', el).addEventListener('click', () => openCategoryEditor());
     $('#pmRec', el).addEventListener('click', () => openRecurringList());
     if ($('#pmHowto', el)) $('#pmHowto', el).addEventListener('click', () => openStory(STORIES.find((x) => x.id === 'howto-v1')));
@@ -1941,6 +1945,110 @@
     });
   }
 
+  // ---------- награды ----------
+  // По одной награде на категорию — за суммарные траты в ней. Прогресс и выдачу считает сервер (/awards).
+  const awRu = () => state.lang === 'ru';
+  const awText = (a) => (awRu() ? a.ru : a.en); // [название, подпись]
+  const awCat = (a) => (awRu() && CAT_ACC[a.category] ? CAT_ACC[a.category] : catName(a.category).toLowerCase());
+  const awMoney = (n, base) => money(Math.floor(n), base);
+  const awCond = (a, base) => (a.earned
+    ? (awRu() ? `Вы потратили ${awMoney(a.goal, base)} на ${awCat(a)}` : `You’ve spent ${awMoney(a.goal, base)} on ${awCat(a)}`)
+    : (awRu() ? `Потратьте ${awMoney(a.goal, base)} на ${awCat(a)}` : `Spend ${awMoney(a.goal, base)} on ${awCat(a)}`));
+  const awRing = (frac) => {
+    const C = 2 * Math.PI * 42;
+    return `<svg viewBox="0 0 92 92" class="aw-ring"><circle cx="46" cy="46" r="42" class="aw-rt"/><circle cx="46" cy="46" r="42" class="aw-rp" stroke-dasharray="${(C * Math.min(1, frac)).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 46 46)"/></svg>`;
+  };
+  const awDisc = (a) => `<div class="aw-w">${awRing(a.earned ? 1 : a.spent / a.goal)}<div class="aw-d ${a.earned ? 'on' : 'off'}"><img src="awards/${a.icon}.svg" alt=""></div></div>`;
+  const awOpened = () => store.get('awardsOpened') === '1';
+  async function awardsMarkSeen(list) {
+    const ids = list.filter((a) => a.earned && !a.seen).map((a) => a.id);
+    if (!ids.length) return;
+    api('/awards/seen', { method: 'POST', body: { ids } }).catch(() => {});
+    if (state.me.awards) state.me.awards.fresh = (state.me.awards.fresh || []).filter((x) => !ids.includes(x));
+  }
+  async function drawAwardCard(a, base) {
+    await cvFonts();
+    const W = 1080, H = 1920, ru = awRu(), [name] = awText(a);
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff957'; ctx.fillRect(0, 0, W, H);
+    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#000'; setLs(ctx, -0.5); ctx.font = '800 44px Man'; ctx.fillText(ru ? 'Моя награда' : 'My award', W / 2, 232);
+    const cx = W / 2, cy = 760, R = 330;
+    ctx.beginPath(); ctx.arc(cx + 14, cy + 16, R, 0, Math.PI * 2); ctx.fillStyle = '#000'; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.lineWidth = 22; ctx.strokeStyle = '#000'; ctx.stroke();
+    const im = await loadImg(`awards/${a.icon}.svg`).catch(() => null);
+    if (im) ctx.drawImage(im, cx - 230, cy - 230, 460, 460);
+    ctx.fillStyle = '#000'; ctx.font = '800 100px Man'; setLs(ctx, -3);
+    const lines = wrapLines(ctx, name, W - 200);
+    lines.forEach((ln, i) => ctx.fillText(ln, cx, 1230 + i * 108));
+    ctx.font = '700 50px Man'; setLs(ctx, -0.5); ctx.globalAlpha = 0.75;
+    wrapLines(ctx, awCond(a, base), W - 240).forEach((ln, i) => ctx.fillText(ln, cx, 1230 + lines.length * 108 + 30 + i * 62));
+    ctx.globalAlpha = 1; setLs(ctx, 0); ctx.textAlign = 'left';
+    cvFooter(ctx, W, H, '#000', '#000', '#fff', '#fff957');
+    return c;
+  }
+  function shareAward(a, base) {
+    const [name] = awText(a);
+    const storyText = awRu() ? `Получил награду «${name}» в @${BOT_USERNAME} 🏆` : `I got the “${name}” award in @${BOT_USERNAME} 🏆`;
+    return openShareCard({ draw: () => drawAwardCard(a, base), storyText, file: `potracheno-award-${a.id}.jpg`, hint: false, milestone: null, bonus: false });
+  }
+  // окно одной награды; fresh — сразу после получения («Новая награда!»)
+  function openAward(a, base, { fresh = false } = {}) {
+    const [name, cap] = awText(a), left = Math.max(0, a.goal - a.spent);
+    const head = fresh ? `<div class="aw-new">${t('awardsNewTitle')}</div>` : '';
+    const sh = openSheet(`<div class="aw-detail">${head}
+      <div class="aw-big">${awDisc(a)}</div>
+      <h2>${esc(name)}</h2>
+      <p class="aw-cond">${esc(awCond(a, base))}</p>
+      ${a.earned ? `<p class="aw-cap">${esc(cap)}</p>`
+        : `<div class="aw-bar"><i style="width:${Math.round(a.spent / a.goal * 100)}%"></i></div><p class="aw-cap">${esc(awRu() ? `Уже ${awMoney(a.spent, base)}, осталось ${awMoney(left, base)}` : `${awMoney(a.spent, base)} so far, ${awMoney(left, base)} to go`)}</p>`}
+      ${a.earned ? `<button class="btn btn-primary btn-block" id="awShare">${t('awardShare')}</button>` : ''}
+      <button class="btn ${a.earned ? 'aw-plain' : 'btn-secondary btn-block'}" id="awClose">${t('close')}</button></div>`);
+    $('#awClose', sh.sheet).addEventListener('click', () => closeSheet(sh));
+    const b = $('#awShare', sh.sheet);
+    if (b) b.addEventListener('click', () => shareAward(a, base));
+    if (fresh) haptic('success');
+    return sh;
+  }
+  async function openAwards() {
+    store.set('awardsOpened', '1');
+    const sh = openSheet(`<div class="sheet-head"><h2>${t('awards')}</h2><button class="close">${t('done')}</button></div>
+      <div id="awBody"><div class="loading"><div class="spinner"></div></div></div>`,
+    { onClose: () => { if (state.tab === 'profile') renderProfile(); } });
+    $('.close', sh.sheet).addEventListener('click', () => closeSheet(sh));
+    let data;
+    try { data = await api('/awards'); } catch { closeSheet(sh); toast(t('netError')); return; }
+    const { list, base } = data;
+    state.me.awards = { total: list.length, earned: list.filter((a) => a.earned).length, fresh: state.me.awards ? state.me.awards.fresh : [] };
+    awardsMarkSeen(list);
+    const got = list.filter((a) => a.earned).sort((x, y) => String(y.earnedAt).localeCompare(String(x.earnedAt)));
+    const wip = list.filter((a) => !a.earned).sort((x, y) => y.spent / y.goal - x.spent / x.goal);
+    const cell = (a) => `<button class="aw-c" data-a="${a.id}">${awDisc(a)}<b>${esc(awText(a)[0])}</b><small>${a.earned ? t('awardsGot') : `${esc(awMoney(a.spent, base))} / ${esc(awMoney(a.goal, base))}`}</small></button>`;
+    $('#awBody', sh.sheet).innerHTML = `<div class="note aw-count">${got.length} / ${list.length}</div>
+      ${got.length ? `<div class="aw-sec">${t('awardsGot')}</div><div class="aw-g">${got.map(cell).join('')}</div>` : ''}
+      ${wip.length ? `<div class="aw-sec">${t('awardsWip')}</div><div class="aw-g">${wip.map(cell).join('')}</div>` : ''}`;
+    sh.sheet.querySelectorAll('.aw-c').forEach((el) => el.addEventListener('click', () => openAward(list.find((a) => a.id === el.dataset.a), base)));
+  }
+  // после запуска и при новых наградах: показываем сразу, один раз
+  async function showNewAwards() {
+    const aw = state.me.awards;
+    if (!aw || !aw.fresh || !aw.fresh.length) return;
+    let data;
+    try { data = await api('/awards'); } catch { return; }
+    const news = data.list.filter((a) => a.earned && !a.seen);
+    if (!news.length) return;
+    awardsMarkSeen(data.list);
+    if (news.length === 1) { openAward(news[0], data.base, { fresh: true }); return; }
+    const sh = openSheet(`<div class="aw-detail"><div class="aw-new">${t('awardsNewMany')}</div>
+      <div class="aw-g aw-mini">${news.map((a) => `<div class="aw-c">${awDisc(a)}<b>${esc(awText(a)[0])}</b></div>`).join('')}</div>
+      <button class="btn btn-primary btn-block" id="awAll">${t('awardsOpenAll')}</button>
+      <button class="btn aw-plain" id="awClose">${t('close')}</button></div>`);
+    haptic('success');
+    $('#awClose', sh.sheet).addEventListener('click', () => closeSheet(sh));
+    $('#awAll', sh.sheet).addEventListener('click', () => { closeSheet(sh); openAwards(); });
+  }
+
   // ---------- регулярные платежи ----------
   // ---------- лимиты по категориям ----------
   // Шкала слайдера: от «минимума» шагом 50 € (до 1000 €), дальше шагом 100 € до 2000 €, правее — «без лимита».
@@ -2370,6 +2478,7 @@
     state.daysSinceStart = me.daysSinceStart || 0;
     state.daysTracking = me.daysTracking || null;
     state.limitsCount = me.limitsCount || 0;
+    state.me.awards = me.awards || null;
     state.month = me.today.slice(0, 7);
     state.lastCurrency = store.get('lastCurrency') || me.user.base_currency;
     if (!state.currencies.includes(state.lastCurrency)) state.lastCurrency = me.user.base_currency;
@@ -2408,6 +2517,7 @@
     if (howto && !me.hasEntries && !seenStory(howto.id)) await openStory(howto);
     // из ежемесячного сообщения бота: сразу открыть историю за прошлый месяц
     if (monthStory && wantMonth) await openStory(monthStory);
+    if (state.me.awards && state.me.awards.fresh && state.me.awards.fresh.length) await showNewAwards();
     if (!state.me.can_message) requestWriteAccess(false);
   }
 
