@@ -25,6 +25,6 @@ export const AWARD_IDS = AWARDS.map((a) => a.id);
 
 // Те же ступени «красивых» чисел, что и в лимитах: порог 1000 € в рублях — 100 000 ₽, а не 92 430 ₽
 const FACTOR = { RUB: 100, UAH: 50, KZT: 500, BYN: 4, TRY: 40, AMD: 400, GEL: 3, RSD: 100, PLN: 4, CZK: 25, HUF: 400, SEK: 10, NOK: 10,
-  DKK: 7.5, CNY: 8, JPY: 150, THB: 40, IDR: 17000, VND: 25000, INR: 100, MXN: 20, BRL: 6, ARS: 1000, UZS: 14000, KGS: 100, AZN: 2, MDL: 20,
+  DKK: 7.5, CNY: 8, JPY: 150, THB: 40, IDR: 17000, VND: 25000, INR: 100, MXN: 20, BRL: 6, ARS: 1000, UZS: 14000, KGS: 100, AZN: 2, MDL: 20, ALL: 100,
   AED: 4, ILS: 4, CAD: 1.5 };
 export const goalIn = (goalEur, cur) => (cur === 'EUR' || !FACTOR[cur] ? goalEur : goalEur * FACTOR[cur]);
