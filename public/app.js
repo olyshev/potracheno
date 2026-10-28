@@ -2377,8 +2377,9 @@
         flip(el, false); me.can_message = false;
         await api('/settings', { method: 'POST', body: { can_message: false } }).catch(() => {});
       } else {
+        flip(el, true);
         const ok = await requestWriteAccess(true);
-        flip(el, !!(ok || me.can_message));
+        if (!(ok || me.can_message)) flip(el, false);
       }
     });
     $('#sNudges', S).addEventListener('click', async (e) => {
