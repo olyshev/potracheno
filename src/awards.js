@@ -16,7 +16,7 @@ export const AWARDS = [
   { id: 'hanger',   icon: 'hanger',   cat: 'clothes',       goal: 1000, ru: ['Новая вешалка', 'Для тех, кто знает, что встречают по одёжке'], en: ['Brand-New Hanger', 'For those who know people judge by clothes'] },
   { id: 'ticket',   icon: 'ticket',   cat: 'fun',           goal: 1000, ru: ['VIP билет', 'Делу — время, потехе — час'],                      en: ['VIP Ticket', 'Work first, play later'] },
   { id: 'dumbbell', icon: 'dumbbell', cat: 'sport',         goal: 1000, ru: ['Золотая гантель', 'Начинайте ходить по дороге, ведь вы — машина'], en: ['Golden Dumbbell', 'Start walking the road, you’re a machine'] },
-  { id: 'play',     icon: 'play',     cat: 'subscriptions', goal: 500,  ru: ['Дорогой подписчик', 'Дарим месяц подписки, чтобы сгладить удар'], en: ['Dear Subscriber', 'We’re gifting a month of subscription to soften the blow'] },
+  { id: 'play',     icon: 'play',     cat: 'subscriptions', goal: 500,  ru: ['Дорогой подписчик', 'Дарим месяц подписки, чтобы сгладить удар (скоро)'], en: ['Dear Subscriber', 'We’re gifting a month of subscription to soften the blow (coming soon)'] },
   { id: 'case',     icon: 'case',     cat: 'travel',        goal: 3000, ru: ['Кожаный чемодан', 'Путешествуйте. Оно того стоит.'],            en: ['Leather Suitcase', 'Go travel. It’s worth it.'] },
   { id: 'bone',     icon: 'bone',     cat: 'pets',          goal: 500,  ru: ['Наградная косточка', 'Гав-гав, мяу-мяу!'],                      en: ['Award Bone', 'Woof-woof, meow-meow!'] },
   { id: 'piggy',    icon: 'piggy',    cat: 'savings',       goal: 1000, ru: ['Свинья-копилка', 'Эта подушка дарит крепкий сон, но спать на ней нельзя!'], en: ['Piggy Bank', 'This safety cushion gives you sound sleep, but you can’t sleep on it!'] },
