@@ -796,3 +796,11 @@ button.h-chip { cursor: pointer; }
 .aw-new { display: inline-block; background: #fff957; color: #000; font-weight: 800; font-size: 13px; letter-spacing: .4px; padding: 5px 12px; border-radius: 99px; margin: 6px 0 2px; }
 .aw-plain { display: block; width: 100%; background: none; color: var(--hint); font-weight: 700; font-size: 15px; padding: 12px; margin-top: 4px; }
 .aw-mini { margin: 14px 0 22px; }
+
+/* переключатель (настройки) */
+.tgl { position: relative; width: 51px; height: 31px; border-radius: 99px; background: color-mix(in srgb, var(--hint) 38%, var(--card)); transition: background .2s; flex: none; padding: 0; }
+.tgl i { position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,.25); transition: transform .2s; }
+.tgl.on { background: var(--yellow, #fff957); }
+.tgl.on i { transform: translateX(20px); }
+.settings-list .row:has(.tgl) { padding-top: 10px; padding-bottom: 10px; }
+.lang-grid { grid-template-columns: 1fr 1fr; }

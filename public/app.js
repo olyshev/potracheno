@@ -1433,6 +1433,23 @@
     });
   }
 
+  function pickLanguage(current) {
+    return new Promise((resolve) => {
+      let picked = null;
+      const sh = openSheet(`
+        <div class="sheet-head"><h2>${t('language')}</h2><button class="close">${t('close')}</button></div>
+        <div class="cur-grid lang-grid">${[['ru', 'Русский'], ['en', 'English']].map(([k, n]) => `
+          <button class="chip ${k === current ? 'active' : ''}" data-l="${k}">${n}</button>`).join('')}</div>`,
+      { onClose: () => resolve(picked) });
+      $('.close', sh.sheet).addEventListener('click', () => closeSheet(sh));
+      sh.sheet.querySelectorAll('[data-l]').forEach((b) => b.addEventListener('click', () => {
+        picked = b.dataset.l; haptic('select');
+        sh.sheet.querySelectorAll('[data-l]').forEach((x) => x.classList.toggle('active', x === b));
+        setTimeout(() => closeSheet(sh), 220);
+      }));
+    });
+  }
+
   // ---------- выбор повторения: каждую неделю / каждые 2 недели / раз в месяц ----------
   // Ни одна кнопка не выбрана — запись разовая; повторное нажатие на выбранную снимает выбор.
   // Возвращает HTML блока и функцию, которая привязывает события и отдаёт текущее значение.
@@ -2327,8 +2344,8 @@
       <div class="note">${t('baseNote')}</div>
       <div class="card list settings-list">
         <div class="row"><span>${t('scans')}</span><span class="settings-value num">${me.scansUsed} ${t('from')} ${me.scans}</span></div>
-        <button class="row" id="sReports"><span>${t('reports')}</span><span class="settings-value">${me.can_message ? t('reportsOn') : t('reportsOff')} ›</span></button>
-        <button class="row" id="sNudges"><span>${t('nudges')}</span><span class="settings-value">${me.nudges ? t('reportsOn') : t('reportsOff')} ›</span></button>
+        <div class="row"><span>${t('reports')}</span><button type="button" class="tgl ${me.can_message ? 'on' : ''}" id="sReports" role="switch" aria-checked="${!!me.can_message}" aria-label="${esc(t('reports'))}"><i></i></button></div>
+        <div class="row"><span>${t('nudges')}</span><button type="button" class="tgl ${me.nudges ? 'on' : ''}" id="sNudges" role="switch" aria-checked="${!!me.nudges}" aria-label="${esc(t('nudges'))}"><i></i></button></div>
       </div>
       <div class="set-actions">
         <button class="btn btn-block btn-invert" id="sExport">${t('export')}</button>
@@ -2346,23 +2363,33 @@
     });
 
     $('#sLang', S).addEventListener('click', async () => {
-      state.lang = state.lang === 'ru' ? 'en' : 'ru';
-      await api('/settings', { method: 'POST', body: { lang: state.lang } }).catch(() => {});
-      applyStatic(); closeSheet(sh); loadMonth(); renderStories(); openSettings();
-    });
-    $('#sReports', S).addEventListener('click', async () => {
-      if (me.can_message) {
-        await api('/settings', { method: 'POST', body: { can_message: false } }).catch(() => {});
-        me.can_message = false; closeSheet(sh); openSettings();
-      } else {
-        requestWriteAccess(true).then(() => { closeSheet(sh); openSettings(); });
+      const l = await pickLanguage(state.lang);
+      if (l && l !== state.lang) {
+        state.lang = l;
+        await api('/settings', { method: 'POST', body: { lang: l } }).catch(() => {});
+        applyStatic(); closeSheet(sh); loadMonth(); renderStories(); openSettings();
       }
     });
-    $('#sNudges', S).addEventListener('click', async () => {
+    const flip = (el, v) => { el.classList.toggle('on', v); el.setAttribute('aria-checked', String(v)); };
+    $('#sReports', S).addEventListener('click', async (e) => {
+      const el = e.currentTarget; haptic('select');
+      if (me.can_message) {
+        flip(el, false); me.can_message = false;
+        await api('/settings', { method: 'POST', body: { can_message: false } }).catch(() => {});
+      } else {
+        const ok = await requestWriteAccess(true);
+        flip(el, !!(ok || me.can_message));
+      }
+    });
+    $('#sNudges', S).addEventListener('click', async (e) => {
+      const el = e.currentTarget; haptic('select');
       const v = !me.nudges;
-      if (v && !me.can_message) await requestWriteAccess(true);
+      flip(el, v); me.nudges = v;
+      if (v && !me.can_message) {
+        await requestWriteAccess(true);
+        flip($('#sReports', S), !!me.can_message);
+      }
       await api('/settings', { method: 'POST', body: { nudges: v } }).catch(() => toast(t('netError')));
-      me.nudges = v; closeSheet(sh); openSettings();
     });
     $('#sExport', S).addEventListener('click', async () => {
       try { await api('/export', { method: 'POST' }); toast(t('exported')); haptic('success'); }
