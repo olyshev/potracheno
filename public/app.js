@@ -320,7 +320,7 @@
     const list = visibleStories().map((s, k) => [s, k]).sort((a, b) => (Number(seenStory(a[0].id)) - Number(seenStory(b[0].id))) || (a[1] - b[1])).map((x) => x[0]);
     if (!list.length) { el.innerHTML = ''; return; }
     // плитка: [иконка, фон, цвет иконки] по типу истории
-    const tile = (s) => (s.id.startsWith('limits') ? ['payment', '#ffffff', '#000'] : s.id.startsWith('milestone') ? ['gifts', '#ffffff', '#000'] : s.id.startsWith('week-sum') ? ['statistic', '#4d72f5', '#fff']
+    const tile = (s) => (s.id.startsWith('awards') ? ['award', '#fff957', '#000'] : s.id.startsWith('limits') ? ['payment', '#ffffff', '#000'] : s.id.startsWith('milestone') ? ['gifts', '#ffffff', '#000'] : s.id.startsWith('week-sum') ? ['statistic', '#4d72f5', '#fff']
       : s.id.startsWith('week-plan') ? ['calendar', '#000', '#fff957'] : s.id.startsWith('month') ? ['payment', '#ffb08a', '#000'] : ['education', '#ffffff', '#000']);
     el.innerHTML = `<div class="stories">${list.map((s) => {
       const [ic, bg, fg] = tile(s);
@@ -862,6 +862,43 @@
     const seen = (state.me.storySeenAt || {})['limits-launch'];
     const daysSince = seen ? Math.floor((Date.parse(`${state.today}T00:00:00Z`) - Date.parse(`${seen}T00:00:00Z`)) / 864e5) : 0;
     if (daysSince < LIMITS_STORY_DAYS) STORIES.unshift(buildLimitsStory());
+  }
+
+  // ---------- история о запуске наград ----------
+  // Показывается только когда награды включены; после первого просмотра — ещё 7 дней
+  const AWARDS_STORY_DAYS = 7;
+  function buildAwardsStory() {
+    const ru = isRu(), cur = state.me.base_currency || 'EUR';
+    const tag = w3Tag(ru ? 'Новое в приложении' : 'New in the app');
+    const disc = (icon, size, style = '', on = true) => `<div class="as-d ${on ? 'on' : 'off'}" style="width:${size}px;height:${size}px;${style}"><img src="awards/${icon}.svg" alt=""></div>`;
+    const goal = esc(money(1000 * (LIMIT_FACTOR[cur] || 1), cur, { round: true }));
+    const grid = [['ladle', 1], ['moped', 1], ['taxi', 1], ['chef', 1], ['bulb', 0], ['hanger', 1], ['dumbbell', 0], ['ticket', 0], ['pill', 1], ['case', 0], ['piggy', 0], ['bone', 0]]
+      .map(([i, on]) => disc(i, 215, '', !!on)).join('');
+    const slides = [
+      { html: w2Page('#fff957', '#000', disc('moped', 440, 'position:absolute;right:-50px;bottom:230px;transform:rotate(10deg);background:#fff') + disc('ladle', 250, 'position:absolute;left:90px;bottom:330px;transform:rotate(-12deg);background:#fff')
+        + w3Ill('star', 'right:130px;top:300px;width:170px;transform:rotate(12deg)') + tag
+        + `<div class="w2-wrap" style="top:560px"><div class="ls-big">${ru ? 'Запустили<br><span class="ls-mk">награды</span>' : 'Meet<br><span class="ls-mk">awards</span>'}</div>
+          <div class="ls-sub">${ru ? 'У каждой категории — своя награда' : 'Every category has its own award. Silly, but well deserved'}</div></div>`) },
+      { html: w2Page('#fff', '#000', tag + `<div class="w2-wrap" style="top:430px"><div class="ls-cap">${ru ? 'Тратьте — и получайте награды' : 'Keep spending —<br>and earn awards'}</div>
+          <div class="as-card"><div class="as-d on" style="width:300px;height:300px"><img src="awards/moped.svg" alt=""></div>
+            <b>${ru ? 'Золотой мопед' : 'Golden Moped'}</b><i>${ru ? 'Курьеры знают вас в лицо' : 'Couriers know you by name'}</i>
+            <u>${ru ? `Вы потратили ${goal} на доставку` : `You’ve spent ${goal} on delivery`}</u></div></div>`) },
+      { html: w2Page('#4d72f5', '#fff', tag + `<div class="w2-wrap" style="top:430px"><div class="ls-cap">${ru ? '19 наград — по одной на каждую категорию' : '19 awards — one for every category'}</div>
+          <div class="as-grid">${grid}</div></div>`) },
+      { hold: true, html: w2Page('#000', '#fff', disc('chef', 330, 'position:absolute;right:-30px;top:170px;transform:rotate(12deg)') + disc('piggy', 230, 'position:absolute;right:300px;top:420px;transform:rotate(-10deg)') + tag
+        + `<div class="w2-wrap" style="top:700px"><div class="ls-big" style="font-size:130px">${ru ? 'Соберите<br>их все' : 'Collect<br>them all'}</div>
+          <div class="ls-path">${ico('award', 44, '#000')}${ru ? 'Профиль → Награды' : 'Profile → Awards'}</div></div>
+        <button class="w3-btn" data-go style="bottom:270px">${ru ? 'Посмотреть' : 'Take a look'}</button>`),
+        onShow: (root, close) => { const b = root.querySelector('[data-go]'); if (b) b.addEventListener('click', () => { haptic('select'); close(); openAwards(); }); } },
+    ];
+    return { id: 'awards-launch', dynamic: 'awards', duration: 6000, title: { ru: 'Награды', en: 'Awards' }, slides };
+  }
+  function loadAwardsStory() {
+    for (let i = STORIES.length - 1; i >= 0; i--) if (STORIES[i].dynamic === 'awards') STORIES.splice(i, 1);
+    if (!state.me.awards) return;
+    const seen = (state.me.storySeenAt || {})['awards-launch'];
+    const daysSince = seen ? Math.floor((Date.parse(`${state.today}T00:00:00Z`) - Date.parse(`${seen}T00:00:00Z`)) / 864e5) : 0;
+    if (daysSince < AWARDS_STORY_DAYS) STORIES.unshift(buildAwardsStory());
   }
 
   function loadMilestoneStory() {
@@ -2530,6 +2567,7 @@
 
     await loadMonth();
     loadLimitsStory();
+    loadAwardsStory();
     renderStories();
     const startParam = tg && tg.initDataUnsafe ? tg.initDataUnsafe.start_param : '';
     const wantMonth = new URLSearchParams(location.search).get('story') === 'month' || startParam === 'month';
