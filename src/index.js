@@ -225,7 +225,13 @@ async function syncAwards(env, user) {
 async function awardsSummary(env, user) {
   try {
     const { list } = await syncAwards(env, user);
-    return { total: list.length, earned: list.filter((a) => a.earned).length, fresh: list.filter((a) => a.earned && !a.seen).map((a) => a.id) };
+    // истории за награды: ещё не открытые (получены за последние 3 дня) и открытые меньше 48 часов назад
+    const st = await env.DB.prepare(
+      `SELECT a.award_id AS id FROM awards a LEFT JOIN story_views v ON v.user_id = a.user_id AND v.story_id = 'award-' || a.award_id
+       WHERE a.user_id = ? AND ((v.at IS NULL AND a.earned_at > datetime('now', '-3 days')) OR v.at > datetime('now', '-48 hours'))
+       ORDER BY a.earned_at DESC LIMIT 6`
+    ).bind(user.id).all();
+    return { total: list.length, earned: list.filter((a) => a.earned).length, fresh: list.filter((a) => a.earned && !a.seen).map((a) => a.id), stories: st.results.map((r) => r.id) };
   } catch { return null; }
 }
 

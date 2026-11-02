@@ -349,7 +349,7 @@
     const list = visibleStories().map((s, k) => [s, k]).sort((a, b) => (Number(seenStory(a[0].id)) - Number(seenStory(b[0].id))) || (a[1] - b[1])).map((x) => x[0]);
     if (!list.length) { el.innerHTML = ''; return; }
     // плитка: [иконка, фон, цвет иконки] по типу истории
-    const tile = (s) => (s.id.startsWith('awards') ? ['award', '#fff957', '#000'] : s.id.startsWith('limits') ? ['payment', '#ffffff', '#000'] : s.id.startsWith('milestone') ? ['gifts', '#ffffff', '#000'] : s.id.startsWith('week-sum') ? ['statistic', '#4d72f5', '#fff']
+    const tile = (s) => (s.id.startsWith('award') ? ['award', '#fff957', '#000'] : s.id.startsWith('limits') ? ['payment', '#ffffff', '#000'] : s.id.startsWith('milestone') ? ['gifts', '#ffffff', '#000'] : s.id.startsWith('week-sum') ? ['statistic', '#4d72f5', '#fff']
       : s.id.startsWith('week-plan') ? ['calendar', '#000', '#fff957'] : s.id.startsWith('month') ? ['payment', '#ffb08a', '#000'] : ['education', '#ffffff', '#000']);
     el.innerHTML = `<div class="stories">${list.map((s) => {
       const [ic, bg, fg] = tile(s);
@@ -2238,6 +2238,21 @@
     sh.sheet.querySelectorAll('.aw-c').forEach((el) => el.addEventListener('click', () => openAward(list.find((a) => a.id === el.dataset.a), base)));
   }
   // после запуска и при новых наградах: показываем сразу, один раз
+  // истории за награды висят в ленте 48 часов после первого открытия (срок считает сервер)
+  const ensureAwardStory = (a, base) => {
+    let st = STORIES.find((x) => x.id === `award-${a.id}`);
+    if (!st) { st = buildAwardStory(a, base); STORIES.unshift(st); }
+    return st;
+  };
+  async function loadAwardStories() {
+    const ids = (state.me.awards && state.me.awards.stories) || [];
+    if (!ids.length) return;
+    try {
+      const data = await api('/awards');
+      ids.forEach((id) => { const a = data.list.find((x) => x.id === id && x.earned); if (a) ensureAwardStory(a, data.base); });
+      renderStories();
+    } catch { /* лента подождёт до следующего запуска */ }
+  }
   async function showNewAwards() {
     const aw = state.me.awards;
     if (!aw || !aw.fresh || !aw.fresh.length) return;
@@ -2246,7 +2261,7 @@
     const news = data.list.filter((a) => a.earned && !a.seen);
     if (!news.length) return;
     awardsMarkSeen(data.list);
-    if (news.length === 1) { haptic('success'); openStory(buildAwardStory(news[0], data.base)); return; }
+    if (news.length === 1) { haptic('success'); openStory(ensureAwardStory(news[0], data.base)); return; }
     const sh = openSheet(`<div class="aw-detail"><div class="aw-new">${t('awardsNewMany')}</div>
       <div class="aw-g aw-mini">${news.map((a) => `<div class="aw-c">${awDisc(a)}<b>${esc(awText(a)[0])}</b></div>`).join('')}</div>
       <button class="btn btn-primary btn-block" id="awAll">${t('awardsOpenAll')}</button>
@@ -2749,6 +2764,7 @@
     await loadMonth();
     loadLimitsStory();
     loadAwardsStory();
+    loadAwardStories();
     renderStories();
     const startParam = tg && tg.initDataUnsafe ? tg.initDataUnsafe.start_param : '';
     const wantMonth = new URLSearchParams(location.search).get('story') === 'month' || startParam === 'month';
