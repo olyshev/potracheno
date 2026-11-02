@@ -1391,8 +1391,8 @@
       <div class="pf-cards"><div class="pf-cd" id="pfWeek"><div class="t">${t('weekResults')}</div><div class="pf-loading" style="margin-top:10px"></div></div>
         <div class="pf-cd" id="pfMonth"><div class="t">${t('monthResults')}</div><div class="pf-loading" style="margin-top:10px"></div></div></div>
       <div class="pf-menu">
-        ${mi('pmLimits', 'payment', `${t('limits')}${STORIES.some((x) => x.dynamic === 'limits') ? '<i class="pf-new">NEW</i>' : ''}`, state.limitsCount ? String(state.limitsCount) : '')}
-        ${state.me.awards ? mi('pmAwards', 'award', `${t('awards')}${(state.me.awards.fresh || []).length || !awOpened() ? '<i class="pf-new">NEW</i>' : ''}`, `${state.me.awards.earned}/${state.me.awards.total}`) : ''}
+        ${mi('pmLimits', 'payment', `${t('limits')}`, state.limitsCount ? String(state.limitsCount) : '')}
+        ${state.me.awards ? mi('pmAwards', 'award', `${t('awards')}${(state.me.awards.fresh || []).length || STORIES.some((x) => x.dynamic === 'awards') ? '<i class="pf-new">NEW</i>' : ''}`, `${state.me.awards.earned}/${state.me.awards.total}`) : ''}
         ${mi('pmCats', 'other', t('catEditor'))}
         ${mi('pmRec', 'recurring', t('recurring'))}
         ${hasHowto ? mi('pmHowto', 'education', t('howto')) : ''}
