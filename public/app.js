@@ -283,8 +283,30 @@
     const sheet = document.createElement('div');
     sheet.className = `sheet ${cls}`.trim();
     sheet.innerHTML = `<div class="sheet-grip"></div>${html}`;
+    // каждая следующая шторка (и её затемнение) выше предыдущей — иначе тап по затемнению попадает в шторку под ней
+    const z = 20 + sheets.length * 2;
+    backdrop.style.zIndex = z; sheet.style.zIndex = z + 1;
     $('#sheets').append(backdrop, sheet);
     const entry = { sheet, backdrop, onClose };
+    // потянуть вниз за верхнюю часть шторки — закрыть
+    let drag = null;
+    sheet.addEventListener('touchstart', (e) => {
+      const r = sheet.getBoundingClientRect(), y = e.touches[0].clientY;
+      drag = e.touches.length === 1 && y - r.top < 56 && (sheet.scrollTop || 0) <= 0 ? { y, dy: 0 } : null;
+    }, { passive: true });
+    sheet.addEventListener('touchmove', (e) => {
+      if (!drag) return;
+      drag.dy = Math.max(0, e.touches[0].clientY - drag.y);
+      sheet.style.transition = 'none'; sheet.style.transform = `translateY(${drag.dy}px)`;
+    }, { passive: true });
+    const endDrag = () => {
+      if (!drag) return;
+      const dy = drag.dy; drag = null;
+      sheet.style.transition = ''; sheet.style.transform = '';
+      if (dy > 80) closeSheet(entry);
+    };
+    sheet.addEventListener('touchend', endDrag, { passive: true });
+    sheet.addEventListener('touchcancel', endDrag, { passive: true });
     sheets.push(entry);
     backdrop.addEventListener('click', () => closeSheet(entry));
     requestAnimationFrame(() => { backdrop.classList.add('open'); sheet.classList.add('open'); });
