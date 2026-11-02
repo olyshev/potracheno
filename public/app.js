@@ -1268,7 +1268,7 @@
     const names = (state.lang === 'ru' ? MONTHS.ru : MONTHS.en);
     const short = (n) => (n.length > 4 ? n.slice(0, 3) : n);
     const years = [];
-    for (let y = y0; y >= y0 - 2; y--) years.push(y);
+    for (let y = y0; y >= Math.max(2025, y0 - 2); y--) years.push(y);
     const sh = openSheet(`
       <div class="sheet-head"><h2>${t('month')}</h2><button class="close">${t('close')}</button></div>
       <div class="mp-list">${years.map((y) => `
