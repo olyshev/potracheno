@@ -1203,28 +1203,26 @@
   }
 
   // ---------- статистика ----------
-  // «Статистика ноября» / «November stats»; для другого года — с годом
-  function statsTitle(month) {
-    const [y, mm] = month.split('-').map(Number);
-    const yr = y === Number(state.today.slice(0, 4)) ? '' : ` ${y}`;
-    return state.lang === 'ru' ? `${t('tabStats')} ${MONTHS.ruGen[mm - 1]}${yr}` : `${MONTHS.en[mm - 1]}${yr} stats`;
+  // листание месяцев «слайдером»: старое содержимое уезжает, новое приезжает с другой стороны
+  let slideBusy = false;
+  async function slideMonth(sel, dir, load) {
+    if (slideBusy) return;
+    slideBusy = true;
+    const out = dir < 0 ? 1 : -1; // назад: старое уезжает вправо, новое приезжает слева
+    const set = (tr, x, o) => document.querySelectorAll(sel).forEach((e) => { e.style.transition = tr; e.style.transform = x ? `translateX(${x}%)` : ''; e.style.opacity = o; });
+    set('transform .16s ease-in, opacity .16s ease-in', out * 28, '0');
+    await new Promise((r) => setTimeout(r, 170));
+    try { await load(); } catch { /* */ }          // после загрузки экран перерисован — ищем элементы заново
+    set('none', -out * 28, '0');
+    void document.body.offsetWidth;
+    set('transform .24s cubic-bezier(.2,.8,.3,1), opacity .24s ease-out', 0, '1');
+    setTimeout(() => { document.querySelectorAll(sel).forEach((e) => { e.style.transition = ''; e.style.transform = ''; e.style.opacity = ''; }); slideBusy = false; }, 260);
   }
-  // заголовок всегда в одну строку: размер подгоняем под ширину экрана
-  function fitStatsTitle() {
-    const h = document.querySelector('#viewStats .pg-top h1');
-    if (!h) return;
-    let f = Math.min(34, Math.max(20, innerWidth * 0.085));
-    h.style.fontSize = `${f}px`;
-    while (h.scrollWidth > h.clientWidth && f > 16) { f -= 1; h.style.fontSize = `${f}px`; }
-  }
-  addEventListener('resize', fitStatsTitle);
   function statsGo(dir) {
     const next = shiftMonth(state.month, dir);
     if (next > state.today.slice(0, 7)) return;
-    state.month = next; state.filter = null; state.statSel = 0; haptic('select');
-    const h = document.querySelector('#viewStats .pg-top h1');
-    if (h) { h.textContent = statsTitle(next); fitStatsTitle(); }
-    loadMonth();
+    haptic('select');
+    slideMonth('#viewStats .st-body', dir, () => { state.month = next; state.filter = null; state.statSel = 0; return loadMonth(); });
   }
   function renderStats() {
     const el = $('#viewStats');
@@ -1274,7 +1272,9 @@
     }
     const isCurrent = s.month === state.today.slice(0, 7);
     el.innerHTML = `
-      <div class="pg-top"><h1>${esc(statsTitle(s.month))}</h1></div>
+      <div class="pg-top"><h1>${t('tabStats')}</h1></div>
+      <div class="st-body">
+      <div class="st-month"><button id="stPrev" aria-label="‹">‹</button><span>${esc(monthTitle(s.month))}</span><button id="stNext" ${isCurrent ? 'disabled' : ''} aria-label="›">›</button></div>
       <div class="seg" id="stKind"><button data-k="expense" class="${kind === 'expense' ? 'active' : ''}">${t('expensesTab')}</button><button data-k="income" class="${kind === 'income' ? 'active' : ''}">${t('incomesTab')}</button></div>
       ${list.length ? `
       <div class="donut"><svg width="236" height="236">${arcs}</svg>${bubble}
@@ -1288,8 +1288,10 @@
           <div class="a num">${money(c.amount, base)}<small>${pctLabel(c.amount / (total || 1))}</small></div></button>`).join('')}</div>
       ${kind === 'expense' && s.total ? `<div class="st-chart"><div class="section-title" style="margin:0"><span>${t('byDay')}</span></div>${dailyChart(s.days, isCurrent ? Number(state.today.slice(8, 10)) : s.days.length, base)}</div>` : ''}`
       : `<div class="empty"><div class="big">${ico('statistic', 30, '#000')}</div><b>${t('noData')}</b></div>`}
+      </div>
       <div class="spacer"></div>`;
-    fitStatsTitle();
+    $('#stPrev', el).addEventListener('click', () => statsGo(-1));
+    $('#stNext', el).addEventListener('click', () => statsGo(1));
     el.querySelectorAll('#stKind button').forEach((b) => b.addEventListener('click', () => { state.statKind = b.dataset.k; state.statSel = 0; haptic('select'); renderStats(); }));
     el.querySelectorAll('.st-row, .donut circle').forEach((b) => b.addEventListener('click', () => {
       state.statSel = Number(b.dataset.i); haptic('select'); renderStats();
@@ -2590,7 +2592,8 @@
     bindMonthSwipe($('#viewHome'), (dir) => {
       const next = shiftMonth(state.month, dir);
       if (next > state.today.slice(0, 7)) return;
-      state.month = next; state.filter = null; haptic('select'); loadMonth();
+      haptic('select');
+      slideMonth('#hero, .acts, #categoriesSection, #incomeSection, #upcomingSection, #entriesSection', dir, () => { state.month = next; state.filter = null; return loadMonth(); });
     }, '#storiesRow, .stories, .chips-row, .chart');
     // иконки в разметке (кнопки, вкладки)
     document.querySelectorAll('[data-ico]').forEach((el) => { el.innerHTML = ico(el.dataset.ico, el.classList.contains('act-c') ? 30 : 22); });
