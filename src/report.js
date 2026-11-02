@@ -26,12 +26,12 @@ async function totalsByCategory(env, userId, month, until = null, bs) {
   return results;
 }
 
-export async function monthSummary(env, userId, month, base, until = null) {
+export async function monthSummary(env, userId, month, base, until = null, withCarry = false) {
   const rates = await getRates(env);
   const bs = baseSql(base, rates); // суммы уже в основной валюте
   const conv = (v) => Math.round(v * 100) / 100;
   const prevMonth = shiftMonth(month, -1);
-  const [cur, prev, daily, custom, prefs] = await Promise.all([
+  const [cur, prev, daily, custom, prefs, carryRow] = await Promise.all([
     totalsByCategory(env, userId, month, until, bs),
     totalsByCategory(env, userId, prevMonth, until, bs),
     env.DB.prepare(
@@ -39,6 +39,13 @@ export async function monthSummary(env, userId, month, base, until = null) {
     ).bind(...bs.args, userId, `${month}-01`, upTo(month, until)).all(),
     env.DB.prepare('SELECT id, kind, name, emoji FROM custom_categories WHERE user_id = ?').bind(userId).all(),
     env.DB.prepare('SELECT category_id, name, emoji FROM category_prefs WHERE user_id = ?').bind(userId).all(),
+    // остаток всех прошлых месяцев: доходы минус расходы до первого числа (плюс копится, минус уменьшает)
+    withCarry
+      ? env.DB.prepare(
+        `SELECT SUM(CASE WHEN kind = 'income' THEN ${bs.expr} ELSE -(${bs.expr}) END) AS v FROM entries
+         WHERE user_id = ? AND date < ? AND (? IS NULL OR date <= ?)`
+      ).bind(...bs.args, ...bs.args, userId, `${month}-01`, until, until).first()
+      : Promise.resolve(null),
   ]);
   const prevMap = Object.fromEntries(prev.map((r) => [`${r.kind}:${r.category}`, conv(r.eur)]));
   const rows = cur.map((r) => ({ kind: r.kind, category: r.category, amount: conv(r.eur), count: r.n, prev: prevMap[`${r.kind}:${r.category}`] || 0 }))
@@ -51,6 +58,7 @@ export async function monthSummary(env, userId, month, base, until = null) {
   const prevTotal = prev.filter((r) => r.kind !== 'income').reduce((s, r) => s + conv(r.eur), 0);
   const prevIncome = prev.filter((r) => r.kind === 'income').reduce((s, r) => s + conv(r.eur), 0);
   const r2 = (n) => Math.round(n * 100) / 100;
+  const carry = withCarry && carryRow && carryRow.v ? carryRow.v : 0;
   const days = Array.from({ length: daysInMonth(month) }, () => 0);
   for (const r of daily.results) days[Number(r.date.slice(8, 10)) - 1] = conv(r.eur);
   return {
@@ -58,7 +66,9 @@ export async function monthSummary(env, userId, month, base, until = null) {
     month, base,
     total: r2(total),            // расходы
     income: r2(income),          // доходы
-    balance: r2(income - total), // остаток месяца
+    balance: r2(income - total + carry), // баланс месяца с учётом переноса
+    balanceMonth: r2(income - total),    // остаток только за этот месяц
+    carry: r2(carry),                    // перенос с прошлых месяцев
     prevTotal: r2(prevTotal),
     prevIncome: r2(prevIncome),
     count: rows.reduce((s, c) => s + c.count, 0),

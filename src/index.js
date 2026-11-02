@@ -252,7 +252,7 @@ async function handleApi(request, env, url) {
       env.DB.prepare('SELECT COUNT(*) AS n FROM category_limits WHERE user_id = ?').bind(user.id).first(),
     ]);
     return json({
-      user: { id: user.id, first_name: user.first_name, lang: user.lang, base_currency: user.base_currency, can_message: !!user.can_message, nudges: user.nudges !== 0 },
+      user: { id: user.id, first_name: user.first_name, lang: user.lang, base_currency: user.base_currency, can_message: !!user.can_message, nudges: user.nudges !== 0, carry_over: user.carry_over !== 0 },
       categories: CATEGORIES,
       income_categories: INCOME_CATEGORIES,
       custom_categories: await getCustom(),
@@ -394,6 +394,9 @@ async function handleApi(request, env, url) {
     if (typeof body.nudges === 'boolean') {
       await env.DB.prepare('UPDATE users SET nudges = ? WHERE id = ?').bind(body.nudges ? 1 : 0, user.id).run();
     }
+    if (typeof body.carry_over === 'boolean') {
+      await env.DB.prepare('UPDATE users SET carry_over = ? WHERE id = ?').bind(body.carry_over ? 1 : 0, user.id).run();
+    }
     if (typeof body.can_message === 'boolean') {
       await env.DB.prepare('UPDATE users SET can_message = ? WHERE id = ?').bind(body.can_message ? 1 : 0, user.id).run();
     }
@@ -406,7 +409,7 @@ async function handleApi(request, env, url) {
     const isCurrent = month === curMonth;
     if (isCurrent) await materialize(env, user.id); // регулярные платежи, у которых наступил день (для прошлых месяцев уже сделано)
     const [summary, list, rates, ruleNext, futureList] = await Promise.all([
-      monthSummary(env, user.id, month, base, now),
+      monthSummary(env, user.id, month, base, now, user.carry_over !== 0),
       env.DB.prepare(
         `SELECT e.id, e.date, e.amount, e.currency, e.amount_eur, e.category, e.note, e.merchant, e.receipt_id, e.source, e.kind,
                 e.recurring_id, r.day AS rec_day, r.active AS rec_active, r.period AS rec_period

@@ -57,7 +57,7 @@
       shareNoStory: 'Обновите Telegram, чтобы публиковать истории. Пока можно сохранить картинку',
       addIncome: 'Доход', addExpense: 'Расход', expense: 'Расход', incomeKind: 'Доход',
       newIncome: 'Новый доход', incomeNote: 'Откуда', incomeNotePh: 'Например, зарплата',
-      balance: 'Остаток', balanceOf: (m) => `Остаток за ${m}`, income: 'Доходы', expenses: 'Расходы',
+      balance: 'Остаток', balanceOf: (m) => `Баланс ${m}`, carry: 'Остаток', carryOver: 'Перенос остатков', income: 'Доходы', expenses: 'Расходы',
       spentOf: (a, b) => `потрачено ${a} из ${b}`, overspent: (x) => `Перерасход ${x}`,
       projected: 'Прогноз на конец месяца', addIncomeHint: 'Добавьте доход — и здесь будет видно, сколько осталось',
       repeat: 'Повторять', repeatDay: 'Число месяца',
@@ -118,7 +118,7 @@
       shareNoStory: 'Update Telegram to post stories. You can save the image for now',
       addIncome: 'Income', addExpense: 'Expense', expense: 'Expense', incomeKind: 'Income',
       newIncome: 'New income', incomeNote: 'Source', incomeNotePh: 'e.g. salary',
-      balance: 'Left over', balanceOf: (m) => `Left over in ${m}`, income: 'Income', expenses: 'Expenses',
+      balance: 'Left over', balanceOf: (m) => `${m} balance`, carry: 'Carried over', carryOver: 'Carry over balance', income: 'Income', expenses: 'Expenses',
       spentOf: (a, b) => `spent ${a} of ${b}`, overspent: (x) => `Overspent by ${x}`,
       projected: 'End-of-month forecast', addIncomeHint: 'Add your income to see how much is left',
       repeat: 'Repeat', repeatDay: 'Day of month',
@@ -1079,6 +1079,7 @@
     return `${sign ? `<span class="sg">${sign}</span>` : ''}${esc(m[1])}<span class="fr">${esc((m[2] || '') + (m[3] || ''))}</span>`;
   }
 
+  const sb = (s) => (s.balanceMonth !== undefined ? s.balanceMonth : s.balance); // остаток только за месяц, без переноса
   function render() {
     const { summary: s, entries } = state.data;
     const base = s.base;
@@ -1098,12 +1099,12 @@
       ? `<div class="h-forecast">${t('projected')}: <b>${signed(s.projected, base)}</b></div>` : '';
 
     // ---- жёлтая шапка: остаток (если есть доходы) или сколько потрачено
-    if (s.income > 0) {
+    if (s.income > 0 || s.carry) {
       $('#hero').innerHTML = `
-        <div class="h-label">${esc(t('balanceOf', monthIn))}</div>
+        <div class="h-label">${esc(t('balanceOf', state.lang === 'ru' ? MONTHS.ruGen[mm - 1] : monthIn))}</div>
         <div class="h-num num ${s.balance < 0 ? 'neg' : ''}">${bigMoney(s.balance, base, true)}</div>
         <div class="h-chips"><span class="h-chip">${t('income')} <b>${signed(s.income, base)}</b></span>
-          <span class="h-chip">${t('expenses')} <b>${signed(-s.total, base)}</b></span></div>${forecast}`;
+          <span class="h-chip">${t('expenses')} <b>${signed(-s.total, base)}</b></span>${s.carry ? `<span class="h-chip">${t('carry')} <b>${signed(s.carry, base)}</b></span>` : ''}</div>${forecast}`;
     } else {
       $('#hero').innerHTML = `
         <div class="h-label">${t('spent')}</div>
@@ -1421,10 +1422,10 @@
       const mi2 = Number(prev.slice(5, 7)) - 1;
       const story = buildMonthStory(s);
       const sub = s.income > 0
-        ? `<div class="s ${s.balance >= 0 ? 'g' : 'r'}">${s.balance >= 0 ? t('leftShare', Math.round(s.balance / s.income * 100)) : t('overShort')}</div>`
+        ? `<div class="s ${sb(s) >= 0 ? 'g' : 'r'}">${sb(s) >= 0 ? t('leftShare', Math.round(sb(s) / s.income * 100)) : t('overShort')}</div>`
         : (s.prevTotal > 0 ? `<div class="s ${s.total <= s.prevTotal ? 'g' : 'r'}">${s.total <= s.prevTotal ? '−' : '+'}${Math.abs(Math.round((s.total - s.prevTotal) / s.prevTotal * 100))}% ${t('vsPrev')}</div>` : '');
       box.innerHTML = `<div class="t">${t('monthResults')}</div><div class="p">${(state.lang === 'ru' ? MONTHS.ru : MONTHS.en)[mi2]}</div>
-        <div class="v num">${s.income > 0 ? signed(s.balance, s.base) : money(s.total, s.base, { round: s.total >= 1000 })}</div>${sub}
+        <div class="v num">${s.income > 0 ? signed(sb(s), s.base) : money(s.total, s.base, { round: s.total >= 1000 })}</div>${sub}
         ${topRow(s.categories[0] && s.categories[0].category)}${story ? `<button class="btn btn-outline" data-s="m">${t('openStory')}</button>` : ''}`;
       if (story) $('[data-s="m"]', box).addEventListener('click', () => openStory(story));
     }).catch(() => { const b = $('#pfMonth', el); if (b) b.innerHTML = `<div class="t">${t('monthResults')}</div><div class="e">${t('netError')}</div>`; });
@@ -2437,7 +2438,7 @@
       const mi = Number(prev.slice(5, 7)) - 1;
       const story = buildMonthStory(s);
       el.innerHTML = `<div class="pf-period">${state.lang === 'ru' ? MONTHS.ru[mi] : MONTHS.en[mi]} ${prev.slice(0, 4)}</div>
-        <div class="pf-stats">${stat(t('spentLbl'), money(s.total, s.base))}${stat(t('incomeLbl'), money(s.income, s.base), 'pos')}${stat(t('balanceLbl'), signed(s.balance, s.base), s.balance >= 0 ? 'pos' : 'neg')}</div>
+        <div class="pf-stats">${stat(t('spentLbl'), money(s.total, s.base))}${stat(t('incomeLbl'), money(s.income, s.base), 'pos')}${stat(t('balanceLbl'), signed(sb(s), s.base), sb(s) >= 0 ? 'pos' : 'neg')}</div>
         ${change(s.total, s.prevTotal, t('vsPrev'))}${top(s.categories[0] && s.categories[0].category)}${story ? storyBtn('m') : ''}`;
       if (story) $('[data-story="m"]', el).addEventListener('click', () => openStory(story));
     }).catch(() => { $('#pfMonth', S).innerHTML = `<div class="pf-empty">${t('netError')}</div>`; });
@@ -2478,6 +2479,9 @@
       </div>
       <div class="note">${t('baseNote')}</div>
       <div class="card list settings-list">
+        <div class="row"><span>${t('carryOver')}</span><button type="button" class="tgl ${me.carry_over ? 'on' : ''}" id="sCarry" role="switch" aria-checked="${!!me.carry_over}" aria-label="${esc(t('carryOver'))}"><i></i></button></div>
+      </div>
+      <div class="card list settings-list">
         <div class="row"><span>${t('scans')}</span><span class="settings-value num">${me.scansUsed} ${t('from')} ${me.scans}</span></div>
         <div class="row"><span>${t('reports')}</span><button type="button" class="tgl ${me.can_message ? 'on' : ''}" id="sReports" role="switch" aria-checked="${!!me.can_message}" aria-label="${esc(t('reports'))}"><i></i></button></div>
         <div class="row"><span>${t('nudges')}</span><button type="button" class="tgl ${me.nudges ? 'on' : ''}" id="sNudges" role="switch" aria-checked="${!!me.nudges}" aria-label="${esc(t('nudges'))}"><i></i></button></div>
@@ -2516,6 +2520,13 @@
         const ok = await requestWriteAccess(true);
         if (!(ok || me.can_message)) flip(el, false);
       }
+    });
+    $('#sCarry', S).addEventListener('click', async (e) => {
+      const el = e.currentTarget; haptic('select');
+      const v = !me.carry_over;
+      flip(el, v); me.carry_over = v;
+      await api('/settings', { method: 'POST', body: { carry_over: v } }).catch(() => toast(t('netError')));
+      loadMonth();
     });
     $('#sNudges', S).addEventListener('click', async (e) => {
       const el = e.currentTarget; haptic('select');
