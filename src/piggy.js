@@ -129,6 +129,53 @@ async function build(env, user, rates, today) {
 const validDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(`${d}T00:00:00Z`));
 const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
 
+// Собираем и проверяем позицию из тела запроса (для создания и для полной замены при редактировании)
+async function makeRow(env, user, body, { fail, rates, today, isCurrency }, id, existing = null) {
+  const kind = existing ? existing.kind : body.kind === 'invest' ? 'invest' : 'saving';
+  const name = String(body.name || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+  if (!name) return { res: fail(400, 'bad_name') };
+  const opened = validDate(body.opened) ? body.opened : today;
+  const row = { id, kind, name, opened, currency: String(body.currency || user.base_currency || 'EUR'), invested: 0,
+    principal: null, rate: null, accr_from: null, ends: null, ticker: null, qty: null, value: null, value_at: null };
+  if (!isCurrency(row.currency, rates)) return { res: fail(400, 'bad_currency') };
+  const invested = num(body.invested);
+  if (!(invested >= 0 && invested < 1e12)) return { res: fail(400, 'bad_amount') };
+  row.invested = invested;
+  if (kind === 'saving') {
+    if (!(invested > 0)) return { res: fail(400, 'bad_amount') };
+    const rate = num(body.rate) ?? 0;
+    if (!(rate >= 0 && rate <= 100)) return { res: fail(400, 'bad_rate') };
+    row.principal = invested; row.rate = rate; row.accr_from = opened;
+    row.ends = validDate(body.ends) && body.ends > opened ? body.ends : null;
+  } else {
+    const ticker = String(body.ticker || '').trim().toUpperCase();
+    if (ticker) {
+      if (!TICKER_RE.test(ticker)) return { res: fail(400, 'bad_ticker') };
+      const qty = num(body.qty);
+      if (!(qty > 0 && qty < 1e12)) return { res: fail(400, 'bad_qty') };
+      let q = null;
+      const known = await env.DB.prepare('SELECT price, currency, source FROM prices WHERE ticker = ? AND price IS NOT NULL').bind(ticker).first();
+      if (existing && existing.ticker === ticker && known) q = known; // тот же тикер при редактировании — цену не запрашиваем заново
+      else q = await fetchQuote(ticker);
+      if (!q) return { res: fail(404, 'ticker_not_found', 'Could not find a price for this ticker') };
+      row.ticker = ticker; row.qty = qty;
+      if (q.currency) row.currency = q.currency; // валюта позиции — валюта котировки
+      if (!isCurrency(row.currency, rates)) return { res: fail(400, 'bad_currency') };
+      if (!(existing && existing.ticker === ticker && known)) {
+        await env.DB.prepare(`INSERT INTO prices (ticker, price, currency, source, at, tried) VALUES (?1, ?2, ?3, ?4, datetime('now'), datetime('now'))
+          ON CONFLICT(ticker) DO UPDATE SET price = ?2, currency = COALESCE(?3, currency), source = ?4, at = datetime('now'), tried = datetime('now')`)
+          .bind(ticker, q.price, q.currency, q.source).run();
+      }
+    } else {
+      const value = num(body.value);
+      if (!(value >= 0 && value < 1e12)) return { res: fail(400, 'bad_amount') };
+      row.value = value;
+      row.value_at = existing && !existing.ticker && existing.value === value ? existing.value_at : new Date().toISOString().slice(0, 19).replace('T', ' ');
+    }
+  }
+  return { row };
+}
+
 export async function handlePiggy(env, user, path, method, body, { json, fail, rates, today, isCurrency }) {
   if (path === '/piggy' && method === 'GET') return json(await build(env, user, rates, today));
 
@@ -139,44 +186,11 @@ export async function handlePiggy(env, user, path, method, body, { json, fail, r
   }
 
   if (path === '/piggy' && method === 'POST') {
-    const kind = body.kind === 'invest' ? 'invest' : 'saving';
-    const name = String(body.name || '').replace(/\s+/g, ' ').trim().slice(0, 40);
-    if (!name) return fail(400, 'bad_name');
     const count = await env.DB.prepare('SELECT COUNT(*) AS n FROM holdings WHERE user_id = ?').bind(user.id).first();
     if (count.n >= 60) return fail(400, 'too_many');
-    const opened = validDate(body.opened) ? body.opened : today;
-    const row = { id: crypto.randomUUID(), kind, name, opened, currency: String(body.currency || user.base_currency || 'EUR'), invested: 0,
-      principal: null, rate: null, accr_from: null, ends: null, ticker: null, qty: null, value: null, value_at: null };
-    if (!isCurrency(row.currency, rates)) return fail(400, 'bad_currency');
-    const invested = num(body.invested);
-    if (!(invested >= 0 && invested < 1e12)) return fail(400, 'bad_amount');
-    row.invested = invested;
-    if (kind === 'saving') {
-      if (!(invested > 0)) return fail(400, 'bad_amount');
-      const rate = num(body.rate) ?? 0;
-      if (!(rate >= 0 && rate <= 100)) return fail(400, 'bad_rate');
-      row.principal = invested; row.rate = rate; row.accr_from = opened;
-      row.ends = validDate(body.ends) && body.ends > opened ? body.ends : null;
-    } else {
-      const ticker = String(body.ticker || '').trim().toUpperCase().replace(/^MOEX:/, 'MOEX:');
-      if (ticker) {
-        if (!TICKER_RE.test(ticker)) return fail(400, 'bad_ticker');
-        const qty = num(body.qty);
-        if (!(qty > 0 && qty < 1e12)) return fail(400, 'bad_qty');
-        const q = await fetchQuote(ticker);
-        if (!q) return fail(404, 'ticker_not_found', 'Could not find a price for this ticker');
-        row.ticker = ticker; row.qty = qty;
-        if (q.currency) row.currency = q.currency; // валюта позиции — валюта котировки
-        if (!isCurrency(row.currency, rates)) return fail(400, 'bad_currency');
-        await env.DB.prepare(`INSERT INTO prices (ticker, price, currency, source, at, tried) VALUES (?1, ?2, ?3, ?4, datetime('now'), datetime('now'))
-          ON CONFLICT(ticker) DO UPDATE SET price = ?2, currency = COALESCE(?3, currency), source = ?4, at = datetime('now'), tried = datetime('now')`)
-          .bind(ticker, q.price, q.currency, q.source).run();
-      } else {
-        const value = num(body.value);
-        if (!(value >= 0 && value < 1e12)) return fail(400, 'bad_amount');
-        row.value = value; row.value_at = new Date().toISOString().slice(0, 19).replace('T', ' ');
-      }
-    }
+    const r = await makeRow(env, user, body, { fail, rates, today, isCurrency }, crypto.randomUUID());
+    if (r.res) return r.res;
+    const row = r.row;
     await env.DB.prepare(`INSERT INTO holdings (id, user_id, kind, name, currency, invested, principal, rate, accr_from, ends, ticker, qty, value, value_at, opened)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .bind(row.id, user.id, row.kind, row.name, row.currency, row.invested, row.principal, row.rate, row.accr_from, row.ends, row.ticker, row.qty, row.value, row.value_at, row.opened).run();
@@ -193,14 +207,11 @@ export async function handlePiggy(env, user, path, method, body, { json, fail, r
     return json({ ok: true });
   }
   if (!m[2] && method === 'PATCH') {
-    const name = String(body.name ?? h.name).replace(/\s+/g, ' ').trim().slice(0, 40);
-    if (!name) return fail(400, 'bad_name');
-    let rate = h.rate, ends = h.ends;
-    if (h.kind === 'saving') {
-      if (body.rate !== undefined) { rate = num(body.rate) ?? 0; if (!(rate >= 0 && rate <= 100)) return fail(400, 'bad_rate'); }
-      if (body.ends !== undefined) ends = validDate(body.ends) ? body.ends : null;
-    }
-    await env.DB.prepare('UPDATE holdings SET name = ?, rate = ?, ends = ? WHERE id = ?').bind(name, rate, ends, h.id).run();
+    const r = await makeRow(env, user, body, { fail, rates, today, isCurrency }, h.id, h);
+    if (r.res) return r.res;
+    const x = r.row;
+    await env.DB.prepare(`UPDATE holdings SET name = ?, currency = ?, invested = ?, principal = ?, rate = ?, accr_from = ?, ends = ?, ticker = ?, qty = ?, value = ?, value_at = ?, opened = ? WHERE id = ? AND user_id = ?`)
+      .bind(x.name, x.currency, x.invested, x.principal, x.rate, x.accr_from, x.ends, x.ticker, x.qty, x.value, x.value_at, x.opened, h.id, user.id).run();
     return json({ ok: true });
   }
   // пополнение: вклад — проценты до сегодня «закрепляются» и дальше идут уже с новой суммы; бумаги — докупили qty на amount

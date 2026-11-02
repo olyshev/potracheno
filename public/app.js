@@ -30,10 +30,10 @@
       pgCushion: 'Подушка', pgCushionSub: 'ваших расходов', pgMo: 'мес.', pgPut: 'Вложено', pgNow: (v) => `сейчас ${v}`, pgReturn: 'Доходность', pgAddBtn: '+ Добавить',
       pgEmptySav: 'Добавьте вклад или накопительный счёт — проценты считаются сами', pgEmptyInv: 'Добавьте бумаги: с тикером цена обновляется сама раз в день', pgAccrued: 'начислено',
       pgRateYear: (r) => `${r}%`, pgUntil: 'до', pgSince: 'с', pgPutSub: (v) => `вложено ${v}`, pgNoPrice: 'нет цены', pgFirstPut: 'Дата первого вложения', pgHeld: 'В кубышке', pgYearYield: 'Доходность в год',
-      pgNew: 'Новая позиция', pgName: 'Название', pgNamePh: 'Например, вклад или ETF', pgAmount: 'Сумма', pgRate: 'Ставка, % годовых', pgOpened: 'Дата открытия', pgEnds: 'До какой даты (если есть срок)',
+      pgNew: 'Новая позиция', pgEdit: 'Изменить', pgName: 'Название', pgNamePh: 'Например, вклад или ETF', pgAmount: 'Сумма', pgRate: 'Ставка, % годовых', pgOpened: 'Дата открытия', pgEnds: 'До какой даты (если есть срок)',
       pgTicker: 'Тикер', pgTickerPh: 'KO, VWCE.DE, MOEX:SBER, BTC-EUR', pgTickerHint: 'С тикером цена обновляется сама раз в день. Без тикера стоимость вводите вручную.', pgQty: 'Количество бумаг',
       pgPutAmt: 'Сколько всего вложено', pgValueNow: 'Текущая стоимость', pgSaved: 'Сохранено', pgBadTicker: 'Не нашли цену для этого тикера', pgRefresh: 'Обновить цену', pgUpdValue: 'Обновить стоимость',
-      pgTopup: 'Пополнить', pgDel: 'Удалить', pgDelAsk: 'Удалить эту позицию?', pgPriceFrom: (d) => `цена на ${d}`, pgYrs: (y, m) => `${y ? `${y} г. ` : ''}${m ? `${m} мес.` : ''}`.trim() || 'меньше месяца',
+      pgTopup: 'Пополнить', pgDel: 'Удалить', pgDelAsk: 'Удалить эту позицию?', pgPriceFrom: (d) => `цена на ${d}`, pgYrs: (y, m) => `${y ? `${y} ${ruPl(y, 'год', 'года', 'лет')} ` : ''}${m ? `${m} ${ruPl(m, 'месяц', 'месяца', 'месяцев')}` : ''}`.trim() || 'меньше месяца',
       pgRefreshed: 'Цены обновлены', pgUnlocked: 'Кубышка включена', pgLocked: 'Кубышка скрыта', pgTopupQty: 'Сколько бумаг докупили', pgTopupAmt: 'На какую сумму', pgPriceFail: 'Не получилось получить цену — проверьте тикер',
       awards: 'Награды', awardsGot: 'Получено', awardsWip: 'В процессе', awardShare: 'Поделиться', awardsNewTitle: 'Новая награда!', awardsNewMany: 'Новые награды!', awardsOpenAll: 'Все награды',
       newCat: 'Новая категория', createCat: 'Создать', catNameLabel: 'Название', catNamePh: 'Например, хобби', catIcon: 'Значок', tooManyCats: 'Слишком много своих категорий', moreCats: 'Ещё', restAll: 'Всё остальное', limits: 'Лимиты', limitsSub: 'Сколько готовы тратить в месяц. Сдвиньте вправо до конца, чтобы снять лимит', perMonth: '/ мес', noLimit: 'Без лимита', noLimitShort: 'без лимита', limSpent: (s, l) => `Потрачено ${s} · осталось ${l}`, limOver: (s, o) => `Потрачено ${s} · <b>больше на ${o}</b>`, addLimit: 'Добавить лимит', limitFor: 'Лимит на категорию', limitTaken: 'Серые — уже с лимитом', limitsEmpty: 'Задайте, сколько готовы тратить в месяц на кафе, такси или покупки, — приложение покажет, сколько осталось.', addPayment: 'Добавить платёж', paymentKindQ: 'Какой регулярный платёж добавить?', addIncomeShort: 'Добавить доход', today: 'Сегодня', yesterday: 'Вчера', tomorrow: 'Завтра', otherDate: 'Другая дата', pickDate: 'Выбрать', emptyTitle: 'Пока пусто',
@@ -100,10 +100,10 @@
       pgCushion: 'Cushion', pgCushionSub: 'of your spending', pgMo: 'mo', pgPut: 'Invested', pgNow: (v) => `now ${v}`, pgReturn: 'Return', pgAddBtn: '+ Add',
       pgEmptySav: 'Add a deposit or savings account — interest is calculated for you', pgEmptyInv: 'Add holdings: with a ticker the price updates by itself once a day', pgAccrued: 'earned',
       pgRateYear: (r) => `${r}%`, pgUntil: 'until', pgSince: 'since', pgPutSub: (v) => `invested ${v}`, pgNoPrice: 'no price', pgFirstPut: 'First invested', pgHeld: 'Held for', pgYearYield: 'Return per year',
-      pgNew: 'New holding', pgName: 'Name', pgNamePh: 'For example, a deposit or an ETF', pgAmount: 'Amount', pgRate: 'Rate, % a year', pgOpened: 'Opened on', pgEnds: 'Until (if it has a term)',
+      pgNew: 'New holding', pgEdit: 'Edit', pgName: 'Name', pgNamePh: 'For example, a deposit or an ETF', pgAmount: 'Amount', pgRate: 'Rate, % a year', pgOpened: 'Opened on', pgEnds: 'Until (if it has a term)',
       pgTicker: 'Ticker', pgTickerPh: 'KO, VWCE.DE, MOEX:SBER, BTC-EUR', pgTickerHint: 'With a ticker the price updates by itself once a day. Without one, enter the value yourself.', pgQty: 'Number of units',
       pgPutAmt: 'Total invested', pgValueNow: 'Current value', pgSaved: 'Saved', pgBadTicker: 'Could not find a price for this ticker', pgRefresh: 'Refresh price', pgUpdValue: 'Update value',
-      pgTopup: 'Add funds', pgDel: 'Delete', pgDelAsk: 'Delete this holding?', pgPriceFrom: (d) => `price as of ${d}`, pgYrs: (y, m) => `${y ? `${y} y ` : ''}${m ? `${m} mo` : ''}`.trim() || 'under a month',
+      pgTopup: 'Add funds', pgDel: 'Delete', pgDelAsk: 'Delete this holding?', pgPriceFrom: (d) => `price as of ${d}`, pgYrs: (y, m) => `${y ? `${y} ${y === 1 ? 'year' : 'years'} ` : ''}${m ? `${m} ${m === 1 ? 'month' : 'months'}` : ''}`.trim() || 'under a month',
       pgRefreshed: 'Prices updated', pgUnlocked: 'Piggy bank enabled', pgLocked: 'Piggy bank hidden', pgTopupQty: 'Units bought', pgTopupAmt: 'For what amount', pgPriceFail: 'Could not get the price — check the ticker',
       awards: 'Awards', awardsGot: 'Earned', awardsWip: 'In progress', awardShare: 'Share', awardsNewTitle: 'New award!', awardsNewMany: 'New awards!', awardsOpenAll: 'All awards',
       newCat: 'New category', createCat: 'Create', catNameLabel: 'Name', catNamePh: 'e.g. Hobby', catIcon: 'Icon', tooManyCats: 'Too many custom categories', moreCats: 'More', restAll: 'Everything else', limits: 'Limits', limitsSub: 'How much you’re ready to spend per month. Slide all the way right to remove a limit', perMonth: '/ mo', noLimit: 'No limit', noLimitShort: 'no limit', limSpent: (s, l) => `Spent ${s} · ${l} left`, limOver: (s, o) => `Spent ${s} · <b>${o} over</b>`, addLimit: 'Add limit', limitFor: 'Limit for a category', limitTaken: 'Grey ones already have a limit', limitsEmpty: 'Set how much you’re ready to spend per month on cafes, taxis or shopping — the app will show what’s left.', addPayment: 'Add payment', paymentKindQ: 'What kind of recurring payment?', addIncomeShort: 'Add income', today: 'Today', yesterday: 'Yesterday', tomorrow: 'Tomorrow', otherDate: 'Other date', pickDate: 'Pick', emptyTitle: 'Nothing here yet',
@@ -2162,7 +2162,10 @@
   // ---------- кубышка: вклады и инвестиции (пока включается скрытым жестом) ----------
   const piggyOn = () => store.get('piggy') === '1';
   const pgPct = (n) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${String(Math.abs(n)).replace('.', state.lang === 'ru' ? ',' : '.')}%`;
-  const pgDate = (d) => `${dayMonthShort(d)} ${d.slice(0, 4)}`;
+  const pgDate = (d) => (state.lang === 'ru' ? `${dayMonth(d)} ${d.slice(0, 4)}` : `${dayMonth(d)}, ${d.slice(0, 4)}`);
+  // «1 месяц / 2 месяца / 5 месяцев», «год / года / лет»; для дробных — родительный падеж («2,2 месяца»)
+  function ruPl(n, a, b, c) { const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? a : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? b : c; }
+  const pgMonths = (n) => (state.lang === 'ru' ? (Number.isInteger(n) ? `${n} ${ruPl(n, 'месяц', 'месяца', 'месяцев')}` : `${String(n).replace('.', ',')} месяца`) : `${n} ${n === 1 ? 'month' : 'months'}`);
   async function loadPiggy() {
     if (!piggyOn()) return;
     try { state.piggy = await api('/piggy'); } catch { return; }
@@ -2206,10 +2209,10 @@
       setTimeout(() => $(`#pa_${fields[0].id}`, sh.sheet).focus(), 300);
     });
   }
-  function openHoldingForm(kind0 = 'saving') {
-    let kind = kind0, cur = state.me.base_currency;
-    const sh = openSheet(`<div class="sheet-head"><h2>${t('pgNew')}</h2><button class="close">${t('close')}</button></div>
-      <div class="seg" id="pgKind" style="margin:0 0 14px"><button data-k="saving">${t('pgSav')}</button><button data-k="invest">${t('pgInv')}</button></div>
+  function openHoldingForm(kind0 = 'saving', ex = null) {
+    let kind = ex ? ex.kind : kind0, cur = ex ? ex.currency : state.me.base_currency;
+    const sh = openSheet(`<div class="sheet-head"><h2>${t(ex ? 'pgEdit' : 'pgNew')}</h2><button class="close">${t('close')}</button></div>
+      <div class="seg" id="pgKind" style="margin:0 0 14px" ${ex ? 'hidden' : ''}><button data-k="saving">${t('pgSav')}</button><button data-k="invest">${t('pgInv')}</button></div>
       <div class="field"><label for="pgName">${t('pgName')}</label><input id="pgName" maxlength="40" autocomplete="off" placeholder="${esc(t('pgNamePh'))}"></div>
       <div id="pgFields"></div>
       <button class="btn btn-primary btn-block" id="pgSave" style="margin-top:6px">${t('save')}</button>`);
@@ -2240,6 +2243,13 @@
     };
     sh.sheet.querySelectorAll('#pgKind button').forEach((b) => b.addEventListener('click', () => { kind = b.dataset.k; haptic('select'); draw(); }));
     draw();
+    if (ex) {
+      const set = (id, v) => { const e = $(id, sh.sheet); if (e && v !== null && v !== undefined) e.value = v; };
+      set('#pgName', ex.name); set('#pgAmt', ex.invested); set('#pgOpened', ex.opened);
+      if (ex.kind === 'saving') { set('#pgRate', ex.rate); set('#pgEnds', ex.ends); }
+      else if (ex.ticker) { set('#pgTicker', ex.ticker); set('#pgQty', ex.qty); $('#pgTicker', sh.sheet).dispatchEvent(new Event('input')); }
+      else set('#pgVal', ex.value);
+    }
     $('#pgSave', sh.sheet).addEventListener('click', async (ev) => {
       const btn = ev.currentTarget;
       const body = { kind, name: $('#pgName', sh.sheet).value.trim(), invested: num('#pgAmt'), opened: $('#pgOpened', sh.sheet).value, currency: cur };
@@ -2251,7 +2261,7 @@
         else { body.value = num('#pgVal'); if (!(body.value >= 0) || Number.isNaN(body.value)) { haptic('error'); return; } }
       }
       btn.disabled = true;
-      try { await api('/piggy', { method: 'POST', body }); haptic('success'); toast(t('pgSaved')); closeSheet(sh); state.pgTab = kind === 'invest' ? 'invest' : 'saving'; await loadPiggy(); }
+      try { await (ex ? api(`/piggy/${ex.id}`, { method: 'PATCH', body }) : api('/piggy', { method: 'POST', body })); haptic('success'); toast(t('pgSaved')); closeSheet(sh); state.pgTab = kind === 'invest' ? 'invest' : 'saving'; await loadPiggy(); }
       catch (e) { toast(e.code === 'ticker_not_found' ? t('pgBadTicker') : t('netError')); btn.disabled = false; }
     });
   }
@@ -2275,6 +2285,7 @@
       <div class="pg-facts">${facts}</div>
       ${h.ticker ? `<button class="btn btn-primary btn-block" id="hRefresh">${t('pgRefresh')}</button>` : h.kind === 'invest' ? `<button class="btn btn-primary btn-block" id="hValue">${t('pgUpdValue')}</button>` : ''}
       <button class="btn btn-secondary btn-block" id="hTopup" style="margin-top:8px">${t('pgTopup')}</button>
+      <button class="btn btn-secondary btn-block" id="hEdit" style="margin-top:8px">${t('pgEdit')}</button>
       <button class="aw-plain" id="hDel" style="color:var(--neg)">${t('pgDel')}</button>`);
     $('.close', sh.sheet).addEventListener('click', () => closeSheet(sh));
     const done = async () => { closeSheet(sh); await loadPiggy(); };
@@ -2296,6 +2307,7 @@
       if (!v) return;
       try { await api(`/piggy/${h.id}/topup`, { method: 'POST', body: v }); haptic('success'); done(); } catch { toast(t('netError')); }
     });
+    $('#hEdit', sh.sheet).addEventListener('click', () => { closeSheet(sh); setTimeout(() => openHoldingForm(h.kind, h), 220); });
     $('#hDel', sh.sheet).addEventListener('click', async () => {
       if (!(await confirmBox(t('pgDelAsk')))) return;
       try { await api(`/piggy/${h.id}`, { method: 'DELETE' }); haptic('success'); done(); } catch { toast(t('netError')); }
@@ -2329,7 +2341,7 @@
             ${tt.invested > 0 ? `<span class="h-chip">${t('pgGain')} <b>${esc(signed(tt.gain, base))}${tt.pct === null ? '' : ` · ${esc(pgPct(tt.pct))}`}</b></span>` : ''}</div></section></div>
       <div class="pg-body">
         <div class="pg-stats">${tab === 'saving'
-          ? `${stat(t('pgInterest'), esc(signed(tt.savingsGain, base)), t('pgAll'))}${stat(t('pgCushion'), tt.cushion === null ? '—' : `≈ ${String(tt.cushion).replace('.', state.lang === 'ru' ? ',' : '.')} ${t('pgMo')}`, t('pgCushionSub'))}`
+          ? `${stat(t('pgInterest'), esc(signed(tt.savingsGain, base)), t('pgAll'))}${stat(t('pgCushion'), tt.cushion === null ? '—' : `≈ ${pgMonths(tt.cushion)}`, t('pgCushionSub'))}`
           : `${stat(t('pgPut'), esc(money(tt.investInvested, base, { round: true })), esc(t('pgNow', money(tt.invest, base, { round: true }))))}${stat(t('pgReturn'), tt.investPct === null ? '—' : esc(pgPct(tt.investPct)), esc(signed(tt.investGain, base)))}`}</div>
         <div class="seg" id="pgSeg"><button data-k="saving" class="${tab === 'saving' ? 'active' : ''}">${t('pgSav')}</button><button data-k="invest" class="${tab === 'invest' ? 'active' : ''}">${t('pgInv')}</button></div>
         ${list.length ? `<div class="list pg-list">${list.map(row).join('')}</div>` : `<div class="empty"><b>${t(tab === 'saving' ? 'pgEmptySav' : 'pgEmptyInv')}</b></div>`}
