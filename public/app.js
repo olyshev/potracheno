@@ -1733,7 +1733,7 @@
 
   function openManual(startKind = 'expense', opts = {}) {
     let kind = startKind;
-    let currency = state.lastCurrency || state.me.base_currency;
+    let currency = state.me.base_currency; // по умолчанию всегда основная валюта из настроек
     let category = null, suggested = null, userPicked = false, timer = null, seq = 0;
     const rep = repeatBlock('m', { period: opts.period || null, day: Number(state.today.slice(8, 10)), date: state.today });
     const sh = openSheet(`
@@ -1820,7 +1820,6 @@
           method: 'POST',
           body: { kind, amount, currency, note: noteEl.value.trim(), category, date, recurring: repeat.on ? { period: repeat.period, day: repeat.day } : null },
         });
-        state.lastCurrency = currency; store.set('lastCurrency', currency);
         haptic('success'); toast(t('saved')); closeSheet(sh);
         state.month = date.slice(0, 7);
         loadMonth();
@@ -2496,7 +2495,7 @@
       const c = await pickCurrency(me.base_currency, t('baseCurrency'));
       if (c && c !== me.base_currency) {
         await api('/settings', { method: 'POST', body: { base_currency: c } }).catch(() => toast(t('netError')));
-        me.base_currency = c; state.lastCurrency = c; store.set('lastCurrency', c);
+        me.base_currency = c;
         closeSheet(sh); loadMonth(); openSettings();
       }
     });
@@ -2585,7 +2584,7 @@
       $('#wOk', sh.sheet).addEventListener('click', async () => {
         if (chosen !== state.me.base_currency) {
           await api('/settings', { method: 'POST', body: { base_currency: chosen } }).catch(() => {});
-          state.me.base_currency = chosen; state.lastCurrency = chosen; store.set('lastCurrency', chosen);
+          state.me.base_currency = chosen;
         }
         store.set('welcomed', '1');
         closeSheet(sh);
@@ -2654,8 +2653,6 @@
     state.limitsCount = me.limitsCount || 0;
     state.me.awards = me.awards || null;
     state.month = me.today.slice(0, 7);
-    state.lastCurrency = store.get('lastCurrency') || me.user.base_currency;
-    if (!state.currencies.includes(state.lastCurrency)) state.lastCurrency = me.user.base_currency;
     applyStatic();
 
     $('#monthLabel').addEventListener('click', pickMonth);
