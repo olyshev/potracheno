@@ -18,6 +18,7 @@ import { parseDocument, receiptToDraft, transactionsToDraft, suggestCategory } f
 import { monthSummary, reportText, runMonthlyReports, MONTH_RE, money } from './report.js';
 import { tg, sendDocument, downloadFile, openAppKeyboard } from './telegram.js';
 import { AWARDS, AWARD_IDS, goalIn } from './awards.js';
+import { handlePiggy, updatePrices } from './piggy.js';
 
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8' } });
@@ -737,6 +738,7 @@ async function handleApi(request, env, url) {
     await env.DB.batch([
       env.DB.prepare('DELETE FROM entries WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM recurring WHERE user_id = ?').bind(user.id),
+      env.DB.prepare('DELETE FROM holdings WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM custom_categories WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM category_prefs WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM story_views WHERE user_id = ?').bind(user.id),
@@ -747,6 +749,11 @@ async function handleApi(request, env, url) {
       env.DB.prepare('DELETE FROM users WHERE id = ?').bind(user.id),
     ]);
     return json({ ok: true });
+  }
+
+  if (path.startsWith('/piggy')) {
+    const r = await handlePiggy(env, user, path, method, body, { json, fail, rates: await getRates(env), today: now, isCurrency });
+    if (r) return r;
   }
 
   return fail(404, 'not_found');
@@ -1060,6 +1067,8 @@ export default {
         // напоминания: внутри сами проверяют местный час и дату пользователя
         const n = await runNudges(env);
         if (n.sent) console.log('nudges', JSON.stringify(n));
+        const pr = await updatePrices(env);
+        if (pr.checked) console.log('prices', JSON.stringify(pr));
         const a = await runAwardsAnnouncement(env);
         if (a.sent) console.log('awards-announce', JSON.stringify(a));
       }
