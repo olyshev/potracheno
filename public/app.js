@@ -2578,7 +2578,7 @@
 
     $('#prevMonth').addEventListener('click', () => { state.month = shiftMonth(state.month, -1); state.filter = null; haptic('select'); loadMonth(); });
     $('#nextMonth').addEventListener('click', () => { state.month = shiftMonth(state.month, 1); state.filter = null; haptic('select'); loadMonth(); });
-    // статистика: свайп влево — предыдущий месяц, вправо — следующий
+    // статистика: свайп слева направо — предыдущий месяц, справа налево — следующий
     {
       let sx = 0, sy = 0, ok = false;
       const v = $('#viewStats');
@@ -2587,7 +2587,7 @@
         if (!ok) return; ok = false;
         const t0 = e.changedTouches[0], dx = t0.clientX - sx, dy = t0.clientY - sy;
         if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-        statsGo(dx < 0 ? -1 : 1);
+        statsGo(dx > 0 ? -1 : 1);
       }, { passive: true });
     }
     // иконки в разметке (кнопки, вкладки)
