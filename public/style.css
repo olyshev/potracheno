@@ -363,7 +363,7 @@ button.emoji { cursor: pointer; }
 /* своя категория */
 .chip-new { color: var(--link); }
 .emoji-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 16px; }
-.emoji-btn { aspect-ratio: 1; border: 2px solid transparent; border-radius: 12px; background: var(--card); font-size: 24px; cursor: pointer; padding: 0; }
+.emoji-btn { display: grid; place-items: center; color: var(--text); aspect-ratio: 1; border: 2px solid transparent; border-radius: 12px; background: var(--card); font-size: 24px; cursor: pointer; padding: 0; }
 .emoji-btn.active { border-color: var(--accent); background: var(--soft); }
 .btn:disabled { opacity: .5; }
 

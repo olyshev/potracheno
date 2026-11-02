@@ -185,12 +185,14 @@
   };
   const TINT_OF = Object.fromEntries(Object.entries(GROUPS).flatMap(([g, ids]) => ids.map((id) => [id, Number(g)])));
   const tintOf = (id) => TINTS[TINT_OF[id] ?? ([...String(id)].reduce((a, ch) => a + ch.charCodeAt(0), 0) % TINTS.length)];
+  // эмодзи своей категории → нарисованный значок (если есть), иначе сам эмодзи
+  const emojiIco = (e, size = 22, color = '#000') => { const n = window.ICONS && window.ICONS.EMOJI[e]; return n ? ico(n, size, color) : esc(e); };
   function catIco(id, size = 44) {
     const c = cat(id);
     const name = window.ICONS && window.ICONS.CAT[id];
     const pe = state.prefs && state.prefs[id] && state.prefs[id].emoji;
     const ownEmoji = c.custom || (pe && state.baseCats[id] && pe !== state.baseCats[id].emoji);
-    const inner = name && !ownEmoji ? ico(name, Math.round(size * 0.5), '#000') : esc(c.emoji);
+    const inner = name && !ownEmoji ? ico(name, Math.round(size * 0.5), '#000') : emojiIco(c.emoji, Math.round(size * 0.5));
     return `<span class="ci s${size}" style="background:${tintOf(id)}">${inner}</span>`;
   }
   const isHidden = (id) => !!(state.prefs && state.prefs[id] && state.prefs[id].hidden);
@@ -600,7 +602,7 @@
     if (window.ICONS.CAT[id] !== undefined || state.custom && state.custom.some((c) => c.id === id)) {
       const c = cat(id), pe = state.prefs && state.prefs[id] && state.prefs[id].emoji;
       const own = c.custom || (pe && state.baseCats[id] && pe !== state.baseCats[id].emoji);
-      if (window.ICONS.CAT[id] && !own) name = window.ICONS.CAT[id]; else emoji = c.emoji;
+      if (window.ICONS.CAT[id] && !own) name = window.ICONS.CAT[id]; else if (window.ICONS.EMOJI[c.emoji]) name = window.ICONS.EMOJI[c.emoji]; else emoji = c.emoji;
     } else name = id;
     if (name) {
       const im = await svgImg(window.ICONS.icon(name, 96, '#000')).catch(() => null);
@@ -944,7 +946,7 @@
     const c = cat(id), name = window.ICONS && window.ICONS.CAT[id];
     const pe = state.prefs && state.prefs[id] && state.prefs[id].emoji;
     const own = c.custom || (pe && state.baseCats[id] && pe !== state.baseCats[id].emoji);
-    return `<div class="w2-ci" style="background:${tintOf(id)}">${name && !own ? ico(name, 62, '#000') : `<span style="font-size:64px">${esc(c.emoji)}</span>`}</div>`;
+    return `<div class="w2-ci" style="background:${tintOf(id)}">${name && !own ? ico(name, 62, '#000') : `${window.ICONS.EMOJI[c.emoji] ? ico(window.ICONS.EMOJI[c.emoji], 62, '#000') : `<span style="font-size:64px">${esc(c.emoji)}</span>`}`}</div>`;
   }
   const w2Page = (bg, color, body) => `<div class="wr w2" style="background:${bg};color:${color}">${body}${w2Logo()}</div>`;
 
@@ -1389,7 +1391,7 @@
         <div class="sheet-head"><h2>${ex ? t('editCat') : t('newCat')}</h2><button class="close">${t('cancel')}</button></div>
         <div class="field"><label for="ncName">${t('catNameLabel')}</label><input id="ncName" maxlength="30" autocomplete="off" placeholder="${t('catNamePh')}" value="${ex ? esc(catName(editId)) : ''}"></div>
         <div class="label-row"><span>${t('catIcon')}</span></div>
-        <div class="emoji-grid" id="ncEmoji">${icons.map((e) => `<button class="emoji-btn ${e === emoji ? 'active' : ''}" data-e="${e}">${e}</button>`).join('')}</div>
+        <div class="emoji-grid" id="ncEmoji">${icons.map((e) => `<button class="emoji-btn ${e === emoji ? 'active' : ''}" data-e="${e}">${emojiIco(e, 30, 'currentColor')}</button>`).join('')}</div>
         <button class="btn btn-primary btn-block" id="ncSave" ${ex ? '' : 'disabled'}>${ex ? t('save') : t('createCat')}</button>
         ${canDelete ? `<button class="btn btn-danger btn-block" id="ncDel" style="margin-top:6px">${t('deleteCat')}</button>` : ''}`, { onClose: () => resolve(created) });
       const S = sh.sheet, nameEl = $('#ncName', S), save = $('#ncSave', S);
@@ -2317,7 +2319,7 @@
     const S = sh.sheet;
     $('.close', S).addEventListener('click', () => closeSheet(sh));
     const stat = (label, value, cls = '') => `<div class="pf-stat"><small>${label}</small><b class="${cls}">${value}</b></div>`;
-    const top = (id) => id ? `<div class="pf-top"><span>${cat(id).emoji}</span><div><small>${t('topLbl')}</small><b>${esc(catName(id))}</b></div></div>` : '';
+    const top = (id) => id ? `<div class="pf-top"><span>${emojiIco(cat(id).emoji, 26, 'currentColor')}</span><div><small>${t('topLbl')}</small><b>${esc(catName(id))}</b></div></div>` : '';
     const change = (curV, prevV, label) => {
       if (!prevV) return '';
       const pct = Math.round((curV - prevV) / prevV * 100);
