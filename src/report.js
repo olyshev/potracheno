@@ -1,6 +1,6 @@
 // Сводка за месяц (для экрана и для бота) и ежемесячная рассылка итогов.
 import { catLabel, customMap } from './categories.js';
-import { getRates, fromEur } from './rates.js';
+import { getRates, baseSql } from './rates.js';
 import { tg, openAppKeyboard } from './telegram.js';
 import { localToday, localHour } from './recurring.js';
 
@@ -18,24 +18,25 @@ export const daysInMonth = (month) => {
 
 // until — «сегодня» пользователя: операции с будущей датой в учёт не входят, пока их день не наступил
 const upTo = (month, until) => (until && until < `${month}-31` ? until : `${month}-31`);
-async function totalsByCategory(env, userId, month, until = null) {
+async function totalsByCategory(env, userId, month, until = null, bs) {
   const { results } = await env.DB.prepare(
-    `SELECT kind, category, SUM(amount_eur) AS eur, COUNT(*) AS n FROM entries
+    `SELECT kind, category, SUM(${bs.expr}) AS eur, COUNT(*) AS n FROM entries
      WHERE user_id = ? AND date >= ? AND date <= ? GROUP BY kind, category`
-  ).bind(userId, `${month}-01`, upTo(month, until)).all();
+  ).bind(...bs.args, userId, `${month}-01`, upTo(month, until)).all();
   return results;
 }
 
 export async function monthSummary(env, userId, month, base, until = null) {
   const rates = await getRates(env);
-  const conv = (eur) => Math.round(fromEur(eur, base, rates) * 100) / 100;
+  const bs = baseSql(base, rates); // суммы уже в основной валюте
+  const conv = (v) => Math.round(v * 100) / 100;
   const prevMonth = shiftMonth(month, -1);
   const [cur, prev, daily, custom, prefs] = await Promise.all([
-    totalsByCategory(env, userId, month, until),
-    totalsByCategory(env, userId, prevMonth, until),
+    totalsByCategory(env, userId, month, until, bs),
+    totalsByCategory(env, userId, prevMonth, until, bs),
     env.DB.prepare(
-      `SELECT date, SUM(amount_eur) AS eur FROM entries WHERE user_id = ? AND kind = 'expense' AND date >= ? AND date <= ? GROUP BY date`
-    ).bind(userId, `${month}-01`, upTo(month, until)).all(),
+      `SELECT date, SUM(${bs.expr}) AS eur FROM entries WHERE user_id = ? AND kind = 'expense' AND date >= ? AND date <= ? GROUP BY date`
+    ).bind(...bs.args, userId, `${month}-01`, upTo(month, until)).all(),
     env.DB.prepare('SELECT id, kind, name, emoji FROM custom_categories WHERE user_id = ?').bind(userId).all(),
     env.DB.prepare('SELECT category_id, name, emoji FROM category_prefs WHERE user_id = ?').bind(userId).all(),
   ]);

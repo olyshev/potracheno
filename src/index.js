@@ -12,7 +12,7 @@ import { normalizeMerchant } from './brands.js';
 import { runNudges } from './nudges.js';
 import { shiftMonth } from './report.js';
 const prevMonth = (m) => shiftMonth(m, -1);
-import { getRates, isCurrency, toEur, fromEur, round2, CURRENCIES } from './rates.js';
+import { getRates, isCurrency, toEur, fromEur, round2, inBase, baseSql, CURRENCIES } from './rates.js';
 import { parseDocument, receiptToDraft, transactionsToDraft, suggestCategory } from './ai.js';
 import { monthSummary, reportText, runMonthlyReports, MONTH_RE, money } from './report.js';
 import { tg, sendDocument, downloadFile, openAppKeyboard } from './telegram.js';
@@ -201,9 +201,10 @@ const awardsOn = (env, userId) => env.AWARDS_ENABLED === '1' || String(env.AWARD
 // Считает суммарные траты по категориям за всё время, выдаёт новые награды и возвращает полный список
 async function syncAwards(env, user) {
   const base = user.base_currency || 'EUR';
+  const rates0 = await getRates(env);
   const [rates, tot, have] = await Promise.all([
-    getRates(env),
-    env.DB.prepare("SELECT category, SUM(amount_eur) AS eur FROM entries WHERE user_id = ? AND kind = 'expense' AND date <= ? GROUP BY category").bind(user.id, localToday(user.tz)).all(),
+    Promise.resolve(rates0),
+    env.DB.prepare(`SELECT category, SUM(${baseSql(base, rates0).expr}) AS eur FROM entries WHERE user_id = ? AND kind = 'expense' AND date <= ? GROUP BY category`).bind(...baseSql(base, rates0).args, user.id, localToday(user.tz)).all(),
     env.DB.prepare('SELECT award_id, earned_at, seen FROM awards WHERE user_id = ?').bind(user.id).all(),
   ]);
   const eur = Object.fromEntries(tot.results.map((r) => [r.category, r.eur || 0]));
@@ -211,7 +212,7 @@ async function syncAwards(env, user) {
   const fresh = [];
   const list = AWARDS.map((a) => {
     const goal = goalIn(a.goal, base);
-    const spent = round2(fromEur(eur[a.cat] || 0, base, rates));
+    const spent = round2(eur[a.cat] || 0);
     let row = got.get(a.id);
     if (!row && spent >= goal) { fresh.push(a.id); row = { earned_at: new Date().toISOString().slice(0, 19).replace('T', ' '), seen: 0 }; }
     return { id: a.id, icon: a.icon, category: a.cat, ru: a.ru, en: a.en, goal, spent: Math.min(spent, goal), earned: !!row, earnedAt: row ? row.earned_at : null, seen: row ? !!row.seen : false };
@@ -292,19 +293,20 @@ async function handleApi(request, env, url) {
     const base = user.base_currency || 'EUR';
     const rates = await getRates(env);
     const conv = (eur) => round2(fromEur(eur, base, rates));
+    const bs = baseSql(base, rates);
     const monthStart = `${curMonth}-01`;
     const d = new Date(`${monthStart}T00:00:00Z`); d.setUTCMonth(d.getUTCMonth() - 3);
     const from3 = d.toISOString().slice(0, 10);
     const [lim, cur, past] = await Promise.all([
       env.DB.prepare('SELECT category_id, amount, currency, amount_eur FROM category_limits WHERE user_id = ? ORDER BY updated_at').bind(user.id).all(),
-      env.DB.prepare("SELECT category, SUM(amount_eur) AS eur FROM entries WHERE user_id = ? AND kind = 'expense' AND date >= ? AND date <= ? GROUP BY category").bind(user.id, monthStart, now).all(),
-      env.DB.prepare("SELECT category, SUM(amount_eur) AS eur FROM entries WHERE user_id = ? AND kind = 'expense' AND date >= ? AND date < ? GROUP BY category").bind(user.id, from3, monthStart).all(),
+      env.DB.prepare(`SELECT category, SUM(${bs.expr}) AS eur FROM entries WHERE user_id = ? AND kind = 'expense' AND date >= ? AND date <= ? GROUP BY category`).bind(...bs.args, user.id, monthStart, now).all(),
+      env.DB.prepare(`SELECT category, SUM(${bs.expr}) AS eur FROM entries WHERE user_id = ? AND kind = 'expense' AND date >= ? AND date < ? GROUP BY category`).bind(...bs.args, user.id, from3, monthStart).all(),
     ]);
     return json({
       base,
       limits: lim.results.map((r) => ({ category: r.category_id, amount: r.currency === base ? r.amount : conv(r.amount_eur) })),
-      spent: Object.fromEntries(cur.results.map((r) => [r.category, conv(r.eur)])),
-      avg: Object.fromEntries(past.results.map((r) => [r.category, conv(r.eur / 3)])),
+      spent: Object.fromEntries(cur.results.map((r) => [r.category, round2(r.eur)])),
+      avg: Object.fromEntries(past.results.map((r) => [r.category, round2(r.eur / 3)])),
     });
   }
   // POST { category, amount } — задать лимит; amount: null — снять
@@ -421,8 +423,8 @@ async function handleApi(request, env, url) {
          WHERE e.user_id = ? AND e.date > ? AND e.date <= ? ORDER BY e.date, e.created_at`
       ).bind(user.id, now, `${month}-31`).all() : { results: [] },
     ]);
-    const entries = list.results.map((e) => ({ ...e, amount_base: round2(fromEur(e.amount_eur, base, rates)) }));
-    const scheduled = futureList.results.map((e) => ({ ...e, amount_base: round2(fromEur(e.amount_eur, base, rates)) }));
+    const entries = list.results.map((e) => ({ ...e, amount_base: round2(inBase(e.amount, e.currency, e.amount_eur, base, rates)) }));
+    const scheduled = futureList.results.map((e) => ({ ...e, amount_base: round2(inBase(e.amount, e.currency, e.amount_eur, base, rates)) }));
     const dup = new Set(scheduled.filter((e) => e.recurring_id).map((e) => `${e.recurring_id}|${e.date}`));
     const next = [...ruleNext.filter((u) => !dup.has(`${u.id}|${u.date}`)),
       ...scheduled.map((e) => ({ id: e.recurring_id, entry_id: e.id, kind: e.kind, amount: e.amount, currency: e.currency, category: e.category, note: e.note,
@@ -590,13 +592,14 @@ async function handleApi(request, env, url) {
     const dow = (new Date(`${now}T00:00:00Z`).getUTCDay() + 6) % 7; // 0 = понедельник
     const weekStart = addDays(now, -dow), weekEnd = addDays(weekStart, 6);
     const lastStart = addDays(weekStart, -7), lastEnd = addDays(weekStart, -1), histStart = addDays(weekStart, -35);
-    const conv = (eur) => round2(fromEur(eur, base, rates));
+    const conv = (v) => round2(v);
 
     // повседневные траты: без регулярных платежей (аренда, подписки и т. п.)
     const { results: daily } = await env.DB.prepare(
-      `SELECT date, category, amount_eur FROM entries
+      `SELECT date, category, amount, currency, amount_eur FROM entries
        WHERE user_id = ? AND kind = 'expense' AND recurring_id IS NULL AND date >= ? AND date <= ?`
     ).bind(user.id, histStart, lastEnd).all();
+    for (const e of daily) e.amount_eur = inBase(e.amount, e.currency, e.amount_eur, base, rates); // дальше суммы уже в основной валюте
     const last = daily.filter((e) => e.date >= lastStart);
     let summary = null;
     if ((dow <= 1 || url.searchParams.get('all')) && last.length >= 3) {
@@ -625,7 +628,7 @@ async function handleApi(request, env, url) {
       for (const date of datesInRange(r, now, weekEnd)) {
         (r.kind === 'income' ? plan.incomes : plan.expenses).push({
           date, amount: r.amount, currency: r.currency, category: r.category, note: r.note,
-          amount_base: conv(toEur(r.amount, r.currency, rates)),
+          amount_base: conv(inBase(r.amount, r.currency, toEur(r.amount, r.currency, rates), base, rates)),
         });
       }
     }
@@ -850,7 +853,7 @@ async function handleUpdate(env, update) {
       await insertEntries(env, user.id, take.map((i) => ({ ...i, source: 'statement' })));
       const base = user.base_currency || 'EUR';
       const rates = await getRates(env);
-      const sum = (k) => take.filter((i) => i.kind === k).reduce((a, i) => a + fromEur(toEur(i.amount, i.currency, rates), base, rates), 0);
+      const sum = (k) => take.filter((i) => i.kind === k).reduce((a, i) => a + inBase(i.amount, i.currency, toEur(i.amount, i.currency, rates), base, rates), 0);
       const exp = sum('expense'), inc = sum('income');
       out = take.length
         ? L.savedTx(take.length, exp ? money(exp, base, user.lang) : '', inc ? money(inc, base, user.lang) : '', items.length - take.length)

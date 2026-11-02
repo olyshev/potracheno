@@ -5,7 +5,7 @@
 //  — раз в час по расписанию для всех пользователей;
 //  — при открытии приложения для конкретного пользователя (на случай, если расписание ещё не сработало).
 // От дублей защищает уникальный индекс (recurring_id, date) и INSERT OR IGNORE.
-import { getRates, toEur, fromEur, round2 } from './rates.js';
+import { getRates, toEur, fromEur, round2, inBase } from './rates.js';
 
 export const today = () => new Date().toISOString().slice(0, 10);
 export const thisMonth = () => today().slice(0, 7);
@@ -137,7 +137,7 @@ export async function upcoming(env, userId, base, now = today()) {
       out.push({
         id: r.id, kind: r.kind, amount: r.amount, currency: r.currency, category: r.category, note: r.note,
         day: r.day, period: r.period, date,
-        amount_base: round2(fromEur(toEur(r.amount, r.currency, rates), base, rates)),
+        amount_base: round2(inBase(r.amount, r.currency, toEur(r.amount, r.currency, rates), base, rates)),
       });
     }
   }
@@ -153,7 +153,7 @@ export async function listRules(env, userId, base, now = today()) {
     id: r.id, kind: r.kind, amount: r.amount, currency: r.currency, category: r.category, note: r.note,
     day: r.day, period: r.period, weekday: r.last_date ? new Date(`${r.last_date}T00:00:00Z`).getUTCDay() : null,
     active: !!r.active, next: r.active ? futureDates(r, now)[0] || null : null,
-    amount_base: round2(fromEur(toEur(r.amount, r.currency, rates), base, rates)),
+    amount_base: round2(inBase(r.amount, r.currency, toEur(r.amount, r.currency, rates), base, rates)),
   }));
 }
 

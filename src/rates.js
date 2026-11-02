@@ -42,3 +42,9 @@ export const isCurrency = (c, rates) => typeof c === 'string' && /^[A-Z]{3}$/.te
 export const toEur = (amount, cur, rates) => round2(amount / (rates[cur] || 1));
 export const fromEur = (eur, cur, rates) => eur * (rates[cur] || 1);
 export const round2 = (n) => Math.round(n * 100) / 100;
+
+// Учёт ведётся в основной валюте пользователя: запись в этой валюте берём как есть (без пересчёта через евро и без
+// расхождений из-за курса), записи в других валютах пересчитываем по курсу через евро.
+export const inBase = (amount, currency, amountEur, base, rates) => (currency === base ? amount : fromEur(amountEur, base, rates));
+// то же для SQL: выражение суммы в основной валюте и его параметры (ставятся первыми в запросе)
+export const baseSql = (base, rates) => ({ expr: 'CASE WHEN currency = ? THEN amount ELSE amount_eur * ? END', args: [base, rates[base] || 1] });
