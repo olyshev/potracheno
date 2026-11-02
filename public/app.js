@@ -1205,16 +1205,29 @@
   // ---------- статистика ----------
   // листание месяцев «слайдером»: старое содержимое уезжает, новое приезжает с другой стороны
   let slideBusy = false;
-  // items — список [селектор, на сколько % сдвигать]
+  // items — список [селектор, на сколько % сдвигать] или [селектор, 0, 'fade'] — плавная смена без сдвига:
+  // старый экземпляр остаётся поверх копией и растворяется, а под ним уже новое содержимое
   async function slideMonth(items, dir, load) {
     if (slideBusy) return;
     slideBusy = true;
     const out = dir < 0 ? 1 : -1; // назад: старое уезжает вправо, новое приезжает слева
-    const each = (fn) => items.forEach(([sel, dist]) => document.querySelectorAll(sel).forEach((e) => fn(e, dist)));
+    const moving = items.filter((i) => i[2] !== 'fade');
+    const each = (fn) => moving.forEach(([sel, dist]) => document.querySelectorAll(sel).forEach((e) => fn(e, dist)));
     const set = (tr, k, o) => each((e, dist) => { e.style.transition = tr; e.style.transform = k ? `translateX(${k * dist}%)` : ''; e.style.opacity = o; });
+    const bar = document.querySelector('.tab'), limit = bar && bar.parentElement ? bar.parentElement.getBoundingClientRect().top : innerHeight;
+    const ghosts = items.filter((i) => i[2] === 'fade').flatMap(([sel]) => [...document.querySelectorAll(sel)].map((e) => {
+      const r = e.getBoundingClientRect(), g = e.cloneNode(true);
+      const mt = e.firstElementChild ? parseFloat(getComputedStyle(e.firstElementChild).marginTop) || 0 : 0; // отступ первого ребёнка в оригинале «схлопывается» с родителем, в копии — нет
+      g.querySelectorAll('[id]').forEach((x) => x.removeAttribute('id'));
+      Object.assign(g.style, { position: 'fixed', left: `${r.left}px`, top: `${r.top - mt}px`, width: `${r.width}px`, height: `${Math.max(0, Math.min(r.height + mt, limit - r.top + mt))}px`,
+        margin: '0', overflow: 'hidden', pointerEvents: 'none', zIndex: '5', background: 'var(--bg)', opacity: '1' });
+      document.body.append(g);
+      return g;
+    }));
     set('transform .16s ease-in, opacity .16s ease-in', out, '0');
     await new Promise((r) => setTimeout(r, 170));
     try { await load(); } catch { /* */ }          // после загрузки экран перерисован — ищем элементы заново
+    ghosts.forEach((g) => { g.style.transition = 'opacity .28s ease-out'; g.style.opacity = '0'; setTimeout(() => g.remove(), 320); });
     set('none', -out, '0');
     void document.body.offsetWidth;
     set('transform .24s cubic-bezier(.2,.8,.3,1), opacity .24s ease-out', 0, '1');
@@ -1224,7 +1237,7 @@
     const next = shiftMonth(state.month, dir);
     if (next > state.today.slice(0, 7)) return;
     haptic('select');
-    slideMonth([['#viewStats .st-mname span', 100], ['#viewStats .st-content', 28]], dir, () => { state.month = next; state.filter = null; state.statSel = 0; return loadMonth(); });
+    slideMonth([['#viewStats .st-mname span', 100], ['#viewStats .st-content', 0, 'fade']], dir, () => { state.month = next; state.filter = null; state.statSel = 0; return loadMonth(); });
   }
   function renderStats() {
     const el = $('#viewStats');
