@@ -2170,8 +2170,36 @@
   function shareAward(a, base) {
     const [name] = awText(a);
     const storyText = awRu() ? `Получил награду «${name}» в @${BOT_USERNAME} 🏆` : `I got the “${name}” award in @${BOT_USERNAME} 🏆`;
-    return openShareCard({ draw: () => drawAwardCard(a, base), storyText, file: `potracheno-award-${a.id}.jpg`, hint: false, milestone: null, bonus: false });
+    return openShareCard({ draw: () => drawAwardCard(a, base), storyText, file: `potracheno-award-${a.id}.jpg`, hint: !state.me.sharedThisMonth, milestone: null, bonus: !state.me.sharedThisMonth });
   }
+  // ---------- история «Вам награда!» — показывается сразу после получения награды ----------
+  function buildAwardStory(a, base) {
+    const ru = isRu(), [name, cap] = awText(a);
+    const tag = (t0) => w3Tag(t0);
+    const disc = (size, style = '') => `<div class="as-d on" style="width:${size}px;height:${size}px;${style}"><img src="awards/${a.icon}.svg" alt=""></div>`;
+    const conf = [[130, 330, '#8fd9ae', 30], [130, 1010, '#4d72f5', 45], [920, 1010, '#ff8fb1', 15], [150, 1580, '#ffb08a', 60], [880, 1560, '#4d72f5', 45], [520, 1710, '#ffffff', 70], [950, 1720, '#8fd9ae', 20]]
+      .map(([x, y, col, r]) => `<div class="w3-conf" style="left:${x}px;top:${y}px;background:${col};transform:rotate(${r}deg)"></div>`).join('');
+    const bonus = !state.me.sharedThisMonth;
+    const reveal = { html: w2Page('#fff957', '#000', conf + w3Ill('star', 'right:90px;top:300px;width:260px;transform:rotate(12deg)') + tag(ru ? 'Вам награда!' : 'You got an award!')
+      + `<div class="w2-wrap" style="top:470px;text-align:center">${disc(600, 'margin:0 auto;border-width:14px;background:#fff;box-shadow:18px 20px 0 #000')}
+        <div class="aw-sname">${esc(name)}</div></div>`) };
+    const why = { html: w2Page('#fff', '#000', tag(ru ? 'За что' : 'What for')
+      + `<div class="w2-wrap" style="top:430px"><div class="w3-cap" style="font-size:84px">${esc(awCond(a, base))}</div>
+        <div class="as-card" style="margin-top:110px">${disc(300, 'border-width:8px')}<b>${esc(name)}</b><i>${esc(cap)}</i></div></div>`) };
+    const cta = { hold: true, html: w2Page('#000', '#fff', tag(ru ? 'Вам награда!' : 'You got an award!') + `<div class="w2-wrap" style="top:400px"><div class="w3-cap" style="font-size:62px">${ru
+        ? `Поделитесь наградой с друзьями${bonus ? ' — а мы подарим 5 сканов' : ''}`
+        : `Share your award with friends${bonus ? ' and get 5 free scans' : ''}`}</div></div>
+      <div class="w3-prev" style="background:#fff957"><img data-preview alt=""></div>
+      <button class="w3-btn" data-share>${ru ? 'Поделиться' : 'Share'}</button>`),
+      onShow: (root, close) => {
+        const img = root.querySelector('[data-preview]');
+        if (img && !img.src) drawAwardCard(a, base).then((c) => { img.src = c.toDataURL('image/jpeg', 0.8); }).catch(() => {});
+        const b = root.querySelector('[data-share]');
+        if (b) b.addEventListener('click', () => { haptic('select'); close(); shareAward(a, base); });
+      } };
+    return { id: `award-${a.id}`, duration: 6000, dynamic: 'award', title: { ru: name, en: name }, slides: [reveal, why, cta] };
+  }
+
   // окно одной награды; fresh — сразу после получения («Новая награда!»)
   function openAward(a, base, { fresh = false } = {}) {
     const [name, cap] = awText(a), left = Math.max(0, a.goal - a.spent);
@@ -2218,7 +2246,7 @@
     const news = data.list.filter((a) => a.earned && !a.seen);
     if (!news.length) return;
     awardsMarkSeen(data.list);
-    if (news.length === 1) { openAward(news[0], data.base, { fresh: true }); return; }
+    if (news.length === 1) { haptic('success'); openStory(buildAwardStory(news[0], data.base)); return; }
     const sh = openSheet(`<div class="aw-detail"><div class="aw-new">${t('awardsNewMany')}</div>
       <div class="aw-g aw-mini">${news.map((a) => `<div class="aw-c">${awDisc(a)}<b>${esc(awText(a)[0])}</b></div>`).join('')}</div>
       <button class="btn btn-primary btn-block" id="awAll">${t('awardsOpenAll')}</button>

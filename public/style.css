@@ -829,3 +829,6 @@ button.h-chip { cursor: pointer; }
 .mp-grid .chip { width: 100%; justify-content: center; text-align: center; }
 .mp-grid .chip:disabled { opacity: .35; }
 #monthLabel, .st-mname { cursor: pointer; }
+
+/* история «Вам награда!» */
+.aw-sname { font-weight: 800; font-size: 120px; line-height: 1.02; letter-spacing: -4px; margin-top: 90px; }
