@@ -832,3 +832,11 @@ button.h-chip { cursor: pointer; }
 
 /* история «Вам награда!» */
 .aw-sname { font-weight: 800; font-size: 120px; line-height: 1.02; letter-spacing: -4px; margin-top: 90px; }
+
+/* «Ожидается в этом месяце» — раскрывающийся список */
+.up-head { display: flex; align-items: center; justify-content: space-between; width: 100%; background: none; border: 0; padding: 0; font: inherit; font-size: 14px; font-weight: 700; color: var(--hint); cursor: pointer; text-align: left; }
+.up-head em { font-style: normal; font-weight: 600; opacity: .7; margin-left: 4px; }
+.up-chev { display: inline-flex; transition: transform .2s; color: var(--hint); }
+.up-head.open .up-chev { transform: rotate(180deg); }
+#upcomingSection .list[hidden] { display: none; }
+#upcomingSection .up-head { margin: 6px 0 10px; padding: 0 4px; width: calc(100% - 0px); }

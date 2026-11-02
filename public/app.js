@@ -1167,9 +1167,10 @@
 
     // ---- ожидается в этом месяце
     const up = s.upcoming || [];
+    const upOpen = !!state.upOpen;
     $('#upcomingSection').innerHTML = up.length ? `
-      <div class="section-title"><span>${t('upcoming')}</span><button id="allRules">${t('showAll')}</button></div>
-      <div class="list">${up.map((u) => `
+      <button class="section-title up-head ${upOpen ? 'open' : ''}" id="upToggle" aria-expanded="${upOpen}"><span>${t('upcoming')} <em class="num">${up.length}</em></span><i class="up-chev">${ico('chevdown', 18, 'currentColor')}</i></button>
+      <div class="list" ${upOpen ? '' : 'hidden'}>${up.map((u) => `
         <button class="row" ${u.entry_id ? `data-entry="${u.entry_id}"` : `data-rule="${u.id}"`}>
           ${catIco(u.category)}
           <div class="row-main">
@@ -1179,7 +1180,12 @@
           <div class="row-amount num ${u.kind === 'income' ? 'pos-text' : ''}">${u.kind === 'income' ? '+' : '−'}${money(u.amount, u.currency)}${u.currency !== base ? `<small>≈ ${money(u.amount_base, base)}</small>` : ''}</div>
         </button>`).join('')}</div>` : '';
     if (up.length) {
-      $('#allRules').addEventListener('click', openRecurringList);
+      $('#upToggle').addEventListener('click', () => {
+        state.upOpen = !state.upOpen; haptic('select');
+        $('#upToggle').classList.toggle('open', state.upOpen);
+        $('#upToggle').setAttribute('aria-expanded', String(state.upOpen));
+        $('#upcomingSection .list').hidden = !state.upOpen;
+      });
       $('#upcomingSection').querySelectorAll('[data-rule]').forEach((b) => b.addEventListener('click', async () => {
         const { rules } = await api('/recurring').catch(() => ({ rules: [] }));
         const r = rules.find((x) => x.id === b.dataset.rule);
