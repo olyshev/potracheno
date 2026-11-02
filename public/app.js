@@ -1206,6 +1206,29 @@
   }
 
   // ---------- статистика ----------
+  // «Статистика ноября» / «November stats»; для другого года — с годом
+  function statsTitle(month) {
+    const [y, mm] = month.split('-').map(Number);
+    const yr = y === Number(state.today.slice(0, 4)) ? '' : ` ${y}`;
+    return state.lang === 'ru' ? `${t('tabStats')} ${MONTHS.ruGen[mm - 1]}${yr}` : `${MONTHS.en[mm - 1]}${yr} stats`;
+  }
+  // заголовок всегда в одну строку: размер подгоняем под ширину экрана
+  function fitStatsTitle() {
+    const h = document.querySelector('#viewStats .pg-top h1');
+    if (!h) return;
+    let f = Math.min(34, Math.max(20, innerWidth * 0.085));
+    h.style.fontSize = `${f}px`;
+    while (h.scrollWidth > h.clientWidth && f > 16) { f -= 1; h.style.fontSize = `${f}px`; }
+  }
+  addEventListener('resize', fitStatsTitle);
+  function statsGo(dir) {
+    const next = shiftMonth(state.month, dir);
+    if (next > state.today.slice(0, 7)) return;
+    state.month = next; state.filter = null; state.statSel = 0; haptic('select');
+    const h = document.querySelector('#viewStats .pg-top h1');
+    if (h) { h.textContent = statsTitle(next); fitStatsTitle(); }
+    loadMonth();
+  }
   function renderStats() {
     const el = $('#viewStats');
     if (!el || !state.data || state.tab !== 'stats') return;
@@ -1254,8 +1277,7 @@
     }
     const isCurrent = s.month === state.today.slice(0, 7);
     el.innerHTML = `
-      <div class="pg-top"><h1>${t('tabStats')}</h1></div>
-      <div class="st-month"><button id="stPrev" aria-label="‹">‹</button><span>${esc(monthTitle(s.month))}</span><button id="stNext" ${isCurrent ? 'disabled' : ''} aria-label="›">›</button></div>
+      <div class="pg-top"><h1>${esc(statsTitle(s.month))}</h1></div>
       <div class="seg" id="stKind"><button data-k="expense" class="${kind === 'expense' ? 'active' : ''}">${t('expensesTab')}</button><button data-k="income" class="${kind === 'income' ? 'active' : ''}">${t('incomesTab')}</button></div>
       ${list.length ? `
       <div class="donut"><svg width="236" height="236">${arcs}</svg>${bubble}
@@ -1270,8 +1292,7 @@
       ${kind === 'expense' && s.total ? `<div class="st-chart"><div class="section-title" style="margin:0"><span>${t('byDay')}</span></div>${dailyChart(s.days, isCurrent ? Number(state.today.slice(8, 10)) : s.days.length, base)}</div>` : ''}`
       : `<div class="empty"><div class="big">${ico('statistic', 30, '#000')}</div><b>${t('noData')}</b></div>`}
       <div class="spacer"></div>`;
-    $('#stPrev', el).addEventListener('click', () => { state.month = shiftMonth(state.month, -1); state.filter = null; state.statSel = 0; haptic('select'); loadMonth(); });
-    $('#stNext', el).addEventListener('click', () => { state.month = shiftMonth(state.month, 1); state.filter = null; state.statSel = 0; haptic('select'); loadMonth(); });
+    fitStatsTitle();
     el.querySelectorAll('#stKind button').forEach((b) => b.addEventListener('click', () => { state.statKind = b.dataset.k; state.statSel = 0; haptic('select'); renderStats(); }));
     el.querySelectorAll('.st-row, .donut circle').forEach((b) => b.addEventListener('click', () => {
       state.statSel = Number(b.dataset.i); haptic('select'); renderStats();
@@ -2557,6 +2578,18 @@
 
     $('#prevMonth').addEventListener('click', () => { state.month = shiftMonth(state.month, -1); state.filter = null; haptic('select'); loadMonth(); });
     $('#nextMonth').addEventListener('click', () => { state.month = shiftMonth(state.month, 1); state.filter = null; haptic('select'); loadMonth(); });
+    // статистика: свайп влево — предыдущий месяц, вправо — следующий
+    {
+      let sx = 0, sy = 0, ok = false;
+      const v = $('#viewStats');
+      v.addEventListener('touchstart', (e) => { const t0 = e.touches[0]; sx = t0.clientX; sy = t0.clientY; ok = e.touches.length === 1 && !e.target.closest('.st-chart'); }, { passive: true });
+      v.addEventListener('touchend', (e) => {
+        if (!ok) return; ok = false;
+        const t0 = e.changedTouches[0], dx = t0.clientX - sx, dy = t0.clientY - sy;
+        if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+        statsGo(dx < 0 ? -1 : 1);
+      }, { passive: true });
+    }
     // иконки в разметке (кнопки, вкладки)
     document.querySelectorAll('[data-ico]').forEach((el) => { el.innerHTML = ico(el.dataset.ico, el.classList.contains('act-c') ? 30 : 22); });
     document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => switchTab(b.dataset.tab)));

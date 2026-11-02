@@ -574,7 +574,7 @@ button.h-chip { cursor: pointer; }
 /* --- статистика и профиль --- */
 .page { padding: 4px 20px 0; min-height: 100vh; }
 .pg-top { display: flex; align-items: center; justify-content: space-between; padding: 10px 0 0; }
-.pg-top h1 { font-size: 28px; font-weight: 800; letter-spacing: -.6px; margin: 0; }
+.pg-top h1 { font-size: 28px; font-weight: 800; letter-spacing: -.6px; margin: 0; white-space: nowrap; min-width: 0; flex: 1; overflow: hidden; }
 .st-month { display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 700; font-size: 16px; margin: 14px 0 0; }
 .st-month button { width: 36px; height: 36px; font-size: 22px; color: var(--hint); }
 .st-month button:disabled { opacity: .3; }
@@ -815,3 +815,4 @@ button.h-chip { cursor: pointer; }
 .as-card u { text-decoration: none; font-size: 36px; font-weight: 800; margin-top: 34px; background: #fff957; border: 4px solid #000; border-radius: 40px; padding: 16px 30px; line-height: 1.2; }
 .as-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 26px 10px; margin-top: 90px; justify-items: center; }
 .as-grid .as-d { border-color: #000; }
+#viewStats .seg { margin-top: 16px; }
