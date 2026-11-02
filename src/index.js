@@ -10,6 +10,7 @@ import { CATEGORIES, INCOME_CATEGORIES, isCategory, isCategoryFor, categorizeByR
 import { materialize, upcoming, listRules, createRule, dueDate, periodOf, resumeState, datesInRange, localToday, localHour, localDate, validTz } from './recurring.js';
 import { normalizeMerchant } from './brands.js';
 import { runNudges } from './nudges.js';
+import { runAwardsAnnouncement } from './announce.js';
 import { shiftMonth } from './report.js';
 const prevMonth = (m) => shiftMonth(m, -1);
 import { getRates, isCurrency, toEur, fromEur, round2, inBase, baseSql, CURRENCIES } from './rates.js';
@@ -986,6 +987,7 @@ async function handleAdmin(request, env, url) {
   }
   if (url.pathname === '/admin/run-reports') return json(await runMonthlyReports(env));
   if (url.pathname === '/admin/maintenance') return json(await runMaintenance(env));
+  if (url.pathname === '/admin/run-announce') return json(await runAwardsAnnouncement(env, { anyHour: url.searchParams.get('any_hour') === '1' }));
   if (url.pathname === '/admin/run-nudges') return json(await runNudges(env, { anyHour: url.searchParams.get('any_hour') === '1' }));
   return fail(404, 'not_found');
 }
@@ -1052,6 +1054,8 @@ export default {
         // напоминания: внутри сами проверяют местный час и дату пользователя
         const n = await runNudges(env);
         if (n.sent) console.log('nudges', JSON.stringify(n));
+        const a = await runAwardsAnnouncement(env);
+        if (a.sent) console.log('awards-announce', JSON.stringify(a));
       }
     })());
   },
