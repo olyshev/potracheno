@@ -882,3 +882,7 @@ button.h-chip { cursor: pointer; }
 .pg-wtrack::before, .pg-wtrack::after { content: ''; flex: 0 0 calc(50% - 50px); }
 .pg-wi { flex: 0 0 100px; scroll-snap-align: center; display: grid; place-items: center; font-size: 14px; font-weight: 700; white-space: nowrap; color: var(--hint); }
 .pg-wi.on { color: var(--accent-text); }
+
+body.sheet-lock { position: fixed; left: 0; right: 0; width: 100%; overflow: hidden; }
+.sheet-backdrop { touch-action: none; }
+.sheet { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }

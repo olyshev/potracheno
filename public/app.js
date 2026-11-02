@@ -295,6 +295,21 @@
 
   // ---------- шторки ----------
   const sheets = [];
+  // пока открыта хоть одна шторка, фон не скроллится и не реагирует на нажатия
+  let lockY = 0;
+  function syncLock() {
+    const app = $('#app'), on = sheets.length > 0, locked = document.body.classList.contains('sheet-lock');
+    if (on && !locked) {
+      lockY = window.scrollY || document.documentElement.scrollTop || 0;
+      document.body.style.top = `-${lockY}px`;
+      document.body.classList.add('sheet-lock');
+    } else if (!on && locked) {
+      document.body.classList.remove('sheet-lock');
+      document.body.style.top = '';
+      window.scrollTo(0, lockY);
+    }
+    if (app) { if (on) app.setAttribute('inert', ''); else app.removeAttribute('inert'); }
+  }
   function openSheet(html, { onClose, cls = '' } = {}) {
     const backdrop = document.createElement('div');
     backdrop.className = 'sheet-backdrop';
@@ -326,6 +341,8 @@
     sheet.addEventListener('touchend', endDrag, { passive: true });
     sheet.addEventListener('touchcancel', endDrag, { passive: true });
     sheets.push(entry);
+    syncLock();
+    backdrop.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
     backdrop.addEventListener('click', () => closeSheet(entry));
     requestAnimationFrame(() => { backdrop.classList.add('open'); sheet.classList.add('open'); });
     updateBackButton();
@@ -338,6 +355,7 @@
     entry.sheet.classList.remove('open');
     entry.backdrop.classList.remove('open');
     setTimeout(() => { entry.sheet.remove(); entry.backdrop.remove(); }, 260);
+    syncLock();
     entry.onClose && entry.onClose();
     updateBackButton();
   }
