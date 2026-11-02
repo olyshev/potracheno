@@ -210,6 +210,11 @@
     const n = Number(d.slice(8, 10)), m = Number(d.slice(5, 7)) - 1;
     return state.lang === 'ru' ? `${n} ${MONTHS.ruGen[m]}` : `${MONTHS.en[m]} ${n}`;
   };
+  // короткая дата для колеса: «30 сен» / «Sep 30», чтобы всегда помещалась в ячейку
+  const dayMonthShort = (d) => {
+    const n = Number(d.slice(8, 10)), m = Number(d.slice(5, 7)) - 1;
+    return state.lang === 'ru' ? `${n} ${MONTHS.ruGen[m].slice(0, 3)}` : `${MONTHS.en[m].slice(0, 3)} ${n}`;
+  };
   const signed = (n, cur) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${money(Math.abs(n), cur)}`;
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -1660,13 +1665,13 @@
     let custom = null; // дата вне колеса, выбранная в календаре
     const item = (d, n) => {
       const w = word[n];
-      const main = w || dayMonth(d);
-      const sub = w ? (state.lang === 'ru' ? `${Number(d.slice(8, 10))} ${MONTHS.ruGen[Number(d.slice(5, 7)) - 1].slice(0, 3)}` : dayMonth(d)) : wd(d);
+      const main = w || dayMonthShort(d);
+      const sub = w ? dayMonthShort(d) : wd(d);
       return `<div class="dw-item" data-d="${d}"><b>${esc(main)}</b><small>${esc(sub)}</small></div>`;
     };
     const edge = (side) => {
       const c = custom && ((side === 'L' && custom < days[0]) || (side === 'R' && custom > days[7])) ? custom : null;
-      return `<div class="dw-item dw-edge" data-edge="${side}">${c ? `<b>${esc(dayMonth(c))}</b><small>${esc(wd(c))}</small>` : `<b class="dw-cal">${ico('calendar', 22)}</b><small>${t('otherDate')}</small>`}
+      return `<div class="dw-item dw-edge" data-edge="${side}">${c ? `<b>${esc(dayMonthShort(c))}</b><small>${esc(wd(c))}</small>` : `<b class="dw-cal">${ico('calendar', 22)}</b><small>${t('otherDate')}</small>`}
         <input type="date" class="dw-native" aria-label="${t('otherDate')}" value="${c || c0}"></div>`;
     };
     const draw = () => { track.innerHTML = edge('L') + days.map((d, k) => item(d, k - 3)).join('') + edge('R'); bindNative(); };
