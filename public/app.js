@@ -1205,24 +1205,26 @@
   // ---------- статистика ----------
   // листание месяцев «слайдером»: старое содержимое уезжает, новое приезжает с другой стороны
   let slideBusy = false;
-  async function slideMonth(sel, dir, load) {
+  // items — список [селектор, на сколько % сдвигать]
+  async function slideMonth(items, dir, load) {
     if (slideBusy) return;
     slideBusy = true;
     const out = dir < 0 ? 1 : -1; // назад: старое уезжает вправо, новое приезжает слева
-    const set = (tr, x, o) => document.querySelectorAll(sel).forEach((e) => { e.style.transition = tr; e.style.transform = x ? `translateX(${x}%)` : ''; e.style.opacity = o; });
-    set('transform .16s ease-in, opacity .16s ease-in', out * 28, '0');
+    const each = (fn) => items.forEach(([sel, dist]) => document.querySelectorAll(sel).forEach((e) => fn(e, dist)));
+    const set = (tr, k, o) => each((e, dist) => { e.style.transition = tr; e.style.transform = k ? `translateX(${k * dist}%)` : ''; e.style.opacity = o; });
+    set('transform .16s ease-in, opacity .16s ease-in', out, '0');
     await new Promise((r) => setTimeout(r, 170));
     try { await load(); } catch { /* */ }          // после загрузки экран перерисован — ищем элементы заново
-    set('none', -out * 28, '0');
+    set('none', -out, '0');
     void document.body.offsetWidth;
     set('transform .24s cubic-bezier(.2,.8,.3,1), opacity .24s ease-out', 0, '1');
-    setTimeout(() => { document.querySelectorAll(sel).forEach((e) => { e.style.transition = ''; e.style.transform = ''; e.style.opacity = ''; }); slideBusy = false; }, 260);
+    setTimeout(() => { each((e) => { e.style.transition = ''; e.style.transform = ''; e.style.opacity = ''; }); slideBusy = false; }, 260);
   }
   function statsGo(dir) {
     const next = shiftMonth(state.month, dir);
     if (next > state.today.slice(0, 7)) return;
     haptic('select');
-    slideMonth('#viewStats .st-body', dir, () => { state.month = next; state.filter = null; state.statSel = 0; return loadMonth(); });
+    slideMonth([['#viewStats .st-mname span', 100], ['#viewStats .st-content', 28]], dir, () => { state.month = next; state.filter = null; state.statSel = 0; return loadMonth(); });
   }
   function renderStats() {
     const el = $('#viewStats');
@@ -1273,9 +1275,9 @@
     const isCurrent = s.month === state.today.slice(0, 7);
     el.innerHTML = `
       <div class="pg-top"><h1>${t('tabStats')}</h1></div>
-      <div class="st-body">
-      <div class="st-month"><button id="stPrev" aria-label="‹">‹</button><span>${esc(monthTitle(s.month))}</span><button id="stNext" ${isCurrent ? 'disabled' : ''} aria-label="›">›</button></div>
+      <div class="st-month"><button id="stPrev" aria-label="‹">‹</button><div class="st-mname"><span>${esc(monthTitle(s.month))}</span></div><button id="stNext" ${isCurrent ? 'disabled' : ''} aria-label="›">›</button></div>
       <div class="seg" id="stKind"><button data-k="expense" class="${kind === 'expense' ? 'active' : ''}">${t('expensesTab')}</button><button data-k="income" class="${kind === 'income' ? 'active' : ''}">${t('incomesTab')}</button></div>
+      <div class="st-content">
       ${list.length ? `
       <div class="donut"><svg width="236" height="236">${arcs}</svg>${bubble}
         <div class="mid">${sel === -1 ? `<span class="ci s52" style="background:${REST}">${ico('other', 26, '#000')}</span><b>${t('restAll')}</b><span class="num">${money(rest, base, { round: rest >= 1000 })}</span>`
@@ -2593,7 +2595,7 @@
       const next = shiftMonth(state.month, dir);
       if (next > state.today.slice(0, 7)) return;
       haptic('select');
-      slideMonth('#hero, .acts, #categoriesSection, #incomeSection, #upcomingSection, #entriesSection', dir, () => { state.month = next; state.filter = null; return loadMonth(); });
+      slideMonth(['#hero', '.acts', '#categoriesSection', '#incomeSection', '#upcomingSection', '#entriesSection'].map((x) => [x, 28]), dir, () => { state.month = next; state.filter = null; return loadMonth(); });
     }, '#storiesRow, .stories, .chips-row, .chart');
     // иконки в разметке (кнопки, вкладки)
     document.querySelectorAll('[data-ico]').forEach((el) => { el.innerHTML = ico(el.dataset.ico, el.classList.contains('act-c') ? 30 : 22); });

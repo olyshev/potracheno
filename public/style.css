@@ -575,9 +575,13 @@ button.h-chip { cursor: pointer; }
 .page { padding: 4px 20px 0; min-height: 100vh; }
 .pg-top { display: flex; align-items: center; justify-content: space-between; padding: 10px 0 0; }
 .pg-top h1 { font-size: 28px; font-weight: 800; letter-spacing: -.6px; margin: 0; white-space: nowrap; min-width: 0; flex: 1; overflow: hidden; }
-.st-month { display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 700; font-size: 16px; margin: 14px 0 0; }
-.st-month button { width: 36px; height: 36px; font-size: 22px; color: var(--hint); }
+#viewStats .pg-top { justify-content: center; }
+#viewStats .pg-top h1 { flex: none; text-align: center; }
+.st-month { display: flex; align-items: center; justify-content: space-between; font-weight: 800; font-size: 24px; letter-spacing: -.4px; margin: 10px 0 4px; }
+.st-month button { width: 52px; height: 48px; font-size: 34px; line-height: 1; color: var(--hint); }
 .st-month button:disabled { opacity: .3; }
+.st-mname { flex: 1; text-align: center; overflow: hidden; }
+.st-mname span { display: inline-block; }
 .page .seg { margin: 14px 0 0; }
 .donut { position: relative; width: 236px; height: 236px; margin: 18px auto 0; }
 .donut svg { display: block; }
