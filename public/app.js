@@ -1080,10 +1080,7 @@
       $('#hero').innerHTML = `
         <div class="h-label">${t('spent')}</div>
         <div class="h-num num">${bigMoney(s.total, base)}</div>
-        <div class="h-chips"><span class="h-chip">${t('entries', s.count)}</span>${delta ? `<span class="h-chip">${esc(delta)}</span>` : ''}
-          ${isCurrent && s.count ? `<button class="h-chip" id="heroAddIncome">+ ${t('addIncomeShort')}</button>` : ''}</div>${forecast}`;
-      const hint = $('#heroAddIncome');
-      if (hint) hint.addEventListener('click', () => openManual('income'));
+        <div class="h-chips"><span class="h-chip">${t('entries', s.count)}</span>${delta ? `<span class="h-chip">${esc(delta)}</span>` : ''}</div>${forecast}`;
     }
 
     // ---- пусто
