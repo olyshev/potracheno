@@ -403,8 +403,8 @@ async function handleApi(request, env, url) {
   if (path === '/summary' && method === 'GET') {
     const month = MONTH_RE.test(url.searchParams.get('month') || '') ? url.searchParams.get('month') : curMonth;
     const base = user.base_currency || 'EUR';
-    await materialize(env, user.id); // регулярные платежи, у которых наступил день
     const isCurrent = month === curMonth;
+    if (isCurrent) await materialize(env, user.id); // регулярные платежи, у которых наступил день (для прошлых месяцев уже сделано)
     const [summary, list, rates, ruleNext, futureList] = await Promise.all([
       monthSummary(env, user.id, month, base, now),
       env.DB.prepare(

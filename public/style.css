@@ -821,3 +821,11 @@ button.h-chip { cursor: pointer; }
 .as-grid .as-d { border-color: #000; }
 
 #app { overflow-x: clip; }
+
+/* выбор месяца */
+.mp-list { max-height: 60vh; overflow-y: auto; padding-bottom: 8px; }
+.mp-year { font-weight: 700; font-size: 15px; color: var(--hint, #8a8a8e); margin: 14px 2px 8px; }
+.mp-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.mp-grid .chip { width: 100%; justify-content: center; text-align: center; }
+.mp-grid .chip:disabled { opacity: .35; }
+#monthLabel, .st-mname { cursor: pointer; }

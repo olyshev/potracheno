@@ -31,7 +31,7 @@
       emptyText: 'Сфотографируйте чек или внесите сумму вручную. Ещё можно просто отправить фото чека боту в чат.',
       emptyPast: 'В этом месяце записей нет.',
       newExpense: 'Новая трата', amount: 'Сумма', note: 'Что купили', notePh: 'Например, кофе', date: 'Дата',
-      category: 'Категория', save: 'Сохранить', cancel: 'Отмена', close: 'Закрыть', done: 'Готово',
+      category: 'Категория', save: 'Сохранить', cancel: 'Отмена', close: 'Закрыть', month: 'Месяц', done: 'Готово',
       reading: 'Читаю…', readingSub: 'Чек — 5–15 секунд, выписка — до минуты', receipt: 'Чек', merchant: 'Магазин', currency: 'Валюта',
       total: 'Итого', addGroup: '+ Добавить категорию', mismatch: (d) => `Сумма отличается от чека на ${d}`,
       notReceipt: 'Не нашёл здесь ни чека, ни операций. Попробуйте снять ровнее и при хорошем свете.',
@@ -92,7 +92,7 @@
       emptyText: 'Snap a receipt or add an amount manually. You can also just send a receipt photo to the bot.',
       emptyPast: 'No entries this month.',
       newExpense: 'New expense', amount: 'Amount', note: 'What was it', notePh: 'e.g. coffee', date: 'Date',
-      category: 'Category', save: 'Save', cancel: 'Cancel', close: 'Close', done: 'Done',
+      category: 'Category', save: 'Save', cancel: 'Cancel', close: 'Close', month: 'Month', done: 'Done',
       reading: 'Reading…', readingSub: 'A receipt takes 5–15 seconds, a statement up to a minute', receipt: 'Receipt', merchant: 'Store', currency: 'Currency',
       total: 'Total', addGroup: '+ Add category', mismatch: (d) => `Differs from the receipt by ${d}`,
       notReceipt: "I couldn't find a receipt or transactions here. Try a straighter photo in good light.",
@@ -1029,13 +1029,41 @@
     return x.toISOString().slice(0, 7);
   }
 
-  async function loadMonth() {
-    $('#monthLabel').textContent = monthTitle(state.month);
-    $('#nextMonth').disabled = state.month >= state.today.slice(0, 7);
-    try {
-      state.data = await api(`/summary?month=${state.month}`);
+  // кэш месяцев: переключение показывает сохранённое сразу, а свежие данные подтягиваются в фоне
+  const monthCache = new Map();
+  const fetchMonth = async (m) => { const d = await api(`/summary?month=${m}`); monthCache.set(m, JSON.stringify(d)); return d; };
+  function prefetchAround() {
+    const cur = state.today.slice(0, 7);
+    [shiftMonth(state.month, -1), shiftMonth(state.month, 1)].forEach((m) => {
+      if (m > cur || monthCache.has(m)) return;
+      fetchMonth(m).catch(() => {});
+    });
+  }
+  async function loadMonth(opts = {}) {
+    const m = state.month;
+    $('#monthLabel').textContent = monthTitle(m);
+    $('#nextMonth').disabled = m >= state.today.slice(0, 7);
+    const apply = () => {
       if (!state.daysTracking && (state.data.entries || []).some((e) => e.source !== 'recurring')) state.daysTracking = 1; // первая запись — сегодня
       render();
+    };
+    try {
+      if (opts.nav && monthCache.has(m)) {
+        state.data = JSON.parse(monthCache.get(m));
+        apply();
+        fetchMonth(m).then((d) => {
+          if (state.month !== m || JSON.stringify(d) === JSON.stringify(state.data)) return;
+          state.data = d; apply();
+        }).catch(() => {});
+        prefetchAround();
+        return;
+      }
+      if (!opts.nav) monthCache.clear(); // данные поменялись (запись, валюта, язык) — старый кэш не годится
+      const d = await fetchMonth(m);
+      if (state.month !== m) return;
+      state.data = d;
+      apply();
+      prefetchAround();
     } catch (e) {
       toast(t('netError'));
     }
@@ -1233,11 +1261,39 @@
     set('transform .24s cubic-bezier(.2,.8,.3,1), opacity .24s ease-out', 0, '1');
     setTimeout(() => { each((e) => { e.style.transition = ''; e.style.transform = ''; e.style.opacity = ''; }); slideBusy = false; }, 260);
   }
-  function statsGo(dir) {
-    const next = shiftMonth(state.month, dir);
+  // ---------- выбор месяца: список по годам, тап — быстрый переход ----------
+  let homeGo = () => {};
+  function pickMonth() {
+    const cur = state.today.slice(0, 7), y0 = Number(cur.slice(0, 4));
+    const names = (state.lang === 'ru' ? MONTHS.ru : MONTHS.en);
+    const short = (n) => (n.length > 4 ? n.slice(0, 3) : n);
+    const years = [];
+    for (let y = y0; y >= y0 - 2; y--) years.push(y);
+    const sh = openSheet(`
+      <div class="sheet-head"><h2>${t('month')}</h2><button class="close">${t('close')}</button></div>
+      <div class="mp-list">${years.map((y) => `
+        <div class="mp-year">${y}</div>
+        <div class="mp-grid">${names.map((n, i) => {
+          const m = `${y}-${String(i + 1).padStart(2, '0')}`;
+          return `<button class="chip ${m === state.month ? 'active' : ''}" data-m="${m}" ${m > cur ? 'disabled' : ''}>${esc(short(n))}</button>`;
+        }).join('')}</div>`).join('')}
+      </div>`);
+    $('.close', sh.sheet).addEventListener('click', () => closeSheet(sh));
+    sh.sheet.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => {
+      const m = b.dataset.m;
+      haptic('select');
+      closeSheet(sh);
+      if (m === state.month) return;
+      const dir = m > state.month ? 1 : -1;
+      setTimeout(() => (state.tab === 'stats' ? statsGo(dir, m) : homeGo(dir, m)), 200);
+    }));
+  }
+
+  function statsGo(dir, target) {
+    const next = target || shiftMonth(state.month, dir);
     if (next > state.today.slice(0, 7)) return;
     haptic('select');
-    slideMonth([['#viewStats .st-mname span', 100], ['#viewStats .st-content', 0, 'fade']], dir, () => { state.month = next; state.filter = null; state.statSel = 0; return loadMonth(); });
+    slideMonth([['#viewStats .st-mname span', 100], ['#viewStats .st-content', 0, 'fade']], dir, () => { state.month = next; state.filter = null; state.statSel = 0; return loadMonth({ nav: true }); });
   }
   function renderStats() {
     const el = $('#viewStats');
@@ -1307,6 +1363,7 @@
       <div class="spacer"></div>`;
     $('#stPrev', el).addEventListener('click', () => statsGo(-1));
     $('#stNext', el).addEventListener('click', () => statsGo(1));
+    $('.st-mname', el).addEventListener('click', pickMonth);
     el.querySelectorAll('#stKind button').forEach((b) => b.addEventListener('click', () => { state.statKind = b.dataset.k; state.statSel = 0; haptic('select'); renderStats(); }));
     el.querySelectorAll('.st-row, .donut circle').forEach((b) => b.addEventListener('click', () => {
       state.statSel = Number(b.dataset.i); haptic('select'); renderStats();
@@ -2590,8 +2647,9 @@
     if (!state.currencies.includes(state.lastCurrency)) state.lastCurrency = me.user.base_currency;
     applyStatic();
 
-    $('#prevMonth').addEventListener('click', () => { state.month = shiftMonth(state.month, -1); state.filter = null; haptic('select'); loadMonth(); });
-    $('#nextMonth').addEventListener('click', () => { state.month = shiftMonth(state.month, 1); state.filter = null; haptic('select'); loadMonth(); });
+    $('#monthLabel').addEventListener('click', pickMonth);
+    $('#prevMonth').addEventListener('click', () => { state.month = shiftMonth(state.month, -1); state.filter = null; haptic('select'); loadMonth({ nav: true }); });
+    $('#nextMonth').addEventListener('click', () => { state.month = shiftMonth(state.month, 1); state.filter = null; haptic('select'); loadMonth({ nav: true }); });
     // свайп слева направо — предыдущий месяц, справа налево — следующий (статистика и главная)
     const bindMonthSwipe = (v, go, skip) => {
       let sx = 0, sy = 0, ok = false;
@@ -2604,12 +2662,13 @@
       }, { passive: true });
     };
     bindMonthSwipe($('#viewStats'), statsGo, '.st-chart');
-    bindMonthSwipe($('#viewHome'), (dir) => {
-      const next = shiftMonth(state.month, dir);
+    homeGo = (dir, target) => {
+      const next = target || shiftMonth(state.month, dir);
       if (next > state.today.slice(0, 7)) return;
       haptic('select');
-      slideMonth(['#hero', '.acts', '#categoriesSection', '#incomeSection', '#upcomingSection', '#entriesSection'].map((x) => [x, 28]), dir, () => { state.month = next; state.filter = null; return loadMonth(); });
-    }, '#storiesRow, .stories, .chips-row, .chart');
+      slideMonth(['#hero', '.acts', '#categoriesSection', '#incomeSection', '#upcomingSection', '#entriesSection'].map((x) => [x, 28]), dir, () => { state.month = next; state.filter = null; return loadMonth({ nav: true }); });
+    };
+    bindMonthSwipe($('#viewHome'), (dir) => homeGo(dir), '#storiesRow, .stories, .chips-row, .chart');
     // иконки в разметке (кнопки, вкладки)
     document.querySelectorAll('[data-ico]').forEach((el) => { el.innerHTML = ico(el.dataset.ico, el.classList.contains('act-c') ? 30 : 22); });
     document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => switchTab(b.dataset.tab)));
