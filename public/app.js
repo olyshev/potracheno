@@ -2578,18 +2578,23 @@
 
     $('#prevMonth').addEventListener('click', () => { state.month = shiftMonth(state.month, -1); state.filter = null; haptic('select'); loadMonth(); });
     $('#nextMonth').addEventListener('click', () => { state.month = shiftMonth(state.month, 1); state.filter = null; haptic('select'); loadMonth(); });
-    // статистика: свайп слева направо — предыдущий месяц, справа налево — следующий
-    {
+    // свайп слева направо — предыдущий месяц, справа налево — следующий (статистика и главная)
+    const bindMonthSwipe = (v, go, skip) => {
       let sx = 0, sy = 0, ok = false;
-      const v = $('#viewStats');
-      v.addEventListener('touchstart', (e) => { const t0 = e.touches[0]; sx = t0.clientX; sy = t0.clientY; ok = e.touches.length === 1 && !e.target.closest('.st-chart'); }, { passive: true });
+      v.addEventListener('touchstart', (e) => { const t0 = e.touches[0]; sx = t0.clientX; sy = t0.clientY; ok = e.touches.length === 1 && !e.target.closest(skip); }, { passive: true });
       v.addEventListener('touchend', (e) => {
         if (!ok) return; ok = false;
         const t0 = e.changedTouches[0], dx = t0.clientX - sx, dy = t0.clientY - sy;
         if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-        statsGo(dx > 0 ? -1 : 1);
+        go(dx > 0 ? -1 : 1);
       }, { passive: true });
-    }
+    };
+    bindMonthSwipe($('#viewStats'), statsGo, '.st-chart');
+    bindMonthSwipe($('#viewHome'), (dir) => {
+      const next = shiftMonth(state.month, dir);
+      if (next > state.today.slice(0, 7)) return;
+      state.month = next; state.filter = null; haptic('select'); loadMonth();
+    }, '#storiesRow, .stories, .chips-row, .chart');
     // иконки в разметке (кнопки, вкладки)
     document.querySelectorAll('[data-ico]').forEach((el) => { el.innerHTML = ico(el.dataset.ico, el.classList.contains('act-c') ? 30 : 22); });
     document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => switchTab(b.dataset.tab)));
