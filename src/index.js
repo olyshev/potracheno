@@ -203,7 +203,7 @@ async function syncAwards(env, user) {
   const base = user.base_currency || 'EUR';
   const [rates, tot, have] = await Promise.all([
     getRates(env),
-    env.DB.prepare("SELECT category, SUM(amount_eur) AS eur FROM entries WHERE user_id = ? AND kind = 'expense' GROUP BY category").bind(user.id).all(),
+    env.DB.prepare("SELECT category, SUM(amount_eur) AS eur FROM entries WHERE user_id = ? AND kind = 'expense' AND date <= ? GROUP BY category").bind(user.id, localToday(user.tz)).all(),
     env.DB.prepare('SELECT award_id, earned_at, seen FROM awards WHERE user_id = ?').bind(user.id).all(),
   ]);
   const eur = Object.fromEntries(tot.results.map((r) => [r.category, r.eur || 0]));
@@ -403,24 +403,37 @@ async function handleApi(request, env, url) {
     const base = user.base_currency || 'EUR';
     await materialize(env, user.id); // регулярные платежи, у которых наступил день
     const isCurrent = month === curMonth;
-    const [summary, list, rates, next] = await Promise.all([
-      monthSummary(env, user.id, month, base),
+    const [summary, list, rates, ruleNext, futureList] = await Promise.all([
+      monthSummary(env, user.id, month, base, now),
       env.DB.prepare(
         `SELECT e.id, e.date, e.amount, e.currency, e.amount_eur, e.category, e.note, e.merchant, e.receipt_id, e.source, e.kind,
                 e.recurring_id, r.day AS rec_day, r.active AS rec_active, r.period AS rec_period
          FROM entries e LEFT JOIN recurring r ON r.id = e.recurring_id
          WHERE e.user_id = ? AND e.date >= ? AND e.date <= ? ORDER BY e.date DESC, e.created_at DESC LIMIT 1000`
-      ).bind(user.id, `${month}-01`, `${month}-31`).all(),
+      ).bind(user.id, `${month}-01`, now < `${month}-31` ? now : `${month}-31`).all(),
       getRates(env),
       isCurrent ? upcoming(env, user.id, base, now) : [],
+      // записи с датой впереди: в учёт не входят, пока не наступит их день, — показываем в «Ожидается»
+      isCurrent ? env.DB.prepare(
+        `SELECT e.id, e.date, e.amount, e.currency, e.amount_eur, e.category, e.note, e.merchant, e.receipt_id, e.source, e.kind,
+                e.recurring_id, r.day AS rec_day, r.active AS rec_active, r.period AS rec_period
+         FROM entries e LEFT JOIN recurring r ON r.id = e.recurring_id
+         WHERE e.user_id = ? AND e.date > ? AND e.date <= ? ORDER BY e.date, e.created_at`
+      ).bind(user.id, now, `${month}-31`).all() : { results: [] },
     ]);
     const entries = list.results.map((e) => ({ ...e, amount_base: round2(fromEur(e.amount_eur, base, rates)) }));
+    const scheduled = futureList.results.map((e) => ({ ...e, amount_base: round2(fromEur(e.amount_eur, base, rates)) }));
+    const dup = new Set(scheduled.filter((e) => e.recurring_id).map((e) => `${e.recurring_id}|${e.date}`));
+    const next = [...ruleNext.filter((u) => !dup.has(`${u.id}|${u.date}`)),
+      ...scheduled.map((e) => ({ id: e.recurring_id, entry_id: e.id, kind: e.kind, amount: e.amount, currency: e.currency, category: e.category, note: e.note,
+        day: e.rec_day, period: e.rec_period, date: e.date, amount_base: e.amount_base, repeat: !!e.recurring_id }))]
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
     // прогноз: остаток к концу месяца с учётом регулярных платежей, которые ещё впереди
     const upIncome = next.filter((u) => u.kind === 'income').reduce((a, u) => a + u.amount_base, 0);
     const upExpense = next.filter((u) => u.kind === 'expense').reduce((a, u) => a + u.amount_base, 0);
     summary.upcoming = next;
     summary.projected = next.length ? round2(summary.balance + upIncome - upExpense) : null;
-    return json({ summary, entries });
+    return json({ summary, entries, scheduled });
   }
 
   if (path === '/entries' && method === 'POST') {
@@ -812,7 +825,7 @@ async function handleUpdate(env, update) {
   }
   if (text.startsWith('/start')) return reply(L.start((msg.from.first_name || '').replace(/[<&>]/g, '')), { reply_markup: appUrl ? openAppKeyboard(appUrl, L.startBtn) : undefined });
   if (text.startsWith('/report')) {
-    const s = await monthSummary(env, user.id, localToday(user.tz).slice(0, 7), user.base_currency || 'EUR');
+    const s = await monthSummary(env, user.id, localToday(user.tz).slice(0, 7), user.base_currency || 'EUR', localToday(user.tz));
     return reply(s.count ? reportText(s, user.lang) : L.empty, { reply_markup: kb });
   }
 

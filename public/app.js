@@ -1115,11 +1115,11 @@
     $('#upcomingSection').innerHTML = up.length ? `
       <div class="section-title"><span>${t('upcoming')}</span><button id="allRules">${t('showAll')}</button></div>
       <div class="list">${up.map((u) => `
-        <button class="row" data-rule="${u.id}">
+        <button class="row" ${u.entry_id ? `data-entry="${u.entry_id}"` : `data-rule="${u.id}"`}>
           ${catIco(u.category)}
           <div class="row-main">
             <div class="row-title">${esc(u.note || catName(u.category))}</div>
-            <div class="row-sub">${esc(dayMonth(u.date))} · ${esc(t('repeatShort'))}</div>
+            <div class="row-sub">${esc(dayMonth(u.date))}${u.entry_id && !u.repeat ? '' : ` · ${esc(t('repeatShort'))}`}</div>
           </div>
           <div class="row-amount num ${u.kind === 'income' ? 'pos-text' : ''}">${u.kind === 'income' ? '+' : '−'}${money(u.amount, u.currency)}${u.currency !== base ? `<small>≈ ${money(u.amount_base, base)}</small>` : ''}</div>
         </button>`).join('')}</div>` : '';
@@ -1129,6 +1129,10 @@
         const { rules } = await api('/recurring').catch(() => ({ rules: [] }));
         const r = rules.find((x) => x.id === b.dataset.rule);
         if (r) openRuleEditor(r);
+      }));
+      $('#upcomingSection').querySelectorAll('[data-entry]').forEach((b) => b.addEventListener('click', () => {
+        const e = (state.data.scheduled || []).find((x) => x.id === b.dataset.entry);
+        if (e) openEntryEditor(e);
       }));
     }
 
