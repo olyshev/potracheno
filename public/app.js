@@ -30,7 +30,7 @@
       pgCushion: 'Подушка', pgCushionSub: 'ваших расходов', pgMo: 'мес.', pgPut: 'Вложено', pgNow: (v) => `сейчас ${v}`, pgReturn: 'Доходность', pgAddBtn: '+ Добавить',
       pgEmptySav: 'Добавьте вклад или накопительный счёт — проценты считаются сами', pgEmptyInv: 'Добавьте бумаги: с тикером цена обновляется сама раз в день', pgAccrued: 'начислено',
       pgRateYear: (r) => `${r}%`, pgUntil: 'до', pgSince: 'с', pgPutSub: (v) => `вложено ${v}`, pgNoPrice: 'нет цены', pgFirstPut: 'Дата первого вложения', pgHeld: 'В кубышке', pgYearYield: 'Доходность в год',
-      pgNew: 'Новая позиция', pgEdit: 'Изменить', pgName: 'Название', pgNamePh: 'Например, вклад или ETF', pgAmount: 'Сумма', pgRate: 'Ставка, % годовых', pgOpened: 'Дата открытия', pgEnds: 'До какой даты (если есть срок)',
+      pgNew: 'Новая позиция', pgEdit: 'Изменить', pgCompound: 'Начисление %', pgCmpM: 'ежемесячно', pgCmpD: 'ежедневно', pgCmpY: 'ежегодно', pgEffYield: 'Эффективная доходность', pgNoEnd: 'Не указана', pgName: 'Название', pgNamePh: 'Например, вклад или ETF', pgAmount: 'Сумма', pgRate: 'Ставка, %', pgOpened: 'Дата открытия', pgEnds: 'Дата окончания',
       pgTicker: 'Тикер', pgTickerPh: 'KO, VWCE.DE, MOEX:SBER, BTC-EUR', pgTickerHint: 'С тикером цена обновляется сама раз в день. Без тикера стоимость вводите вручную.', pgQty: 'Количество бумаг',
       pgPutAmt: 'Сколько всего вложено', pgValueNow: 'Текущая стоимость', pgSaved: 'Сохранено', pgBadTicker: 'Не нашли цену для этого тикера', pgRefresh: 'Обновить цену', pgUpdValue: 'Обновить стоимость',
       pgTopup: 'Пополнить', pgDel: 'Удалить', pgDelAsk: 'Удалить эту позицию?', pgPriceFrom: (d) => `цена на ${d}`, pgYrs: (y, m) => `${y ? `${y} ${ruPl(y, 'год', 'года', 'лет')} ` : ''}${m ? `${m} ${ruPl(m, 'месяц', 'месяца', 'месяцев')}` : ''}`.trim() || 'меньше месяца',
@@ -100,7 +100,7 @@
       pgCushion: 'Cushion', pgCushionSub: 'of your spending', pgMo: 'mo', pgPut: 'Invested', pgNow: (v) => `now ${v}`, pgReturn: 'Return', pgAddBtn: '+ Add',
       pgEmptySav: 'Add a deposit or savings account — interest is calculated for you', pgEmptyInv: 'Add holdings: with a ticker the price updates by itself once a day', pgAccrued: 'earned',
       pgRateYear: (r) => `${r}%`, pgUntil: 'until', pgSince: 'since', pgPutSub: (v) => `invested ${v}`, pgNoPrice: 'no price', pgFirstPut: 'First invested', pgHeld: 'Held for', pgYearYield: 'Return per year',
-      pgNew: 'New holding', pgEdit: 'Edit', pgName: 'Name', pgNamePh: 'For example, a deposit or an ETF', pgAmount: 'Amount', pgRate: 'Rate, % a year', pgOpened: 'Opened on', pgEnds: 'Until (if it has a term)',
+      pgNew: 'New holding', pgEdit: 'Edit', pgCompound: 'Interest paid', pgCmpM: 'monthly', pgCmpD: 'daily', pgCmpY: 'yearly', pgEffYield: 'Effective yield', pgNoEnd: 'Not set', pgName: 'Name', pgNamePh: 'For example, a deposit or an ETF', pgAmount: 'Amount', pgRate: 'Rate, %', pgOpened: 'Opened on', pgEnds: 'End date',
       pgTicker: 'Ticker', pgTickerPh: 'KO, VWCE.DE, MOEX:SBER, BTC-EUR', pgTickerHint: 'With a ticker the price updates by itself once a day. Without one, enter the value yourself.', pgQty: 'Number of units',
       pgPutAmt: 'Total invested', pgValueNow: 'Current value', pgSaved: 'Saved', pgBadTicker: 'Could not find a price for this ticker', pgRefresh: 'Refresh price', pgUpdValue: 'Update value',
       pgTopup: 'Add funds', pgDel: 'Delete', pgDelAsk: 'Delete this holding?', pgPriceFrom: (d) => `price as of ${d}`, pgYrs: (y, m) => `${y ? `${y} ${y === 1 ? 'year' : 'years'} ` : ''}${m ? `${m} ${m === 1 ? 'month' : 'months'}` : ''}`.trim() || 'under a month',
@@ -2218,14 +2218,52 @@
       <button class="btn btn-primary btn-block" id="pgSave" style="margin-top:6px">${t('save')}</button>`);
     $('.close', sh.sheet).addEventListener('click', () => closeSheet(sh));
     const num = (id) => Number(String($(id, sh.sheet).value).replace(/\s/g, '').replace(',', '.'));
+    let cmp = ex && ex.compound ? ex.compound : 'm';
+    const bindSavingFields = () => {
+      const wrap = $('#pgCmp', sh.sheet);
+      const opts = [['m', t('pgCmpM')], ['d', t('pgCmpD')], ['y', t('pgCmpY')]];
+      wrap.innerHTML = `<div class="pg-wband"></div><div class="pg-wtrack">${opts.map(([k, l]) => `<div class="pg-wi" data-k="${k}">${esc(l)}</div>`).join('')}</div>`;
+      const tr = $('.pg-wtrack', wrap);
+      const items = () => [...tr.children];
+      const mid = () => tr.scrollLeft + tr.clientWidth / 2;
+      const to = (el, smooth) => tr.scrollTo({ left: el.offsetLeft + el.offsetWidth / 2 - tr.clientWidth / 2, behavior: smooth ? 'smooth' : 'auto' });
+      const paint = () => items().forEach((el) => {
+        const k = Math.min(1, Math.abs(el.offsetLeft + el.offsetWidth / 2 - mid()) / (tr.clientWidth / 2));
+        el.classList.toggle('on', el.dataset.k === cmp);
+        el.style.opacity = String(1 - k * 0.5);
+      });
+      let settle = 0, lastK = cmp;
+      tr.addEventListener('scroll', () => {
+        let best = null, bd = Infinity;
+        for (const el of items()) { const d = Math.abs(el.offsetLeft + el.offsetWidth / 2 - mid()); if (d < bd) { bd = d; best = el; } }
+        if (best && best.dataset.k !== lastK) { lastK = best.dataset.k; haptic('select'); }
+        cmp = lastK; paint();
+        clearTimeout(settle); settle = setTimeout(() => {}, 140);
+      }, { passive: true });
+      tr.addEventListener('click', (e) => { const el = e.target.closest('.pg-wi'); if (el) { cmp = lastK = el.dataset.k; to(el, true); paint(); } });
+      requestAnimationFrame(() => { to(tr.querySelector(`[data-k="${cmp}"]`), false); paint(); });
+      // даты: показываем полным текстом, поверх — прозрачное нативное поле
+      const dt = (id, ph) => {
+        const inp = $(id, sh.sheet), txt = $(`${id}Txt`, sh.sheet);
+        const show = () => { txt.textContent = inp.value ? pgDate(inp.value) : ph; txt.classList.toggle('ph', !inp.value); };
+        inp.addEventListener('change', show); inp.addEventListener('input', show); show();
+        return show;
+      };
+      sh.sheet._pgShow = [dt('#pgOpened', ''), dt('#pgEnds', t('pgNoEnd'))];
+    };
     const draw = () => {
       sh.sheet.querySelectorAll('#pgKind button').forEach((b) => b.classList.toggle('active', b.dataset.k === kind));
       $('#pgFields', sh.sheet).innerHTML = kind === 'saving' ? `
         <div class="field"><label for="pgAmt">${t('pgAmount')}</label><input id="pgAmt" inputmode="decimal" autocomplete="off" placeholder="0"></div>
-        <div class="field"><label>${t('currency')}</label><button class="cur-btn" id="pgCur" style="margin:4px 0 10px">${cur}</button></div>
-        <div class="field"><label for="pgRate">${t('pgRate')}</label><input id="pgRate" inputmode="decimal" autocomplete="off" placeholder="0"></div>
-        <div class="field"><label for="pgOpened">${t('pgOpened')}</label><input id="pgOpened" type="date" value="${state.today}" max="${state.today}"></div>
-        <div class="field"><label for="pgEnds">${t('pgEnds')}</label><input id="pgEnds" type="date"></div>` : `
+        <div class="field"><label>${t('currency')}</label><button class="cur-btn pg-cur" id="pgCur">${cur}</button></div>
+        <div class="pg-row2 rate">
+          <div class="field"><label for="pgRate">${t('pgRate')}</label><input id="pgRate" inputmode="decimal" autocomplete="off" placeholder="0"></div>
+          <div class="field pg-cmp"><label>${t('pgCompound')}</label><div class="pg-wheel" id="pgCmp"></div></div>
+        </div>
+        <div class="pg-row2">
+          <div class="field pg-date"><label>${t('pgOpened')}</label><b id="pgOpenedTxt"></b><input id="pgOpened" type="date" value="${state.today}" max="${state.today}"></div>
+          <div class="field pg-date"><label>${t('pgEnds')}</label><b id="pgEndsTxt"></b><input id="pgEnds" type="date"></div>
+        </div>` : `
         <div class="field"><label for="pgTicker">${t('pgTicker')}</label><input id="pgTicker" maxlength="24" autocomplete="off" autocapitalize="characters" placeholder="${esc(t('pgTickerPh'))}"></div>
         <div class="note" style="margin:-4px 4px 12px">${t('pgTickerHint')}</div>
         <div class="field" id="pgQtyWrap"><label for="pgQty">${t('pgQty')}</label><input id="pgQty" inputmode="decimal" autocomplete="off" placeholder="0"></div>
@@ -2233,6 +2271,7 @@
         <div id="pgManual"><div class="field"><label for="pgVal">${t('pgValueNow')}</label><input id="pgVal" inputmode="decimal" autocomplete="off" placeholder="0"></div></div>
         <div class="field"><label>${t('currency')}</label><button class="cur-btn" id="pgCur" style="margin:4px 0 10px">${cur}</button></div>
         <div class="field"><label for="pgOpened">${t('pgFirstPut')}</label><input id="pgOpened" type="date" value="${state.today}" max="${state.today}"></div>`;
+      if (kind === 'saving') bindSavingFields();
       const curBtn = $('#pgCur', sh.sheet);
       if (curBtn) curBtn.addEventListener('click', async () => { const c = await pickCurrency(cur, t('currency')); if (c) { cur = c; curBtn.textContent = c; } });
       const tk = $('#pgTicker', sh.sheet);
@@ -2246,7 +2285,7 @@
     if (ex) {
       const set = (id, v) => { const e = $(id, sh.sheet); if (e && v !== null && v !== undefined) e.value = v; };
       set('#pgName', ex.name); set('#pgAmt', ex.invested); set('#pgOpened', ex.opened);
-      if (ex.kind === 'saving') { set('#pgRate', ex.rate); set('#pgEnds', ex.ends); }
+      if (ex.kind === 'saving') { set('#pgRate', ex.rate); set('#pgEnds', ex.ends); (sh.sheet._pgShow || []).forEach((f) => f()); }
       else if (ex.ticker) { set('#pgTicker', ex.ticker); set('#pgQty', ex.qty); $('#pgTicker', sh.sheet).dispatchEvent(new Event('input')); }
       else set('#pgVal', ex.value);
     }
@@ -2254,7 +2293,7 @@
       const btn = ev.currentTarget;
       const body = { kind, name: $('#pgName', sh.sheet).value.trim(), invested: num('#pgAmt'), opened: $('#pgOpened', sh.sheet).value, currency: cur };
       if (!body.name || !(body.invested > 0)) { haptic('error'); return; }
-      if (kind === 'saving') { body.rate = num('#pgRate') || 0; body.ends = $('#pgEnds', sh.sheet).value || null; }
+      if (kind === 'saving') { body.rate = num('#pgRate') || 0; body.compound = cmp; body.ends = $('#pgEnds', sh.sheet).value || null; }
       else {
         const tk = $('#pgTicker', sh.sheet).value.trim();
         if (tk) { body.ticker = tk; body.qty = num('#pgQty'); if (!(body.qty > 0)) { haptic('error'); return; } }
@@ -2274,7 +2313,8 @@
       fact(t('pgPut'), money(h.invested, h.currency, { round: true })),
       fact(h.kind === 'saving' ? t('pgOpened') : t('pgFirstPut'), pgDate(h.opened)),
       fact(t('pgHeld'), held),
-      h.kind === 'saving' ? fact(t('pgRate'), `${h.rate}%`) : fact(t('pgYearYield'), h.yearly === null ? '—' : `≈ ${pgPct(h.yearly)}`),
+      h.kind === 'saving' ? fact(t('pgRate'), `${h.rate}% · ${t({ m: 'pgCmpM', d: 'pgCmpD', y: 'pgCmpY' }[h.compound || 'm'])}`) : fact(t('pgYearYield'), h.yearly === null ? '—' : `≈ ${pgPct(h.yearly)}`),
+      h.kind === 'saving' ? fact(t('pgEffYield'), `≈ ${pgPct(h.yearly)}`) : '',
       h.kind === 'saving' && h.ends ? fact(t('pgUntil'), pgDate(h.ends)) : '',
       h.ticker ? fact(t('pgTicker'), `${h.ticker} · ${h.qty}`) : '',
     ].join('');

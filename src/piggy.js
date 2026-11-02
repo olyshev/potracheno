@@ -63,12 +63,38 @@ export async function updatePrices(env, { limit = 30, tickers = null } = {}) {
 }
 
 // ---------- расчёт позиции ----------
+// дата + k календарных месяцев (с поправкой на короткие месяцы)
+function addMonths(d, k) {
+  const y = Number(d.slice(0, 4)), m = Number(d.slice(5, 7)) - 1, day = Number(d.slice(8, 10));
+  const t = y * 12 + m + k, ny = Math.floor(t / 12), nm = t % 12;
+  const last = new Date(Date.UTC(ny, nm + 1, 0)).getUTCDate();
+  return `${ny}-${String(nm + 1).padStart(2, '0')}-${String(Math.min(day, last)).padStart(2, '0')}`;
+}
+
+// сумма вклада на дату end: полные периоды капитализируются, неполный начисляется простыми процентами
+export function accrue(principal, ratePct, from, end, mode) {
+  const r = (ratePct || 0) / 100;
+  const days = Math.max(0, daysBetween(from, end));
+  if (mode === 'd') return principal * Math.pow(1 + r / 365, days);
+  const step = mode === 'y' ? 12 : 1;
+  let k = Math.floor(days / (mode === 'y' ? 366 : 31));
+  while (addMonths(from, (k + 1) * step) <= end) k++;
+  while (k > 0 && addMonths(from, k * step) > end) k--;
+  const rest = daysBetween(addMonths(from, k * step), end);
+  return principal * Math.pow(1 + r * step / 12, k) * (1 + r * rest / 365);
+}
+
+// эффективная годовая доходность, %
+const effYield = (rate, mode) => {
+  const r = (rate || 0) / 100;
+  return (mode === 'd' ? Math.pow(1 + r / 365, 365) - 1 : mode === 'y' ? r : Math.pow(1 + r / 12, 12) - 1) * 100;
+};
+
 function compute(h, price, today) {
   let value, note = null;
   if (h.kind === 'saving') {
     const end = h.ends && h.ends < today ? h.ends : today;
-    const days = Math.max(0, daysBetween(h.accr_from || h.opened, end));
-    value = h.principal * (1 + ((h.rate || 0) / 100) * days / 365);
+    value = accrue(h.principal, h.rate, h.accr_from || h.opened, end, h.compound || 'm');
   } else if (h.ticker) {
     value = price && price.price ? h.qty * price.price : null;
     note = price && price.at ? price.at.slice(0, 10) : null;
@@ -79,7 +105,7 @@ function compute(h, price, today) {
   const gain = value === null ? null : value - h.invested;
   const days = Math.max(1, daysBetween(h.opened, today));
   let yearly = null;
-  if (h.kind === 'saving') yearly = h.rate || 0;
+  if (h.kind === 'saving') yearly = effYield(h.rate, h.compound || 'm');
   else if (value !== null && h.invested > 0 && days >= 60) yearly = (Math.pow(value / h.invested, 365 / days) - 1) * 100;
   return { value, gain, pct: value !== null && h.invested > 0 ? (gain / h.invested) * 100 : null, yearly, updated: note, days };
 }
@@ -97,7 +123,7 @@ async function build(env, user, rates, today) {
     const c = compute(h, prices[h.ticker], today);
     const b = (v) => (v === null ? null : round2(norm(v, h.currency, base, rates)));
     return {
-      id: h.id, kind: h.kind, name: h.name, currency: h.currency, ticker: h.ticker, qty: h.qty, rate: h.rate, ends: h.ends, opened: h.opened,
+      id: h.id, kind: h.kind, name: h.name, currency: h.currency, ticker: h.ticker, qty: h.qty, rate: h.rate, compound: h.compound || 'm', ends: h.ends, opened: h.opened,
       invested: round2(h.invested), value: c.value === null ? null : round2(c.value), gain: c.gain === null ? null : round2(c.gain),
       pct: c.pct === null ? null : Math.round(c.pct * 10) / 10, yearly: c.yearly === null ? null : Math.round(c.yearly * 10) / 10,
       updated: c.updated, price: prices[h.ticker] ? prices[h.ticker].price : null, priceFail: !!h.ticker && !(prices[h.ticker] && prices[h.ticker].price),
@@ -136,7 +162,7 @@ async function makeRow(env, user, body, { fail, rates, today, isCurrency }, id, 
   if (!name) return { res: fail(400, 'bad_name') };
   const opened = validDate(body.opened) ? body.opened : today;
   const row = { id, kind, name, opened, currency: String(body.currency || user.base_currency || 'EUR'), invested: 0,
-    principal: null, rate: null, accr_from: null, ends: null, ticker: null, qty: null, value: null, value_at: null };
+    principal: null, rate: null, compound: 'm', accr_from: null, ends: null, ticker: null, qty: null, value: null, value_at: null };
   if (!isCurrency(row.currency, rates)) return { res: fail(400, 'bad_currency') };
   const invested = num(body.invested);
   if (!(invested >= 0 && invested < 1e12)) return { res: fail(400, 'bad_amount') };
@@ -145,6 +171,7 @@ async function makeRow(env, user, body, { fail, rates, today, isCurrency }, id, 
     if (!(invested > 0)) return { res: fail(400, 'bad_amount') };
     const rate = num(body.rate) ?? 0;
     if (!(rate >= 0 && rate <= 100)) return { res: fail(400, 'bad_rate') };
+    row.compound = ['m', 'd', 'y'].includes(body.compound) ? body.compound : 'm';
     row.principal = invested; row.rate = rate; row.accr_from = opened;
     row.ends = validDate(body.ends) && body.ends > opened ? body.ends : null;
   } else {
@@ -191,9 +218,9 @@ export async function handlePiggy(env, user, path, method, body, { json, fail, r
     const r = await makeRow(env, user, body, { fail, rates, today, isCurrency }, crypto.randomUUID());
     if (r.res) return r.res;
     const row = r.row;
-    await env.DB.prepare(`INSERT INTO holdings (id, user_id, kind, name, currency, invested, principal, rate, accr_from, ends, ticker, qty, value, value_at, opened)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .bind(row.id, user.id, row.kind, row.name, row.currency, row.invested, row.principal, row.rate, row.accr_from, row.ends, row.ticker, row.qty, row.value, row.value_at, row.opened).run();
+    await env.DB.prepare(`INSERT INTO holdings (id, user_id, kind, name, currency, invested, principal, rate, compound, accr_from, ends, ticker, qty, value, value_at, opened)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(row.id, user.id, row.kind, row.name, row.currency, row.invested, row.principal, row.rate, row.compound, row.accr_from, row.ends, row.ticker, row.qty, row.value, row.value_at, row.opened).run();
     return json({ ok: true, id: row.id });
   }
 
@@ -210,8 +237,8 @@ export async function handlePiggy(env, user, path, method, body, { json, fail, r
     const r = await makeRow(env, user, body, { fail, rates, today, isCurrency }, h.id, h);
     if (r.res) return r.res;
     const x = r.row;
-    await env.DB.prepare(`UPDATE holdings SET name = ?, currency = ?, invested = ?, principal = ?, rate = ?, accr_from = ?, ends = ?, ticker = ?, qty = ?, value = ?, value_at = ?, opened = ? WHERE id = ? AND user_id = ?`)
-      .bind(x.name, x.currency, x.invested, x.principal, x.rate, x.accr_from, x.ends, x.ticker, x.qty, x.value, x.value_at, x.opened, h.id, user.id).run();
+    await env.DB.prepare(`UPDATE holdings SET name = ?, currency = ?, invested = ?, principal = ?, rate = ?, compound = ?, accr_from = ?, ends = ?, ticker = ?, qty = ?, value = ?, value_at = ?, opened = ? WHERE id = ? AND user_id = ?`)
+      .bind(x.name, x.currency, x.invested, x.principal, x.rate, x.compound, x.accr_from, x.ends, x.ticker, x.qty, x.value, x.value_at, x.opened, h.id, user.id).run();
     return json({ ok: true });
   }
   // пополнение: вклад — проценты до сегодня «закрепляются» и дальше идут уже с новой суммы; бумаги — докупили qty на amount
