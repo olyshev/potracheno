@@ -16,6 +16,8 @@
   --soft: color-mix(in srgb, var(--accent) 12%, var(--card));
   --track: color-mix(in srgb, var(--hint) 16%, transparent);
   --radius: 14px;
+  /* полноэкранный режим Telegram: системные кнопки («Закрыть», «⋯») лежат поверх приложения */
+  --inset-top: calc(var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px));
   --safe-bottom: max(env(safe-area-inset-bottom), var(--tg-safe-area-inset-bottom, 0px));
   color-scheme: light dark;
 }
@@ -886,3 +888,8 @@ button.h-chip { cursor: pointer; }
 body.sheet-lock { position: fixed; left: 0; right: 0; width: 100%; overflow: hidden; }
 .sheet-backdrop { touch-action: none; }
 .sheet { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+
+/* контент не заезжает под кнопки Telegram в полноэкранном режиме */
+.hero2 { padding-top: calc(4px + var(--inset-top)); }
+.page { padding-top: calc(4px + var(--inset-top)); }
+#viewPiggy { padding-top: 0; }
