@@ -1918,6 +1918,7 @@
       <div class="save-bar"><button class="btn btn-primary btn-block" id="mSave">${t('save')}</button>${kpadHtml()}</div>`);
     const S = sh.sheet;
     const amountEl = $('#mAmount', S), noteEl = $('#mNote', S), dateEl = bindDateWheel(S, 'mDate');
+    S.classList.add('kpd');
     bindKeypad(S, amountEl);
     $('.close', S).addEventListener('click', () => closeSheet(sh));
     const getRepeat = rep.bind(S, (cb) => dateEl.addEventListener('change', () => cb(dateEl.value)));

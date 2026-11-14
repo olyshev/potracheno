@@ -951,3 +951,7 @@ body.sheet-lock { position: fixed; left: 0; right: 0; width: 100%; overflow: hid
 .amt-view { flex: 1; min-width: 0; font-size: 52px; font-weight: 800; letter-spacing: -2px; line-height: 1.2; white-space: nowrap; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; scrollbar-width: none; color: var(--text); }
 .amt-view::-webkit-scrollbar { display: none; }
 .amt-view.empty { color: var(--hint); }
+
+/* шторка с собственной клавиатурой: панель с кнопками стоит вплотную к низу экрана, контент не выглядывает из-под неё */
+.sheet.kpd { padding-bottom: 0; }
+.sheet.kpd .save-bar { margin-bottom: 0; padding-bottom: calc(12px + var(--safe-bottom)); background: linear-gradient(to top, var(--bg) calc(100% - 44px), transparent); }
