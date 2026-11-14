@@ -927,6 +927,10 @@ body.sheet-lock { position: fixed; left: 0; right: 0; width: 100%; overflow: hid
 .calc-res:empty { display: none; }
 
 .sheet.kb { padding-bottom: 0; }
-.sheet.kb .save-bar { margin-bottom: 0; padding-bottom: 0; background: linear-gradient(to top, var(--bg) 88%, transparent); }
+.sheet.kb .save-bar { margin-bottom: 0; padding-bottom: 4px; background: linear-gradient(to top, var(--bg) 88%, transparent); }
 .sheet.kb .save-bar .calc-bar { margin-top: 10px; }
-.sheet.kb .calc-bar.sticky { padding-bottom: 0; }
+.sheet.kb .calc-bar.sticky { padding-bottom: 4px; }
+
+/* в полноэкранном режиме шторка не должна заходить под системные кнопки Telegram («Закрыть», «⋯») */
+.sheet { max-height: min(92vh, calc(100vh - var(--inset-top) - 10px)); }
+.sheet.pg-card { height: min(88vh, calc(100vh - var(--inset-top) - 10px)); max-height: min(88vh, calc(100vh - var(--inset-top) - 10px)); }
