@@ -1879,7 +1879,7 @@
       const H0 = window.innerHeight; let kbh = 0, tm = 0;
       try { kbh = Number(localStorage.getItem('kbh')) || 0; } catch { /* нет хранилища */ }
       let fill = null;
-      const stop = () => { S.classList.remove('kbp'); S.style.removeProperty('--kbh'); window.removeEventListener('resize', onRes); clearTimeout(tm); if (fill) fill.remove(); };
+      const stop = () => { S.classList.remove('kbp'); S.style.removeProperty('--kbh'); window.removeEventListener('resize', onRes); clearTimeout(tm); if (fill) { const f = fill; fill = null; setTimeout(() => f.remove(), 600); } };
       const onRes = () => {
         const d = H0 - window.innerHeight;
         if (d > 80) { try { localStorage.setItem('kbh', String(Math.round(d))); } catch { /* нет хранилища */ } stop(); }
@@ -1887,6 +1887,8 @@
       window.addEventListener('resize', onRes);
       if (kbh > 80) {
         S.style.setProperty('--kbh', `${kbh}px`); S.classList.add('kbp');
+        // фиксируем шторку по верхнему краю и высоте: когда Telegram уменьшит область, она не сдвинется ни на пиксель
+        { const r = S.getBoundingClientRect(); S.style.top = `${r.top}px`; S.style.bottom = 'auto'; S.style.height = `${r.height}px`; S.style.maxHeight = 'none'; }
         fill = document.createElement('div'); fill.className = 'kb-fill'; fill.style.height = `${kbh}px`; fill.style.zIndex = S.style.zIndex;
         $('#sheets').append(fill);
       }
