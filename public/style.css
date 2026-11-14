@@ -916,3 +916,12 @@ body.sheet-lock { position: fixed; left: 0; right: 0; width: 100%; overflow: hid
 
 /* карточка позиции кубышки: фиксированная высота, чтобы «Закрыть» всегда был на одном месте и шторка не вылезала под системные кнопки Telegram */
 .sheet.pg-card { height: 88vh; max-height: 88vh; }
+
+/* калькулятор в поле суммы: + − × ÷ над клавиатурой */
+.calc-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
+.calc-bar button { height: 44px; border-radius: 99px; background: var(--card); color: var(--text); font-size: 28px; font-weight: 600; line-height: 1; }
+.calc-bar button:active { background: var(--text); color: var(--bg); }
+.calc-bar.sticky { position: sticky; bottom: 0; padding: 10px 0 2px; background: var(--bg); }
+.amount-field.has-calc { position: relative; padding-bottom: 24px; }
+.calc-res { position: absolute; left: 14px; bottom: 6px; font-size: 13px; font-weight: 700; color: var(--hint); }
+.calc-res:empty { display: none; }

@@ -250,10 +250,46 @@
       }).format(n);
     } catch { return `${n.toFixed(2)} ${cur}`; }
   }
-  const parseAmount = (s) => {
-    const n = Number(String(s).replace(/\s/g, '').replace(',', '.'));
-    return isFinite(n) ? n : NaN;
-  };
+  // Сумма с действиями: «1200 ÷ 3», «450 + 320 + 90», «15 × 4». Приоритет как в арифметике, без eval.
+  function calcEval(src) {
+    const s = String(src).replace(/\s/g, '').replace(/,/g, '.').replace(/[−–]/g, '-').replace(/[×xх*]/gi, '*').replace(/[÷/:]/g, '/');
+    if (/^[-+]?(\d+\.?\d*|\.\d+)$/.test(s)) { const n = Number(s); return isFinite(n) ? n : NaN; }
+    if (!/^[0-9.+\-*/]+$/.test(s)) return NaN;
+    let i = 0;
+    const num = () => { const m = /^(\d+\.?\d*|\.\d+)/.exec(s.slice(i)); if (!m) return NaN; i += m[0].length; return Number(m[0]); };
+    const unary = () => { let sg = 1; while (s[i] === '-' || s[i] === '+') { if (s[i] === '-') sg = -sg; i++; } return sg * num(); };
+    const term = () => { let v = unary(); while (s[i] === '*' || s[i] === '/') { const o = s[i++]; const r = unary(); v = o === '*' ? v * r : v / r; } return v; };
+    let v = term();
+    while (s[i] === '+' || s[i] === '-') { const o = s[i++]; const r = term(); v = o === '+' ? v + r : v - r; }
+    return i === s.length && isFinite(v) ? Math.round(v * 100) / 100 : NaN;
+  }
+  const parseAmount = (s) => calcEval(s);
+  const CALC_OPS = ['+', '−', '×', '÷'];
+  const calcBarHtml = (cls = '') => `<div class="calc-bar ${cls}">${CALC_OPS.map((o) => `<button type="button" data-op="${o}" aria-label="${o}">${o}</button>`).join('')}</div>`;
+  // кнопки + − × ÷ над клавиатурой: вставляют знак в поле суммы, под полем показывается результат
+  function bindCalc(S, input) {
+    const field = input.closest('.amount-field');
+    field.classList.add('has-calc');
+    const res = document.createElement('span'); res.className = 'calc-res'; field.append(res);
+    const isExpr = (v) => /[0-9,.\s][+\-−×÷*/xх:]\s*[0-9,.]/.test(v);
+    const fmt = (n) => n.toLocaleString(state.lang === 'ru' ? 'ru-RU' : 'en-US', { maximumFractionDigits: 2 });
+    const upd = () => { const v = input.value, n = isExpr(v) ? calcEval(v) : NaN; res.textContent = Number.isNaN(n) ? '' : `= ${fmt(n)}`; };
+    input.addEventListener('input', upd);
+    input.addEventListener('change', () => { const n = isExpr(input.value) ? calcEval(input.value) : NaN; if (!Number.isNaN(n)) { input.value = String(n).replace('.', state.lang === 'ru' ? ',' : '.'); upd(); } });
+    const bar = $('.calc-bar', S);
+    ['pointerdown', 'mousedown', 'touchstart'].forEach((ev) => bar.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
+    bar.addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-op]'); if (!b) return;
+      const v = input.value, a = input.selectionStart ?? v.length, z = input.selectionEnd ?? v.length;
+      let pre = v.slice(0, a).replace(/\s+$/, ''); const post = v.slice(z).replace(/^\s+/, '');
+      if (pre && /[+\-−×÷]$/.test(pre)) pre = pre.slice(0, -1).replace(/\s+$/, '');
+      if (!pre) { haptic('error'); return; }
+      const ins = `${pre} ${b.dataset.op} `;
+      input.value = ins + post; input.focus(); input.setSelectionRange(ins.length, ins.length);
+      haptic('select'); upd();
+    });
+    upd();
+  }
 
   // ---------- сеть ----------
   // часовой пояс устройства: по нему сервер считает «сегодня», регулярные платежи и время историй
@@ -1827,9 +1863,10 @@
       <div class="label-row"><span>${t('category')}</span></div>
       <div class="cgrid" id="mCats"></div>
       ${rep.html}
-      <div class="save-bar"><button class="btn btn-primary btn-block" id="mSave">${t('save')}</button></div>`);
+      <div class="save-bar"><button class="btn btn-primary btn-block" id="mSave">${t('save')}</button>${calcBarHtml()}</div>`);
     const S = sh.sheet;
     const amountEl = $('#mAmount', S), noteEl = $('#mNote', S), dateEl = bindDateWheel(S, 'mDate');
+    bindCalc(S, amountEl);
     setTimeout(() => amountEl.focus(), 280);
     $('.close', S).addEventListener('click', () => closeSheet(sh));
     const getRepeat = rep.bind(S, (cb) => dateEl.addEventListener('change', () => cb(dateEl.value)));
@@ -2139,8 +2176,9 @@
       ${rep.html}
       ${e.source === 'recurring' ? `<div class="note" style="margin:-4px 4px 14px">🔁 ${t('auto')}</div>` : ''}
       <button class="btn btn-primary btn-block" id="eSave">${t('save')}</button>
-      <button class="btn btn-danger btn-block" id="eDel" style="margin-top:6px">${t('delete')}</button>`);
+      <button class="btn btn-danger btn-block" id="eDel" style="margin-top:6px">${t('delete')}</button>${calcBarHtml('sticky')}`);
     const S = sh.sheet;
+    bindCalc(S, $('#eAmount', S));
     bindDateWheel(S, 'eDate', { center: e.date, words: false });
     const getRepeat = rep.bind(S, (cb) => $('#eDate', S).addEventListener('change', (ev) => cb(ev.target.value)));
     $('.close', S).addEventListener('click', () => closeSheet(sh));
