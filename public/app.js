@@ -397,6 +397,7 @@
     if (i >= 0) sheets.splice(i, 1);
     entry.sheet.classList.remove('open');
     entry.backdrop.classList.remove('open');
+    if (entry.sheet._kbfill) entry.sheet._kbfill.remove();
     setTimeout(() => { entry.sheet.remove(); entry.backdrop.remove(); }, 260);
     syncLock();
     entry.onClose && entry.onClose();
@@ -1879,7 +1880,7 @@
       const H0 = window.innerHeight; let kbh = 0, tm = 0;
       try { kbh = Number(localStorage.getItem('kbh')) || 0; } catch { /* нет хранилища */ }
       let fill = null;
-      const stop = () => { S.classList.remove('kbp'); S.style.removeProperty('--kbh'); window.removeEventListener('resize', onRes); clearTimeout(tm); if (fill) { const f = fill; fill = null; setTimeout(() => { f.remove(); S.style.overflowY = ''; S.style.willChange = ''; }, 900); } };
+      const stop = () => { window.removeEventListener('resize', onRes); clearTimeout(tm); }; // ничего не меняем в шторке: любая перерисовка в этот момент даёт мигание
       const onRes = () => {
         const d = H0 - window.innerHeight;
         if (d > 80) { try { localStorage.setItem('kbh', String(Math.round(d))); } catch { /* нет хранилища */ } stop(); }
@@ -1890,7 +1891,7 @@
         // фиксируем шторку по верхнему краю и высоте: когда Telegram уменьшит область, она не сдвинется ни на пиксель
         { const r = S.getBoundingClientRect(); S.style.top = `${r.top}px`; S.style.bottom = 'auto'; S.style.height = `${r.height}px`; S.style.maxHeight = 'none'; S.style.willChange = 'transform'; S.style.overflowY = 'hidden'; }
         fill = document.createElement('div'); fill.className = 'kb-fill'; fill.style.height = `${kbh}px`; fill.style.zIndex = S.style.zIndex;
-        $('#sheets').append(fill);
+        $('#sheets').append(fill); S._kbfill = fill;
       }
       tm = setTimeout(stop, kbh > 80 ? 1500 : 4000);
     }
