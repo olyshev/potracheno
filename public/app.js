@@ -2360,7 +2360,7 @@
         ${pts.map((p) => `<circle class="dot" cx="${X(p.x).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="5.5"/>`).join('')}
         <text x="${PL}" y="${H - 4}">${esc(short(events[0].date))}</text><text x="${W - PR}" y="${H - 4}" text-anchor="end">${t('pgToday')}</text></svg></div>`;
   }
-  function openHolding(h) {
+  function openHolding(h, reuse = null) {
     const base = state.piggy.base;
     const up = (h.gain || 0) >= 0;
     const held = (() => { const d = Math.max(0, Math.round((Date.parse(`${state.today}T00:00:00Z`) - Date.parse(`${h.opened}T00:00:00Z`)) / 864e5)); return t('pgYrs', Math.floor(d / 365), Math.floor((d % 365) / 30)); })();
@@ -2374,7 +2374,7 @@
       h.kind === 'saving' && h.ends ? fact(t('pgUntil'), pgDate(h.ends)) : '',
       h.ticker ? fact(t('pgTicker'), `${h.ticker} · ${h.qty}`) : '',
     ].join('');
-    const sh = openSheet(`<div class="sheet-head"><h2 style="font-size:19px">${esc(h.name)}</h2><button class="close">${t('close')}</button></div>
+    const inner = (`<div class="sheet-head"><h2 style="font-size:19px">${esc(h.name)}</h2><button class="close">${t('close')}</button></div>
       <div class="pg-big num">${h.value === null ? t('pgNoPrice') : esc(money(h.value, h.currency))}</div>
       ${h.value === null ? `<div class="pg-gain" style="color:var(--hint)">${t('pgPriceFail')}</div>` : `<div class="pg-gain ${up ? 'up' : 'down'}">${esc(signed(h.gain, h.currency))} · ${h.pct === null ? '' : esc(pgPct(h.pct))} ${t('pgAll')}</div>`}
       ${h.ticker && h.updated ? `<div class="note" style="margin:2px 4px 10px;text-align:left">${esc(t('pgPriceFrom', pgDate(h.updated)))}</div>` : ''}
@@ -2385,11 +2385,20 @@
       <h3 class="pg-hist-h">${t('pgHist')}</h3>
       <div class="pg-hist" id="hHist"></div>
       <div class="pg-float"><button id="hEdit">${t('pgEdit')}</button></div>`);
+    const sh = reuse ? ((reuse.sheet.innerHTML = `<div class="sheet-grip"></div>${inner}`), reuse) : openSheet(inner);
     const evs = h.events || [];
     $('#hChart', sh.sheet).innerHTML = pgChart(evs, h);
     $('#hHist', sh.sheet).innerHTML = [...evs].reverse().map((e) => `<div class="pg-hrow"><span>${esc(pgDate(e.date))}</span><b>${esc(e.kind === 'open' ? money(e.amount, h.currency) : signed(e.amount, h.currency))}</b></div>`).join('');
     $('.close', sh.sheet).addEventListener('click', () => closeSheet(sh));
     const done = async () => { closeSheet(sh); await loadPiggy(); };
+    // после пополнения/уменьшения остаёмся в карточке: обновляем её содержимое на месте
+    const stay = async () => {
+      const top = sh.sheet.scrollTop;
+      await loadPiggy();
+      const nh = state.piggy && state.piggy.items.find((x) => x.id === h.id);
+      if (!nh) { closeSheet(sh); return; }
+      openHolding(nh, sh); sh.sheet.scrollTop = top;
+    };
     const rf = $('#hRefresh', sh.sheet);
     if (rf) rf.addEventListener('click', async () => {
       rf.disabled = true;
@@ -2400,19 +2409,19 @@
     if (hv) hv.addEventListener('click', async () => {
       const v = await pgAsk(t('pgUpdValue'), [{ id: 'v', label: `${t('pgValueNow')}, ${h.currency}` }]);
       if (!v) return;
-      try { await api(`/piggy/${h.id}/value`, { method: 'POST', body: { value: v.v } }); haptic('success'); done(); } catch { toast(t('netError')); }
+      try { await api(`/piggy/${h.id}/value`, { method: 'POST', body: { value: v.v } }); haptic('success'); stay(); } catch { toast(t('netError')); }
     });
     $('#hTopup', sh.sheet).addEventListener('click', async () => {
       const fields = (h.ticker ? [{ id: 'qty', label: t('pgTopupQty') }, { id: 'amount', label: `${t('pgTopupAmt')}, ${h.currency}` }] : [{ id: 'amount', label: `${t('pgAmount')}, ${h.currency}` }]).concat([{ id: 'date', label: t('pgOnDate'), date: true }]);
       const v = await pgAsk(t('pgTopup'), fields);
       if (!v) return;
-      try { await api(`/piggy/${h.id}/topup`, { method: 'POST', body: v }); haptic('success'); done(); } catch { toast(t('netError')); }
+      try { await api(`/piggy/${h.id}/topup`, { method: 'POST', body: v }); haptic('success'); stay(); } catch { toast(t('netError')); }
     });
     $('#hReduce', sh.sheet).addEventListener('click', async () => {
       const fields = h.ticker ? [{ id: 'qty', label: t('pgSellQty') }, { id: 'amount', label: `${t('pgSellAmt')}, ${h.currency}` }] : [{ id: 'amount', label: `${t('pgAmount')}, ${h.currency}` }];
       const v = await pgAsk(t('pgReduce'), fields);
       if (!v) return;
-      try { await api(`/piggy/${h.id}/withdraw`, { method: 'POST', body: v }); haptic('success'); done(); } catch (e) { toast(e.code === 'too_much' || e.code === 'bad_qty' ? t('pgTooMuch') : t('netError')); }
+      try { await api(`/piggy/${h.id}/withdraw`, { method: 'POST', body: v }); haptic('success'); stay(); } catch (e) { toast(e.code === 'too_much' || e.code === 'bad_qty' ? t('pgTooMuch') : t('netError')); }
     });
     $('#hEdit', sh.sheet).addEventListener('click', () => { closeSheet(sh); setTimeout(() => openHoldingForm(h.kind, h), 220); });
   }
