@@ -925,3 +925,8 @@ body.sheet-lock { position: fixed; left: 0; right: 0; width: 100%; overflow: hid
 .amount-field.has-calc { position: relative; padding-bottom: 24px; }
 .calc-res { position: absolute; left: 14px; bottom: 6px; font-size: 13px; font-weight: 700; color: var(--hint); }
 .calc-res:empty { display: none; }
+
+.sheet.kb { padding-bottom: 0; }
+.sheet.kb .save-bar { margin-bottom: 0; padding-bottom: 0; background: linear-gradient(to top, var(--bg) 88%, transparent); }
+.sheet.kb .save-bar .calc-bar { margin-top: 10px; }
+.sheet.kb .calc-bar.sticky { padding-bottom: 0; }

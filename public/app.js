@@ -276,6 +276,10 @@
     const upd = () => { const v = input.value, n = isExpr(v) ? calcEval(v) : NaN; res.textContent = Number.isNaN(n) ? '' : `= ${fmt(n)}`; };
     input.addEventListener('input', upd);
     input.addEventListener('change', () => { const n = isExpr(input.value) ? calcEval(input.value) : NaN; if (!Number.isNaN(n)) { input.value = String(n).replace('.', state.lang === 'ru' ? ',' : '.'); upd(); } });
+    // пока открыта клавиатура, ряд знаков прижат вплотную к ней: без нижнего отступа шторки и без зазора
+    S.addEventListener('focusin', (e) => { if (e.target.matches('input, textarea')) S.classList.add('kb'); });
+    S.addEventListener('focusout', () => setTimeout(() => { if (!document.activeElement || !document.activeElement.matches('input, textarea')) S.classList.remove('kb'); }, 80));
+    if (document.activeElement && S.contains(document.activeElement)) S.classList.add('kb');
     const bar = $('.calc-bar', S);
     ['pointerdown', 'mousedown', 'touchstart'].forEach((ev) => bar.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
     bar.addEventListener('click', (e) => {
