@@ -221,16 +221,24 @@ export async function handlePiggy(env, user, path, method, body, { json, fail, r
     await env.DB.prepare(`INSERT INTO holdings (id, user_id, kind, name, currency, invested, principal, rate, compound, accr_from, ends, ticker, qty, value, value_at, opened)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .bind(row.id, user.id, row.kind, row.name, row.currency, row.invested, row.principal, row.rate, row.compound, row.accr_from, row.ends, row.ticker, row.qty, row.value, row.value_at, row.opened).run();
+    await env.DB.prepare("INSERT INTO holding_events (holding_id, user_id, kind, date, amount, qty) VALUES (?, ?, 'open', ?, ?, ?)").bind(row.id, user.id, row.opened, row.invested, row.qty).run();
     return json({ ok: true, id: row.id });
   }
 
-  const m = path.match(/^\/piggy\/([0-9a-f-]{36})(\/topup|\/value)?$/);
+  const m = path.match(/^\/piggy\/([0-9a-f-]{36})(\/topup|\/withdraw|\/value|\/events)?$/);
   if (!m) return null;
   const h = await env.DB.prepare('SELECT * FROM holdings WHERE id = ? AND user_id = ?').bind(m[1], user.id).first();
   if (!h) return fail(404, 'not_found');
 
+  if (m[2] === '/events' && method === 'GET') {
+    const { results } = await env.DB.prepare('SELECT kind, date, amount, qty FROM holding_events WHERE holding_id = ? AND user_id = ? ORDER BY date, id').bind(h.id, user.id).all();
+    return json({ events: results.map((e) => ({ kind: e.kind, date: e.date, amount: round2(e.amount), qty: e.qty })) });
+  }
   if (!m[2] && method === 'DELETE') {
-    await env.DB.prepare('DELETE FROM holdings WHERE id = ? AND user_id = ?').bind(h.id, user.id).run();
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM holding_events WHERE holding_id = ? AND user_id = ?').bind(h.id, user.id),
+      env.DB.prepare('DELETE FROM holdings WHERE id = ? AND user_id = ?').bind(h.id, user.id),
+    ]);
     return json({ ok: true });
   }
   if (!m[2] && method === 'PATCH') {
@@ -239,22 +247,49 @@ export async function handlePiggy(env, user, path, method, body, { json, fail, r
     const x = r.row;
     await env.DB.prepare(`UPDATE holdings SET name = ?, currency = ?, invested = ?, principal = ?, rate = ?, compound = ?, accr_from = ?, ends = ?, ticker = ?, qty = ?, value = ?, value_at = ?, opened = ? WHERE id = ? AND user_id = ?`)
       .bind(x.name, x.currency, x.invested, x.principal, x.rate, x.compound, x.accr_from, x.ends, x.ticker, x.qty, x.value, x.value_at, x.opened, h.id, user.id).run();
+    if (x.opened !== h.opened) await env.DB.prepare("UPDATE holding_events SET date = ? WHERE holding_id = ? AND kind = 'open'").bind(x.opened, h.id).run();
     return json({ ok: true });
   }
-  // пополнение: вклад — проценты до сегодня «закрепляются» и дальше идут уже с новой суммы; бумаги — докупили qty на amount
+  // пополнение: вклад — проценты до сегодня «закрепляются» и дальше идут уже с новой суммой; бумаги — докупили qty на amount.
+  // Можно указать дату задним числом: для вклада проценты на добавленную сумму считаются с этой даты.
   if (m[2] === '/topup' && method === 'POST') {
     const amount = num(body.amount);
     if (!(amount > 0 && amount < 1e12)) return fail(400, 'bad_amount');
+    const date = validDate(body.date) && body.date <= today ? body.date : today;
+    let qty = null;
     if (h.kind === 'saving') {
       const c = compute(h, null, today);
-      await env.DB.prepare('UPDATE holdings SET principal = ?, accr_from = ?, invested = invested + ? WHERE id = ?').bind(c.value + amount, today, amount, h.id).run();
+      const add = date < today ? accrue(amount, h.rate, date < h.opened ? h.opened : date, today, h.compound || 'm') : amount;
+      await env.DB.prepare('UPDATE holdings SET principal = ?, accr_from = ?, invested = invested + ? WHERE id = ?').bind(c.value + add, today, amount, h.id).run();
     } else if (h.ticker) {
-      const qty = num(body.qty);
+      qty = num(body.qty);
       if (!(qty > 0 && qty < 1e12)) return fail(400, 'bad_qty');
       await env.DB.prepare('UPDATE holdings SET qty = qty + ?, invested = invested + ? WHERE id = ?').bind(qty, amount, h.id).run();
     } else {
       await env.DB.prepare("UPDATE holdings SET invested = invested + ?, value = COALESCE(value, 0) + ?, value_at = datetime('now') WHERE id = ?").bind(amount, amount, h.id).run();
     }
+    await env.DB.prepare("INSERT INTO holding_events (holding_id, user_id, kind, date, amount, qty) VALUES (?, ?, 'topup', ?, ?, ?)").bind(h.id, user.id, date, amount, qty).run();
+    return json({ ok: true });
+  }
+  // уменьшение: снимаем часть суммы (вклад — с учётом набежавших процентов, бумаги — продали qty на amount)
+  if (m[2] === '/withdraw' && method === 'POST') {
+    const amount = num(body.amount);
+    if (!(amount > 0 && amount < 1e12)) return fail(400, 'bad_amount');
+    const cut = (inv) => Math.max(0, inv - amount);
+    let qty = null;
+    if (h.kind === 'saving') {
+      const c = compute(h, null, today);
+      if (amount > c.value + 0.005) return fail(400, 'too_much');
+      await env.DB.prepare('UPDATE holdings SET principal = ?, accr_from = ?, invested = ? WHERE id = ?').bind(Math.max(0, c.value - amount), today, cut(h.invested), h.id).run();
+    } else if (h.ticker) {
+      qty = num(body.qty);
+      if (!(qty > 0 && qty <= h.qty + 1e-9)) return fail(400, 'bad_qty');
+      await env.DB.prepare('UPDATE holdings SET qty = ?, invested = ? WHERE id = ?').bind(Math.max(0, h.qty - qty), cut(h.invested), h.id).run();
+    } else {
+      if (amount > (h.value || 0) + 0.005) return fail(400, 'too_much');
+      await env.DB.prepare("UPDATE holdings SET invested = ?, value = ?, value_at = datetime('now') WHERE id = ?").bind(cut(h.invested), Math.max(0, (h.value || 0) - amount), h.id).run();
+    }
+    await env.DB.prepare("INSERT INTO holding_events (holding_id, user_id, kind, date, amount, qty) VALUES (?, ?, 'withdraw', ?, ?, ?)").bind(h.id, user.id, today, -amount, qty).run();
     return json({ ok: true });
   }
   // ручное обновление стоимости (для позиций без тикера)

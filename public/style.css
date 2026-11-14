@@ -892,3 +892,24 @@ body.sheet-lock { position: fixed; left: 0; right: 0; width: 100%; overflow: hid
 .hero2 { padding-top: calc(4px + var(--inset-top)); }
 .page { padding-top: calc(4px + var(--inset-top)); }
 #viewPiggy { padding-top: 0; }
+
+/* шторка позиции кубышки: график, кнопки, история, плавающая «Изменить» */
+.pg-chart { background: var(--card); border-radius: 24px; padding: 14px 14px 6px; margin: 14px 0 10px; border: 1px solid color-mix(in srgb, var(--text) 6%, transparent); }
+.pg-chart-h { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; color: var(--hint); margin: 0 6px 4px; }
+.pg-chart svg { display: block; overflow: visible; }
+.pg-chart .gl { stroke: var(--sep); stroke-dasharray: 3 4; }
+.pg-chart .ln { stroke: var(--accent); stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
+.pg-chart .dot { fill: var(--yellow, #fff957); stroke: var(--accent); stroke-width: 2; }
+.pg-chart .g0 { stop-color: var(--yellow, #fff957); stop-opacity: .6; } .pg-chart .g1 { stop-color: var(--yellow, #fff957); stop-opacity: 0; }
+:root[data-theme="dark"] .pg-chart .g0 { stop-opacity: .35; }
+.pg-chart text { font-size: 11.5px; font-weight: 600; fill: var(--hint); }
+.pg-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pg-hist-h { font-size: 20px; font-weight: 800; margin: 26px 2px 12px; }
+.pg-hist { background: var(--card); border-radius: 24px; padding: 4px 18px; margin-bottom: 76px; }
+.pg-hist:empty { display: none; }
+.pg-hrow { display: flex; justify-content: space-between; padding: 12px 0; font-size: 15px; font-weight: 700; border-bottom: 1px solid var(--sep); }
+.pg-hrow:last-child { border: 0; } .pg-hrow span { color: var(--hint); font-weight: 600; }
+.pg-float { position: sticky; bottom: 10px; margin-top: -62px; height: 52px; pointer-events: none; }
+.pg-float button { pointer-events: auto; padding: 0 26px; height: 52px; border-radius: 99px; font-size: 16px; font-weight: 800; color: var(--text);
+  background: color-mix(in srgb, var(--bg) 72%, transparent); border: 1px solid color-mix(in srgb, var(--text) 9%, transparent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .14); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }

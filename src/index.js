@@ -738,6 +738,7 @@ async function handleApi(request, env, url) {
     await env.DB.batch([
       env.DB.prepare('DELETE FROM entries WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM recurring WHERE user_id = ?').bind(user.id),
+      env.DB.prepare('DELETE FROM holding_events WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM holdings WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM custom_categories WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM category_prefs WHERE user_id = ?').bind(user.id),

@@ -33,6 +33,7 @@
       pgNew: 'Новая позиция', pgEdit: 'Изменить', pgCompound: 'Начисление %', pgCmpM: 'ежемесячно', pgCmpD: 'ежедневно', pgCmpY: 'ежегодно', pgEffYield: 'Эффективная доходность', pgNoEnd: 'Не указана', pgName: 'Название', pgNamePh: 'Например, вклад или ETF', pgAmount: 'Сумма', pgRate: 'Ставка, %', pgOpened: 'Дата открытия', pgEnds: 'Дата окончания',
       pgTicker: 'Тикер', pgTickerPh: 'KO, VWCE.DE, MOEX:SBER, BTC-EUR', pgTickerHint: 'С тикером цена обновляется сама раз в день. Без тикера стоимость вводите вручную.', pgQty: 'Количество бумаг',
       pgPutAmt: 'Сколько всего вложено', pgValueNow: 'Текущая стоимость', pgSaved: 'Сохранено', pgBadTicker: 'Не нашли цену для этого тикера', pgRefresh: 'Обновить цену', pgUpdValue: 'Обновить стоимость',
+      pgReduce: 'Уменьшить', pgHist: 'История', pgDyn: 'Динамика вложений', pgToday: 'сегодня', pgTopups: (n) => `${n} ${ruPl(n, 'пополнение', 'пополнения', 'пополнений')}`, pgSellQty: 'Сколько бумаг продали', pgSellAmt: 'На какую сумму', pgTooMuch: 'Нельзя снять больше, чем есть', pgOnDate: 'Дата',
       pgTopup: 'Пополнить', pgDel: 'Удалить', pgDelAsk: 'Удалить эту позицию?', pgPriceFrom: (d) => `цена на ${d}`, pgYrs: (y, m) => `${y ? `${y} ${ruPl(y, 'год', 'года', 'лет')} ` : ''}${m ? `${m} ${ruPl(m, 'месяц', 'месяца', 'месяцев')}` : ''}`.trim() || 'меньше месяца',
       pgRefreshed: 'Цены обновлены', pgUnlocked: 'Кубышка включена', pgLocked: 'Кубышка скрыта', pgTopupQty: 'Сколько бумаг докупили', pgTopupAmt: 'На какую сумму', pgPriceFail: 'Не получилось получить цену — проверьте тикер',
       awards: 'Награды', awardsGot: 'Получено', awardsWip: 'В процессе', awardShare: 'Поделиться', awardsNewTitle: 'Новая награда!', awardsNewMany: 'Новые награды!', awardsOpenAll: 'Все награды',
@@ -103,6 +104,7 @@
       pgNew: 'New holding', pgEdit: 'Edit', pgCompound: 'Interest paid', pgCmpM: 'monthly', pgCmpD: 'daily', pgCmpY: 'yearly', pgEffYield: 'Effective yield', pgNoEnd: 'Not set', pgName: 'Name', pgNamePh: 'For example, a deposit or an ETF', pgAmount: 'Amount', pgRate: 'Rate, %', pgOpened: 'Opened on', pgEnds: 'End date',
       pgTicker: 'Ticker', pgTickerPh: 'KO, VWCE.DE, MOEX:SBER, BTC-EUR', pgTickerHint: 'With a ticker the price updates by itself once a day. Without one, enter the value yourself.', pgQty: 'Number of units',
       pgPutAmt: 'Total invested', pgValueNow: 'Current value', pgSaved: 'Saved', pgBadTicker: 'Could not find a price for this ticker', pgRefresh: 'Refresh price', pgUpdValue: 'Update value',
+      pgReduce: 'Reduce', pgHist: 'History', pgDyn: 'Investment history', pgToday: 'today', pgTopups: (n) => `${n} ${n === 1 ? 'deposit' : 'deposits'}`, pgSellQty: 'Units sold', pgSellAmt: 'For what amount', pgTooMuch: 'Cannot take out more than there is', pgOnDate: 'Date',
       pgTopup: 'Add funds', pgDel: 'Delete', pgDelAsk: 'Delete this holding?', pgPriceFrom: (d) => `price as of ${d}`, pgYrs: (y, m) => `${y ? `${y} ${y === 1 ? 'year' : 'years'} ` : ''}${m ? `${m} ${m === 1 ? 'month' : 'months'}` : ''}`.trim() || 'under a month',
       pgRefreshed: 'Prices updated', pgUnlocked: 'Piggy bank enabled', pgLocked: 'Piggy bank hidden', pgTopupQty: 'Units bought', pgTopupAmt: 'For what amount', pgPriceFail: 'Could not get the price — check the ticker',
       awards: 'Awards', awardsGot: 'Earned', awardsWip: 'In progress', awardShare: 'Share', awardsNewTitle: 'New award!', awardsNewMany: 'New awards!', awardsOpenAll: 'All awards',
@@ -2213,13 +2215,23 @@
   function pgAsk(title, fields, okText) {
     return new Promise((resolve) => {
       let out = null;
+      const fld = (f) => f.date
+        ? `<div class="field pg-date"><label>${esc(f.label)}</label><b id="pd_${f.id}">${esc(pgDate(state.today))}</b><input type="date" id="pa_${f.id}" value="${state.today}" max="${state.today}"></div>`
+        : `<div class="field"><label for="pa_${f.id}">${esc(f.label)}</label><input id="pa_${f.id}" inputmode="decimal" autocomplete="off" placeholder="${esc(f.ph || '')}"></div>`;
       const sh = openSheet(`<div class="sheet-head"><h2>${esc(title)}</h2><button class="close">${t('close')}</button></div>
-        ${fields.map((f) => `<div class="field"><label for="pa_${f.id}">${esc(f.label)}</label><input id="pa_${f.id}" inputmode="decimal" autocomplete="off" placeholder="${esc(f.ph || '')}"></div>`).join('')}
+        ${fields.map(fld).join('')}
         <button class="btn btn-primary btn-block" id="paOk">${esc(okText || t('save'))}</button>`, { onClose: () => resolve(out) });
       $('.close', sh.sheet).addEventListener('click', () => closeSheet(sh));
+      fields.filter((f) => f.date).forEach((f) => { const i = $(`#pa_${f.id}`, sh.sheet); i.addEventListener('input', () => { if (i.value) $(`#pd_${f.id}`, sh.sheet).textContent = pgDate(i.value); }); });
       $('#paOk', sh.sheet).addEventListener('click', () => {
         const vals = {};
-        for (const f of fields) { const v = Number(String($(`#pa_${f.id}`, sh.sheet).value).replace(/\s/g, '').replace(',', '.')); if (!(v > 0)) { haptic('error'); return; } vals[f.id] = v; }
+        for (const f of fields) {
+          const raw = $(`#pa_${f.id}`, sh.sheet).value;
+          if (f.date) { if (raw && raw <= state.today) vals[f.id] = raw; continue; }
+          const v = Number(String(raw).replace(/\s/g, '').replace(',', '.'));
+          if (!(v > 0)) { haptic('error'); return; }
+          vals[f.id] = v;
+        }
         out = vals; closeSheet(sh);
       });
       setTimeout(() => $(`#pa_${fields[0].id}`, sh.sheet).focus(), 300);
@@ -2231,7 +2243,7 @@
       <div class="seg" id="pgKind" style="margin:0 0 14px" ${ex ? 'hidden' : ''}><button data-k="saving">${t('pgSav')}</button><button data-k="invest">${t('pgInv')}</button></div>
       <div class="field"><label for="pgName">${t('pgName')}</label><input id="pgName" maxlength="40" autocomplete="off" placeholder="${esc(t('pgNamePh'))}"></div>
       <div id="pgFields"></div>
-      <button class="btn btn-primary btn-block" id="pgSave" style="margin-top:6px">${t('save')}</button>`);
+      <button class="btn btn-primary btn-block" id="pgSave" style="margin-top:6px">${t('save')}</button>${ex ? `<button class="aw-plain" id="pgDelete" style="color:var(--neg)">${t('pgDel')}</button>` : ''}`);
     $('.close', sh.sheet).addEventListener('click', () => closeSheet(sh));
     const num = (id) => Number(String($(id, sh.sheet).value).replace(/\s/g, '').replace(',', '.'));
     let cmp = ex && ex.compound ? ex.compound : 'm';
@@ -2305,6 +2317,11 @@
       else if (ex.ticker) { set('#pgTicker', ex.ticker); set('#pgQty', ex.qty); $('#pgTicker', sh.sheet).dispatchEvent(new Event('input')); }
       else set('#pgVal', ex.value);
     }
+    const pgDelete = $('#pgDelete', sh.sheet);
+    if (pgDelete) pgDelete.addEventListener('click', async () => {
+      if (!(await confirmBox(t('pgDelAsk')))) return;
+      try { await api(`/piggy/${ex.id}`, { method: 'DELETE' }); haptic('success'); closeSheet(sh); await loadPiggy(); } catch { toast(t('netError')); }
+    });
     $('#pgSave', sh.sheet).addEventListener('click', async (ev) => {
       const btn = ev.currentTarget;
       const body = { kind, name: $('#pgName', sh.sheet).value.trim(), invested: num('#pgAmt'), opened: $('#pgOpened', sh.sheet).value, currency: cur };
@@ -2319,6 +2336,29 @@
       try { await (ex ? api(`/piggy/${ex.id}`, { method: 'PATCH', body }) : api('/piggy', { method: 'POST', body })); haptic('success'); toast(t('pgSaved')); closeSheet(sh); state.pgTab = kind === 'invest' ? 'invest' : 'saving'; await loadPiggy(); }
       catch (e) { toast(e.code === 'ticker_not_found' ? t('pgBadTicker') : t('netError')); btn.disabled = false; }
     });
+  }
+  // ступенчатый график вложений: каждая точка — пополнение (+) или снятие (−)
+  function pgChart(events, h) {
+    if (!events.length) return '';
+    const day = (d) => Date.parse(`${d}T00:00:00Z`) / 864e5;
+    const t0 = day(events[0].date), t1 = Math.max(day(state.today), t0 + 1), W = 342, H = 84, PL = 6, PR = 10, PT = 12, PB = 20;
+    let cum = 0;
+    const pts = events.map((e) => { cum += e.amount; return { x: day(e.date), v: Math.max(0, cum) }; });
+    const maxV = Math.max(h.invested, ...pts.map((p) => p.v), 1);
+    const X = (d) => PL + (W - PL - PR) * (d - t0) / (t1 - t0), Y = (v) => PT + (H - PT - PB) * (1 - v / maxV);
+    let line = `M${X(pts[0].x).toFixed(1)},${Y(pts[0].v).toFixed(1)}`;
+    for (let i = 1; i < pts.length; i++) line += ` L${X(pts[i].x).toFixed(1)},${Y(pts[i - 1].v).toFixed(1)} L${X(pts[i].x).toFixed(1)},${Y(pts[i].v).toFixed(1)}`;
+    if (Math.abs(pts[pts.length - 1].v - h.invested) > 0.005) line += ` L${X(t1).toFixed(1)},${Y(pts[pts.length - 1].v).toFixed(1)} L${X(t1).toFixed(1)},${Y(h.invested).toFixed(1)}`;
+    else line += ` L${X(t1).toFixed(1)},${Y(pts[pts.length - 1].v).toFixed(1)}`;
+    const area = `${line} L${X(t1).toFixed(1)},${H - PB} L${X(pts[0].x).toFixed(1)},${H - PB} Z`;
+    const short = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString(state.lang === 'ru' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'short', timeZone: 'UTC' }).replace('.', '');
+    const n = events.filter((e) => e.kind === 'topup').length;
+    return `<div class="pg-chart"><div class="pg-chart-h"><span>${t('pgDyn')}</span><span>${n ? esc(t('pgTopups', n)) : ''}</span></div>
+      <svg viewBox="0 0 ${W} ${H}" width="100%" role="img"><defs><linearGradient id="pgG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="g0"/><stop offset="1" class="g1"/></linearGradient></defs>
+        <line class="gl" x1="${PL}" x2="${W - PR}" y1="${PT}" y2="${PT}"/><line class="gl" x1="${PL}" x2="${W - PR}" y1="${(PT + H - PB) / 2}" y2="${(PT + H - PB) / 2}"/><line class="gl" x1="${PL}" x2="${W - PR}" y1="${H - PB}" y2="${H - PB}"/>
+        <path d="${area}" fill="url(#pgG)"/><path class="ln" d="${line}" fill="none"/>
+        ${pts.map((p) => `<circle class="dot" cx="${X(p.x).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="5.5"/>`).join('')}
+        <text x="${PL}" y="${H - 4}">${esc(short(events[0].date))}</text><text x="${W - PR}" y="${H - 4}" text-anchor="end">${t('pgToday')}</text></svg></div>`;
   }
   function openHolding(h) {
     const base = state.piggy.base;
@@ -2338,11 +2378,18 @@
       <div class="pg-big num">${h.value === null ? t('pgNoPrice') : esc(money(h.value, h.currency))}</div>
       ${h.value === null ? `<div class="pg-gain" style="color:var(--hint)">${t('pgPriceFail')}</div>` : `<div class="pg-gain ${up ? 'up' : 'down'}">${esc(signed(h.gain, h.currency))} · ${h.pct === null ? '' : esc(pgPct(h.pct))} ${t('pgAll')}</div>`}
       ${h.ticker && h.updated ? `<div class="note" style="margin:2px 4px 10px;text-align:left">${esc(t('pgPriceFrom', pgDate(h.updated)))}</div>` : ''}
+      <div id="hChart"></div>
       <div class="pg-facts">${facts}</div>
-      ${h.ticker ? `<button class="btn btn-primary btn-block" id="hRefresh">${t('pgRefresh')}</button>` : h.kind === 'invest' ? `<button class="btn btn-primary btn-block" id="hValue">${t('pgUpdValue')}</button>` : ''}
-      <button class="btn btn-secondary btn-block" id="hTopup" style="margin-top:8px">${t('pgTopup')}</button>
-      <button class="btn btn-secondary btn-block" id="hEdit" style="margin-top:8px">${t('pgEdit')}</button>
-      <button class="aw-plain" id="hDel" style="color:var(--neg)">${t('pgDel')}</button>`);
+      ${h.ticker ? `<button class="btn btn-secondary btn-block" id="hRefresh" style="margin-bottom:10px">${t('pgRefresh')}</button>` : h.kind === 'invest' ? `<button class="btn btn-secondary btn-block" id="hValue" style="margin-bottom:10px">${t('pgUpdValue')}</button>` : ''}
+      <div class="pg-btns"><button class="btn btn-primary" id="hTopup">${t('pgTopup')}</button><button class="btn btn-primary" id="hReduce">${t('pgReduce')}</button></div>
+      <h3 class="pg-hist-h">${t('pgHist')}</h3>
+      <div class="pg-hist" id="hHist"></div>
+      <div class="pg-float"><button id="hEdit">${t('pgEdit')}</button></div>`);
+    api(`/piggy/${h.id}/events`).then((r) => {
+      if (!sh.sheet.isConnected) return;
+      $('#hChart', sh.sheet).innerHTML = pgChart(r.events, h);
+      $('#hHist', sh.sheet).innerHTML = [...r.events].reverse().map((e) => `<div class="pg-hrow"><span>${esc(pgDate(e.date))}</span><b>${esc(e.kind === 'open' ? money(e.amount, h.currency) : signed(e.amount, h.currency))}</b></div>`).join('');
+    }).catch(() => {});
     $('.close', sh.sheet).addEventListener('click', () => closeSheet(sh));
     const done = async () => { closeSheet(sh); await loadPiggy(); };
     const rf = $('#hRefresh', sh.sheet);
@@ -2358,16 +2405,18 @@
       try { await api(`/piggy/${h.id}/value`, { method: 'POST', body: { value: v.v } }); haptic('success'); done(); } catch { toast(t('netError')); }
     });
     $('#hTopup', sh.sheet).addEventListener('click', async () => {
-      const fields = h.ticker ? [{ id: 'qty', label: t('pgTopupQty') }, { id: 'amount', label: `${t('pgTopupAmt')}, ${h.currency}` }] : [{ id: 'amount', label: `${t('pgAmount')}, ${h.currency}` }];
+      const fields = (h.ticker ? [{ id: 'qty', label: t('pgTopupQty') }, { id: 'amount', label: `${t('pgTopupAmt')}, ${h.currency}` }] : [{ id: 'amount', label: `${t('pgAmount')}, ${h.currency}` }]).concat([{ id: 'date', label: t('pgOnDate'), date: true }]);
       const v = await pgAsk(t('pgTopup'), fields);
       if (!v) return;
       try { await api(`/piggy/${h.id}/topup`, { method: 'POST', body: v }); haptic('success'); done(); } catch { toast(t('netError')); }
     });
-    $('#hEdit', sh.sheet).addEventListener('click', () => { closeSheet(sh); setTimeout(() => openHoldingForm(h.kind, h), 220); });
-    $('#hDel', sh.sheet).addEventListener('click', async () => {
-      if (!(await confirmBox(t('pgDelAsk')))) return;
-      try { await api(`/piggy/${h.id}`, { method: 'DELETE' }); haptic('success'); done(); } catch { toast(t('netError')); }
+    $('#hReduce', sh.sheet).addEventListener('click', async () => {
+      const fields = h.ticker ? [{ id: 'qty', label: t('pgSellQty') }, { id: 'amount', label: `${t('pgSellAmt')}, ${h.currency}` }] : [{ id: 'amount', label: `${t('pgAmount')}, ${h.currency}` }];
+      const v = await pgAsk(t('pgReduce'), fields);
+      if (!v) return;
+      try { await api(`/piggy/${h.id}/withdraw`, { method: 'POST', body: v }); haptic('success'); done(); } catch (e) { toast(e.code === 'too_much' || e.code === 'bad_qty' ? t('pgTooMuch') : t('netError')); }
     });
+    $('#hEdit', sh.sheet).addEventListener('click', () => { closeSheet(sh); setTimeout(() => openHoldingForm(h.kind, h), 220); });
   }
   function renderPiggy() {
     const el = $('#viewPiggy');
