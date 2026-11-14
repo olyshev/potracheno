@@ -266,19 +266,28 @@
   const parseAmount = (s) => calcEval(s);
   const CALC_OPS = ['+', '−', '×', '÷'];
   // собственная цифровая клавиатура для суммы: системная меняет размер области в Telegram, и шторка дёргалась
-  const kpadHtml = () => {
+  const kpadHtml = (ops = true) => {
     const k = (v, c = '', l = v) => `<button type="button" class="kp ${c}" data-k="${v}" aria-label="${l}">${v === 'bs' ? '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><path d="m13 9.5 5 5m0-5-5 5"/></svg>' : v}</button>`;
-    return `<div class="kpad">${k('+', 'op')}${k('−', 'op')}${k('×', 'op')}${k('÷', 'op')}${['1','2','3','4','5','6','7','8','9'].map((d) => k(d)).join('')}${k(',')}${k('0')}${k('bs', 'bs', '⌫')}</div>`;
+    return `<div class="kpad">${ops ? `${k('+', 'op')}${k('−', 'op')}${k('×', 'op')}${k('÷', 'op')}` : ''}${['1','2','3','4','5','6','7','8','9'].map((d) => k(d)).join('')}${k(',')}${k('0')}${k('bs', 'bs', '⌫')}</div>`;
   };
-  function bindKeypad(S, input) {
+  function bindKeypad(S, input0, more = []) {
+    let input = input0;
     const field = input.closest('.amount-field');
-    field.classList.add('has-calc');
-    const res = document.createElement('span'); res.className = 'calc-res'; field.append(res);
+    const res = document.createElement('span'); res.className = 'calc-res';
+    if (field) { field.classList.add('has-calc'); field.append(res); }
     const isExpr = (v) => /[0-9,.\s][+\-−×÷*/xх:]\s*[0-9,.]/.test(v);
     const fmt = (n) => n.toLocaleString(state.lang === 'ru' ? 'ru-RU' : 'en-US', { maximumFractionDigits: 2 });
     // длинное число не помещается в поле — показываем его в прокручиваемой строке (она сама прокручивается к концу при вводе)
-    const view = document.createElement('div'); view.className = 'amt-view'; input.after(view); input.style.display = 'none';
+    const mk = (inp) => { const v = document.createElement('div'); v.className = 'amt-view'; inp.after(v); inp.style.display = 'none'; inp._view = v; return v; };
+    mk(input);
+    // несколько полей (например, «количество» и «сумма»): тап по полю делает его активным для клавиатуры
+    const all = [input0, ...more];
+    more.forEach(mk);
+    const mark = () => all.forEach((i) => i.closest('.field')?.classList.toggle('kp-on', all.length > 1 && i === input));
+    all.forEach((i) => { const f = i.closest('.field'); if (f) f.addEventListener('click', () => { input = i; mark(); }); });
+    mark();
     const upd = () => {
+      const view = input._view;
       view.textContent = input.value || '0'; view.classList.toggle('empty', !input.value); view.scrollLeft = view.scrollWidth;
       const v = input.value, n = isExpr(v) ? calcEval(v) : NaN;
       res.textContent = Number.isNaN(n) ? '' : `= ${fmt(n)}`;
@@ -310,6 +319,7 @@
     // при вводе названия открывается системная клавиатура — свою прячем, чтобы они не мешали друг другу
     S.addEventListener('focusin', (e) => { if (e.target.matches('input:not([readonly]), textarea')) S.classList.add('nokp'); });
     S.addEventListener('focusout', () => setTimeout(() => { if (!document.activeElement || !document.activeElement.matches('input:not([readonly]), textarea')) S.classList.remove('nokp'); }, 80));
+    all.forEach((i) => { i._view.textContent = i.value || '0'; i._view.classList.toggle('empty', !i.value); });
     upd();
   }
   const calcBarHtml = (cls = '') => `<div class="calc-bar ${cls}">${CALC_OPS.map((o) => `<button type="button" data-op="${o}" aria-label="${o}">${o}</button>`).join('')}</div>`;
@@ -2307,10 +2317,12 @@
       let out = null;
       const fld = (f) => f.date
         ? `<div class="field pg-date"><label>${esc(f.label)}</label><b id="pd_${f.id}">${esc(pgDate(state.today))}</b><input type="date" id="pa_${f.id}" value="${state.today}" max="${state.today}"></div>`
-        : `<div class="field"><label for="pa_${f.id}">${esc(f.label)}</label><input id="pa_${f.id}" inputmode="decimal" autocomplete="off" placeholder="${esc(f.ph || '')}"></div>`;
+        : `<div class="field"><label for="pa_${f.id}">${esc(f.label)}</label><input id="pa_${f.id}" inputmode="none" readonly autocomplete="off" placeholder="${esc(f.ph || '')}"></div>`;
       const sh = openSheet(`<div class="sheet-head"><h2>${esc(title)}</h2><button class="close">${t('close')}</button></div>
         ${fields.map(fld).join('')}
-        <button class="btn btn-primary btn-block" id="paOk">${esc(okText || t('save'))}</button>`, { onClose: () => resolve(out) });
+        <div class="save-bar"><button class="btn btn-primary btn-block" id="paOk">${esc(okText || t('save'))}</button>${kpadHtml(false)}</div>`, { onClose: () => resolve(out) });
+      sh.sheet.classList.add('kpd');
+      { const nums = fields.filter((f) => !f.date).map((f) => $(`#pa_${f.id}`, sh.sheet)); if (nums.length) bindKeypad(sh.sheet, nums[0], nums.slice(1)); }
       $('.close', sh.sheet).addEventListener('click', () => closeSheet(sh));
       fields.filter((f) => f.date).forEach((f) => { const i = $(`#pa_${f.id}`, sh.sheet); i.addEventListener('input', () => { if (i.value) $(`#pd_${f.id}`, sh.sheet).textContent = pgDate(i.value); }); });
       $('#paOk', sh.sheet).addEventListener('click', () => {
@@ -2324,7 +2336,6 @@
         }
         out = vals; closeSheet(sh);
       });
-      setTimeout(() => $(`#pa_${fields[0].id}`, sh.sheet).focus(), 300);
     });
   }
   function openHoldingForm(kind0 = 'saving', ex = null) {
