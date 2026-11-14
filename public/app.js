@@ -281,7 +281,8 @@
     S.addEventListener('focusout', () => setTimeout(() => { if (!document.activeElement || !document.activeElement.matches('input, textarea')) S.classList.remove('kb'); }, 80));
     if (document.activeElement && S.contains(document.activeElement)) S.classList.add('kb');
     const bar = $('.calc-bar', S);
-    ['pointerdown', 'mousedown', 'touchstart'].forEach((ev) => bar.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
+    // mousedown гасим, чтобы поле не теряло фокус и клавиатура не пряталась; touchstart/pointerdown гасить нельзя — на iPhone пропадёт и клик
+    bar.addEventListener('mousedown', (e) => e.preventDefault());
     bar.addEventListener('click', (e) => {
       const b = e.target.closest('button[data-op]'); if (!b) return;
       const v = input.value, a = input.selectionStart ?? v.length, z = input.selectionEnd ?? v.length;
@@ -1871,6 +1872,7 @@
     const S = sh.sheet;
     const amountEl = $('#mAmount', S), noteEl = $('#mNote', S), dateEl = bindDateWheel(S, 'mDate');
     bindCalc(S, amountEl);
+    S.classList.add('kb'); // клавиатура сейчас откроется — сразу ставим «клавиатурную» раскладку, чтобы шторка не прыгала
     setTimeout(() => amountEl.focus(), 280);
     $('.close', S).addEventListener('click', () => closeSheet(sh));
     const getRepeat = rep.bind(S, (cb) => dateEl.addEventListener('change', () => cb(dateEl.value)));

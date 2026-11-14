@@ -934,3 +934,6 @@ body.sheet-lock { position: fixed; left: 0; right: 0; width: 100%; overflow: hid
 /* в полноэкранном режиме шторка не должна заходить под системные кнопки Telegram («Закрыть», «⋯») */
 .sheet { max-height: min(92vh, calc(100vh - var(--inset-top) - 10px)); }
 .sheet.pg-card { height: min(88vh, calc(100vh - var(--inset-top) - 10px)); max-height: min(88vh, calc(100vh - var(--inset-top) - 10px)); }
+
+/* высота шторки меняется плавно (когда выезжает клавиатура), а не рывком */
+.sheet { transition: transform .24s cubic-bezier(.2, .8, .2, 1), max-height .2s ease, height .2s ease; }
