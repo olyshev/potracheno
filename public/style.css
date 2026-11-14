@@ -947,3 +947,7 @@ body.sheet-lock { position: fixed; left: 0; right: 0; width: 100%; overflow: hid
 .kp:active { background: var(--text); color: var(--bg); }
 .sheet.nokp .kpad { display: none; }
 .amount-field input[readonly] { caret-color: transparent; }
+
+.amt-view { flex: 1; min-width: 0; font-size: 52px; font-weight: 800; letter-spacing: -2px; line-height: 1.2; white-space: nowrap; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; scrollbar-width: none; color: var(--text); }
+.amt-view::-webkit-scrollbar { display: none; }
+.amt-view.empty { color: var(--hint); }

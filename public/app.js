@@ -276,7 +276,10 @@
     const res = document.createElement('span'); res.className = 'calc-res'; field.append(res);
     const isExpr = (v) => /[0-9,.\s][+\-−×÷*/xх:]\s*[0-9,.]/.test(v);
     const fmt = (n) => n.toLocaleString(state.lang === 'ru' ? 'ru-RU' : 'en-US', { maximumFractionDigits: 2 });
+    // длинное число не помещается в поле — показываем его в прокручиваемой строке (она сама прокручивается к концу при вводе)
+    const view = document.createElement('div'); view.className = 'amt-view'; input.after(view); input.style.display = 'none';
     const upd = () => {
+      view.textContent = input.value || '0'; view.classList.toggle('empty', !input.value); view.scrollLeft = view.scrollWidth;
       const v = input.value, n = isExpr(v) ? calcEval(v) : NaN;
       res.textContent = Number.isNaN(n) ? '' : `= ${fmt(n)}`;
       input.dispatchEvent(new Event('input', { bubbles: true }));
