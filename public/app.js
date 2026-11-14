@@ -265,6 +265,50 @@
   }
   const parseAmount = (s) => calcEval(s);
   const CALC_OPS = ['+', '−', '×', '÷'];
+  // собственная цифровая клавиатура для суммы: системная меняет размер области в Telegram, и шторка дёргалась
+  const kpadHtml = () => {
+    const k = (v, c = '', l = v) => `<button type="button" class="kp ${c}" data-k="${v}" aria-label="${l}">${v === 'bs' ? '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><path d="m13 9.5 5 5m0-5-5 5"/></svg>' : v}</button>`;
+    return `<div class="kpad">${k('1')}${k('2')}${k('3')}${k('÷', 'op')}${k('4')}${k('5')}${k('6')}${k('×', 'op')}${k('7')}${k('8')}${k('9')}${k('−', 'op')}${k(',')}${k('0')}${k('bs', 'bs', '⌫')}${k('+', 'op')}</div>`;
+  };
+  function bindKeypad(S, input) {
+    const field = input.closest('.amount-field');
+    field.classList.add('has-calc');
+    const res = document.createElement('span'); res.className = 'calc-res'; field.append(res);
+    const isExpr = (v) => /[0-9,.\s][+\-−×÷*/xх:]\s*[0-9,.]/.test(v);
+    const fmt = (n) => n.toLocaleString(state.lang === 'ru' ? 'ru-RU' : 'en-US', { maximumFractionDigits: 2 });
+    const upd = () => {
+      const v = input.value, n = isExpr(v) ? calcEval(v) : NaN;
+      res.textContent = Number.isNaN(n) ? '' : `= ${fmt(n)}`;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    const dec = state.lang === 'ru' ? ',' : '.';
+    const press = (key) => {
+      let v = input.value;
+      if (key === 'bs') { v = /\s[+−×÷]\s$/.test(v) ? v.replace(/\s[+−×÷]\s$/, '') : v.slice(0, -1); }
+      else if (CALC_OPS.includes(key)) {
+        if (!v.trim()) { haptic('error'); return; }
+        v = v.replace(/\s[+−×÷]\s$/, '');
+        if (/[,.]$/.test(v)) v = v.slice(0, -1);
+        v += ` ${key} `;
+      } else if (key === ',') {
+        const last = v.split(/\s[+−×÷]\s/).pop();
+        if (/[,.]/.test(last)) { haptic('error'); return; }
+        v += last === '' ? `0${dec}` : dec;
+      } else {
+        const last = v.split(/\s[+−×÷]\s/).pop();
+        if (last === '0') v = v.slice(0, -1);
+        else if (/[,.]\d{2}$/.test(last)) { haptic('error'); return; }
+        v += key;
+      }
+      if (v.length > 24) return;
+      input.value = v; haptic('select'); upd();
+    };
+    S.querySelector('.kpad').addEventListener('click', (e) => { const b = e.target.closest('button[data-k]'); if (b) press(b.dataset.k); });
+    // при вводе названия открывается системная клавиатура — свою прячем, чтобы они не мешали друг другу
+    S.addEventListener('focusin', (e) => { if (e.target.matches('input:not([readonly]), textarea')) S.classList.add('nokp'); });
+    S.addEventListener('focusout', () => setTimeout(() => { if (!document.activeElement || !document.activeElement.matches('input:not([readonly]), textarea')) S.classList.remove('nokp'); }, 80));
+    upd();
+  }
   const calcBarHtml = (cls = '') => `<div class="calc-bar ${cls}">${CALC_OPS.map((o) => `<button type="button" data-op="${o}" aria-label="${o}">${o}</button>`).join('')}</div>`;
   // кнопки + − × ÷ над клавиатурой: вставляют знак в поле суммы, под полем показывается результат
   function bindCalc(S, input) {
@@ -1861,20 +1905,17 @@
       ${dateWheelHtml('mDate')}
       <div class="field amount-field">
         <span class="sign" id="mSign"></span>
-        <input id="mAmount" inputmode="decimal" placeholder="0" autocomplete="off" aria-label="${t('amount')}">
+        <input id="mAmount" inputmode="none" readonly placeholder="0" autocomplete="off" aria-label="${t('amount')}">
         <button class="cur-btn" id="mCur"><span>${currency}</span>${ico('chevdown', 14)}</button>
       </div>
       <div class="field"><label for="mNote" id="mNoteLabel"></label><input id="mNote" maxlength="120" autocomplete="off"></div>
       <div class="label-row"><span>${t('category')}</span></div>
       <div class="cgrid" id="mCats"></div>
       ${rep.html}
-      <div class="save-bar"><button class="btn btn-primary btn-block" id="mSave">${t('save')}</button>${calcBarHtml()}</div>`);
+      <div class="save-bar"><button class="btn btn-primary btn-block" id="mSave">${t('save')}</button>${kpadHtml()}</div>`);
     const S = sh.sheet;
     const amountEl = $('#mAmount', S), noteEl = $('#mNote', S), dateEl = bindDateWheel(S, 'mDate');
-    bindCalc(S, amountEl);
-    S.classList.add('kb'); // клавиатура сейчас откроется — сразу ставим «клавиатурную» раскладку, чтобы шторка не прыгала
-    // фокус сразу, в том же тапе: клавиатура выезжает одновременно со шторкой, и шторка не пересчитывает высоту уже после остановки
-    amountEl.focus({ preventScroll: true });
+    bindKeypad(S, amountEl);
     $('.close', S).addEventListener('click', () => closeSheet(sh));
     const getRepeat = rep.bind(S, (cb) => dateEl.addEventListener('change', () => cb(dateEl.value)));
 
