@@ -268,7 +268,7 @@
   // собственная цифровая клавиатура для суммы: системная меняет размер области в Telegram, и шторка дёргалась
   const kpadHtml = () => {
     const k = (v, c = '', l = v) => `<button type="button" class="kp ${c}" data-k="${v}" aria-label="${l}">${v === 'bs' ? '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><path d="m13 9.5 5 5m0-5-5 5"/></svg>' : v}</button>`;
-    return `<div class="kpad">${k('1')}${k('2')}${k('3')}${k('÷', 'op')}${k('4')}${k('5')}${k('6')}${k('×', 'op')}${k('7')}${k('8')}${k('9')}${k('−', 'op')}${k(',')}${k('0')}${k('bs', 'bs', '⌫')}${k('+', 'op')}</div>`;
+    return `<div class="kpad">${k('+', 'op')}${k('−', 'op')}${k('×', 'op')}${k('÷', 'op')}${['1','2','3','4','5','6','7','8','9'].map((d) => k(d)).join('')}${k(',')}${k('0')}${k('bs', 'bs', '⌫')}</div>`;
   };
   function bindKeypad(S, input) {
     const field = input.closest('.amount-field');

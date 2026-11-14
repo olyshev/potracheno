@@ -939,9 +939,11 @@ body.sheet-lock { position: fixed; left: 0; right: 0; width: 100%; overflow: hid
 .sheet { transition: transform .24s cubic-bezier(.2, .8, .2, 1), max-height .2s ease, height .2s ease; }
 
 /* собственная клавиатура суммы */
-.kpad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+.kpad { display: grid; grid-template-columns: repeat(12, 1fr); gap: 8px; margin-top: 10px; }
+.kpad .kp { grid-column: span 4; }
+.kpad .kp.op { grid-column: span 3; height: 40px; }
 .kp { height: 46px; border-radius: 14px; background: var(--card); color: var(--text); font-size: 24px; font-weight: 600; display: grid; place-items: center; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
-.kp.op { background: var(--track); font-size: 28px; }
+.kp.op { background: var(--track); font-size: 26px; }
 .kp:active { background: var(--text); color: var(--bg); }
 .sheet.nokp .kpad { display: none; }
 .amount-field input[readonly] { caret-color: transparent; }
