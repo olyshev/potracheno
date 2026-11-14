@@ -2363,12 +2363,10 @@
   function openHolding(h, reuse = null) {
     const base = state.piggy.base;
     const up = (h.gain || 0) >= 0;
-    const held = (() => { const d = Math.max(0, Math.round((Date.parse(`${state.today}T00:00:00Z`) - Date.parse(`${h.opened}T00:00:00Z`)) / 864e5)); return t('pgYrs', Math.floor(d / 365), Math.floor((d % 365) / 30)); })();
     const fact = (a, b) => `<div class="pg-fact"><span>${esc(a)}</span><b>${esc(b)}</b></div>`;
     const facts = [
       fact(t('pgPut'), money(h.invested, h.currency, { round: true })),
       fact(h.kind === 'saving' ? t('pgOpened') : t('pgFirstPut'), pgDate(h.opened)),
-      fact(t('pgHeld'), held),
       h.kind === 'saving' ? fact(t('pgRate'), `${h.rate}% · ${t({ m: 'pgCmpM', d: 'pgCmpD', y: 'pgCmpY' }[h.compound || 'm'])}`) : fact(t('pgYearYield'), h.yearly === null ? '—' : `≈ ${pgPct(h.yearly)}`),
       h.kind === 'saving' ? fact(t('pgEffYield'), `≈ ${pgPct(h.yearly)}`) : '',
       h.kind === 'saving' && h.ends ? fact(t('pgUntil'), pgDate(h.ends)) : '',
