@@ -480,7 +480,6 @@ b, strong, h1, h2, h3 { font-weight: 800; }
 .h-chip { font-size: 13px; font-weight: 600; padding: 7px 12px; border-radius: 99px; background: rgba(0,0,0,.08); color: #000; white-space: nowrap; }
 .h-chip b { font-weight: 800; }
 button.h-chip { cursor: pointer; }
-.h-forecast { font-size: 13px; font-weight: 600; opacity: .65; margin-top: 10px; }
 .acts { position: relative; z-index: 2; display: flex; justify-content: space-between; padding: 18px 34px 0; }
 .act { display: flex; flex-direction: column; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; color: #000; }
 .act-c { width: 74px; height: 74px; border-radius: 50%; background: #000; color: #fff; display: grid; place-items: center; transition: transform .12s; }

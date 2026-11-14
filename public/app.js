@@ -1158,8 +1158,6 @@
       const prevName = state.lang === 'ru' ? MONTHS.ruDat[prevIdx] : MONTHS.en[prevIdx];
       delta = pct === 0 ? t('same') : `${pct > 0 ? '▲' : '▼'} ${Math.abs(pct)}% ${t('vs', prevName)}`;
     }
-    const forecast = s.projected !== null && s.projected !== undefined
-      ? `<div class="h-forecast">${t('projected')}: <b>${signed(s.projected, base)}</b></div>` : '';
 
     // ---- жёлтая шапка: остаток (если есть доходы) или сколько потрачено
     if (s.income > 0 || s.carry) {
@@ -1167,12 +1165,12 @@
         <div class="h-label">${esc(t('balanceOf', state.lang === 'ru' ? MONTHS.ruGen[mm - 1] : monthIn))}</div>
         <div class="h-num num ${s.balance < 0 ? 'neg' : ''}">${bigMoney(s.balance, base, true)}</div>
         <div class="h-chips"><span class="h-chip">${t('income')} <b>${signed(s.income, base)}</b></span>
-          <span class="h-chip">${t('expenses')} <b>${signed(-s.total, base)}</b></span>${s.carry ? `<span class="h-chip">${t('carry')} <b>${signed(s.carry, base)}</b></span>` : ''}</div>${forecast}`;
+          <span class="h-chip">${t('expenses')} <b>${signed(-s.total, base)}</b></span>${s.carry ? `<span class="h-chip">${t('carry')} <b>${signed(s.carry, base)}</b></span>` : ''}</div>`;
     } else {
       $('#hero').innerHTML = `
         <div class="h-label">${t('spent')}</div>
         <div class="h-num num">${bigMoney(s.total, base)}</div>
-        <div class="h-chips"><span class="h-chip">${t('entries', s.count)}</span>${delta ? `<span class="h-chip">${esc(delta)}</span>` : ''}</div>${forecast}`;
+        <div class="h-chips"><span class="h-chip">${t('entries', s.count)}</span>${delta ? `<span class="h-chip">${esc(delta)}</span>` : ''}</div>`;
     }
 
     renderPiggyChip();
