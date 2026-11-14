@@ -397,7 +397,6 @@
     if (i >= 0) sheets.splice(i, 1);
     entry.sheet.classList.remove('open');
     entry.backdrop.classList.remove('open');
-    if (entry.sheet._kbfill) entry.sheet._kbfill.remove();
     setTimeout(() => { entry.sheet.remove(); entry.backdrop.remove(); }, 260);
     syncLock();
     entry.onClose && entry.onClose();
@@ -1874,27 +1873,6 @@
     const amountEl = $('#mAmount', S), noteEl = $('#mNote', S), dateEl = bindDateWheel(S, 'mDate');
     bindCalc(S, amountEl);
     S.classList.add('kb'); // клавиатура сейчас откроется — сразу ставим «клавиатурную» раскладку, чтобы шторка не прыгала
-    // Telegram уменьшает область под клавиатуру только когда клавиатура уже выехала, и шторка «схлопывалась» рывком.
-    // Запоминаем высоту клавиатуры и сразу рисуем шторку так, как она будет после уменьшения (приподнятой на эту высоту) — скачка нет.
-    {
-      const H0 = window.innerHeight; let kbh = 0, tm = 0;
-      try { kbh = Number(localStorage.getItem('kbh')) || 0; } catch { /* нет хранилища */ }
-      let fill = null;
-      const stop = () => { window.removeEventListener('resize', onRes); clearTimeout(tm); }; // ничего не меняем в шторке: любая перерисовка в этот момент даёт мигание
-      const onRes = () => {
-        const d = H0 - window.innerHeight;
-        if (d > 80) { try { localStorage.setItem('kbh', String(Math.round(d))); } catch { /* нет хранилища */ } stop(); }
-      };
-      window.addEventListener('resize', onRes);
-      if (kbh > 80) {
-        S.style.setProperty('--kbh', `${kbh}px`); S.classList.add('kbp');
-        // фиксируем шторку по верхнему краю и высоте: когда Telegram уменьшит область, она не сдвинется ни на пиксель
-        { const r = S.getBoundingClientRect(); S.style.top = `${r.top}px`; S.style.bottom = 'auto'; S.style.height = `${r.height}px`; S.style.maxHeight = 'none'; S.style.willChange = 'transform'; S.style.overflowY = 'hidden'; }
-        fill = document.createElement('div'); fill.className = 'kb-fill'; fill.style.height = `${kbh}px`; fill.style.zIndex = S.style.zIndex;
-        $('#sheets').append(fill); S._kbfill = fill;
-      }
-      tm = setTimeout(stop, kbh > 80 ? 1500 : 4000);
-    }
     // фокус сразу, в том же тапе: клавиатура выезжает одновременно со шторкой, и шторка не пересчитывает высоту уже после остановки
     amountEl.focus({ preventScroll: true });
     $('.close', S).addEventListener('click', () => closeSheet(sh));
