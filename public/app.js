@@ -1579,8 +1579,11 @@
     });
     const topRow = (id) => (id ? `<div class="tp">${catIco(id, 32)}<span>${esc(catName(id))}</span></div>` : '');
     const range = (a, b) => (a.slice(5, 7) === b.slice(5, 7) ? `${Number(a.slice(8, 10))}–${dayMonth(b)}` : `${dayMonth(a)} – ${dayMonth(b)}`);
-    api('/weekly?all=1').then((w) => {
-      const box = $('#pfWeek', el), s = w.summary;
+    // «сначала кэш, потом обновление»: карточки рисуются сразу из последнего ответа, а свежие данные подменяют их, только если изменились
+    const cacheGet = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } };
+    const cacheSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* нет хранилища */ } };
+    const drawWeek = (w) => {
+      const box = $('#pfWeek', el), s = w && w.summary;
       if (!box) return;
       if (!s) { box.innerHTML = `<div class="t">${t('weekResults')}</div><div class="e">${t('notEnough')}</div>`; return; }
       const story = buildWeekSummaryStory(w);
@@ -1590,10 +1593,10 @@
         ${p !== null ? `<div class="s ${p <= 0 ? 'g' : 'r'}">${p > 0 ? '+' : p < 0 ? '−' : ''}${Math.abs(p)}% ${t('vsUsualShort')}</div>` : ''}
         ${topRow(s.top.category)}${story ? `<button class="btn btn-outline" data-s="w">${t('openStory')}</button>` : ''}`;
       if (story) $('[data-s="w"]', box).addEventListener('click', () => openStory(story));
-    }).catch(() => { const b = $('#pfWeek', el); if (b) b.innerHTML = `<div class="t">${t('weekResults')}</div><div class="e">${t('netError')}</div>`; });
+    };
     const prev = shiftMonth(state.today.slice(0, 7), -1);
-    api(`/summary?month=${prev}`).then(({ summary: s }) => {
-      const box = $('#pfMonth', el);
+    const drawMonth = (data) => {
+      const box = $('#pfMonth', el), s = data && data.summary;
       if (!box) return;
       if (!s || (!s.total && !s.income)) { box.innerHTML = `<div class="t">${t('monthResults')}</div><div class="e">${t('notEnough')}</div>`; return; }
       const mi2 = Number(prev.slice(5, 7)) - 1;
@@ -1605,7 +1608,15 @@
         <div class="v num">${s.income > 0 ? signed(sb(s), s.base) : money(s.total, s.base, { round: s.total >= 1000 })}</div>${sub}
         ${topRow(s.categories[0] && s.categories[0].category)}${story ? `<button class="btn btn-outline" data-s="m">${t('openStory')}</button>` : ''}`;
       if (story) $('[data-s="m"]', box).addEventListener('click', () => openStory(story));
-    }).catch(() => { const b = $('#pfMonth', el); if (b) b.innerHTML = `<div class="t">${t('monthResults')}</div><div class="e">${t('netError')}</div>`; });
+    };
+    const wKey = `pf_w_${state.today}`, mKey = `pf_m_${prev}`;
+    const wCached = cacheGet(wKey), mCached = cacheGet(mKey);
+    if (wCached) drawWeek(wCached);
+    if (mCached) drawMonth(mCached);
+    api('/weekly?all=1').then((w) => { if (JSON.stringify(w) !== JSON.stringify(wCached)) { cacheSet(wKey, w); drawWeek(w); } })
+      .catch(() => { if (!wCached) { const b = $('#pfWeek', el); if (b) b.innerHTML = `<div class="t">${t('weekResults')}</div><div class="e">${t('netError')}</div>`; } });
+    api(`/summary?month=${prev}`).then((d) => { if (JSON.stringify(d) !== JSON.stringify(mCached)) { cacheSet(mKey, d); drawMonth(d); } })
+      .catch(() => { if (!mCached) { const b = $('#pfMonth', el); if (b) b.innerHTML = `<div class="t">${t('monthResults')}</div><div class="e">${t('netError')}</div>`; } });
   }
 
   // Столбики по дням: одна серия, цвет кнопки Telegram, будущие дни не рисуются.

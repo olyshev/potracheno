@@ -959,3 +959,7 @@ body.sheet-lock { position: fixed; left: 0; right: 0; width: 100%; overflow: hid
 .field .amt-view { font-size: 30px; font-weight: 700; letter-spacing: -.5px; line-height: 1.3; padding: 2px 0 10px; }
 .sheet.kpd .save-bar { padding-top: 14px; }
 .field.kp-on { box-shadow: inset 0 0 0 2px var(--text); }
+
+/* карточки итогов резервируют высоту, чтобы при подгрузке данных страница не прыгала */
+.pf-cd { min-height: 222px; }
+.pf-cd .pf-loading { flex: 1; min-height: 140px; }
