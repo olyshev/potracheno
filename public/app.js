@@ -2385,11 +2385,9 @@
       <h3 class="pg-hist-h">${t('pgHist')}</h3>
       <div class="pg-hist" id="hHist"></div>
       <div class="pg-float"><button id="hEdit">${t('pgEdit')}</button></div>`);
-    api(`/piggy/${h.id}/events`).then((r) => {
-      if (!sh.sheet.isConnected) return;
-      $('#hChart', sh.sheet).innerHTML = pgChart(r.events, h);
-      $('#hHist', sh.sheet).innerHTML = [...r.events].reverse().map((e) => `<div class="pg-hrow"><span>${esc(pgDate(e.date))}</span><b>${esc(e.kind === 'open' ? money(e.amount, h.currency) : signed(e.amount, h.currency))}</b></div>`).join('');
-    }).catch(() => {});
+    const evs = h.events || [];
+    $('#hChart', sh.sheet).innerHTML = pgChart(evs, h);
+    $('#hHist', sh.sheet).innerHTML = [...evs].reverse().map((e) => `<div class="pg-hrow"><span>${esc(pgDate(e.date))}</span><b>${esc(e.kind === 'open' ? money(e.amount, h.currency) : signed(e.amount, h.currency))}</b></div>`).join('');
     $('.close', sh.sheet).addEventListener('click', () => closeSheet(sh));
     const done = async () => { closeSheet(sh); await loadPiggy(); };
     const rf = $('#hRefresh', sh.sheet);

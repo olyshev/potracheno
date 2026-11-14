@@ -119,10 +119,14 @@ async function build(env, user, rates, today) {
     env.DB.prepare('SELECT p.* FROM prices p WHERE p.ticker IN (SELECT ticker FROM holdings WHERE user_id = ? AND ticker IS NOT NULL)').bind(user.id).all(),
   ]);
   const prices = Object.fromEntries(pl.results.map((p) => [p.ticker, p]));
+  const evl = await env.DB.prepare('SELECT holding_id, kind, date, amount, qty FROM holding_events WHERE user_id = ? ORDER BY date, id').bind(user.id).all();
+  const evBy = {};
+  for (const e of evl.results) (evBy[e.holding_id] ||= []).push({ kind: e.kind, date: e.date, amount: round2(e.amount), qty: e.qty });
   const items = hl.results.map((h) => {
     const c = compute(h, prices[h.ticker], today);
     const b = (v) => (v === null ? null : round2(norm(v, h.currency, base, rates)));
     return {
+      events: evBy[h.id] || [],
       id: h.id, kind: h.kind, name: h.name, currency: h.currency, ticker: h.ticker, qty: h.qty, rate: h.rate, compound: h.compound || 'm', ends: h.ends, opened: h.opened,
       invested: round2(h.invested), value: c.value === null ? null : round2(c.value), gain: c.gain === null ? null : round2(c.gain),
       pct: c.pct === null ? null : Math.round(c.pct * 10) / 10, yearly: c.yearly === null ? null : Math.round(c.yearly * 10) / 10,
