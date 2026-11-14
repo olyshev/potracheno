@@ -938,5 +938,6 @@ body.sheet-lock { position: fixed; left: 0; right: 0; width: 100%; overflow: hid
 /* шторка ввода суммы: заранее приподнята на высоту клавиатуры и ужата так же, как будет после уменьшения области;
    пространство под ней, где потом появится клавиатура, закрашено (.kb-fill), чтобы не просвечивала страница */
 .sheet.kbp { bottom: var(--kbh, 0px); max-height: min(calc((100vh - var(--kbh, 0px)) * .92), calc(100vh - var(--kbh, 0px) - var(--inset-top) - 10px)); }
-.kb-fill { position: fixed; left: 0; right: 0; bottom: 0; background: var(--bg); animation: kbFill .24s cubic-bezier(.2, .8, .2, 1) both; }
-@keyframes kbFill { from { transform: translateY(100%); } to { transform: none; } }
+.sheet.kbp { transform: none; opacity: 0; transition: opacity .12s ease-out; }
+.sheet.kbp.open { opacity: 1; }
+.kb-fill { position: fixed; left: 0; right: 0; bottom: 0; background: var(--bg); }
