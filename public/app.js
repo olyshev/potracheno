@@ -1873,6 +1873,20 @@
     const amountEl = $('#mAmount', S), noteEl = $('#mNote', S), dateEl = bindDateWheel(S, 'mDate');
     bindCalc(S, amountEl);
     S.classList.add('kb'); // клавиатура сейчас откроется — сразу ставим «клавиатурную» раскладку, чтобы шторка не прыгала
+    // Telegram уменьшает область под клавиатуру только когда клавиатура уже выехала, и шторка «схлопывалась» рывком.
+    // Запоминаем высоту клавиатуры и сразу рисуем шторку так, как она будет после уменьшения (приподнятой на эту высоту) — скачка нет.
+    {
+      const H0 = window.innerHeight; let kbh = 0, tm = 0;
+      try { kbh = Number(localStorage.getItem('kbh')) || 0; } catch { /* нет хранилища */ }
+      const stop = () => { S.classList.remove('kbp'); S.style.removeProperty('--kbh'); window.removeEventListener('resize', onRes); clearTimeout(tm); };
+      const onRes = () => {
+        const d = H0 - window.innerHeight;
+        if (d > 80) { try { localStorage.setItem('kbh', String(Math.round(d))); } catch { /* нет хранилища */ } stop(); }
+      };
+      window.addEventListener('resize', onRes);
+      if (kbh > 80) { S.style.setProperty('--kbh', `${kbh}px`); S.classList.add('kbp'); }
+      tm = setTimeout(stop, kbh > 80 ? 1500 : 4000);
+    }
     // фокус сразу, в том же тапе: клавиатура выезжает одновременно со шторкой, и шторка не пересчитывает высоту уже после остановки
     amountEl.focus({ preventScroll: true });
     $('.close', S).addEventListener('click', () => closeSheet(sh));

@@ -935,5 +935,5 @@ body.sheet-lock { position: fixed; left: 0; right: 0; width: 100%; overflow: hid
 .sheet { max-height: min(92vh, calc(100vh - var(--inset-top) - 10px)); }
 .sheet.pg-card { height: min(88vh, calc(100vh - var(--inset-top) - 10px)); max-height: min(88vh, calc(100vh - var(--inset-top) - 10px)); }
 
-/* высота шторки меняется плавно (когда выезжает клавиатура), а не рывком */
-.sheet { transition: transform .24s cubic-bezier(.2, .8, .2, 1), max-height .2s ease, height .2s ease; }
+/* шторка ввода суммы: заранее приподнята на высоту клавиатуры и ужата так же, как будет после уменьшения области */
+.sheet.kbp { bottom: var(--kbh, 0px); max-height: min(calc((100vh - var(--kbh, 0px)) * .92), calc(100vh - var(--kbh, 0px) - var(--inset-top) - 10px)); }
