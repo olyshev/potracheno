@@ -1873,7 +1873,8 @@
     const amountEl = $('#mAmount', S), noteEl = $('#mNote', S), dateEl = bindDateWheel(S, 'mDate');
     bindCalc(S, amountEl);
     S.classList.add('kb'); // клавиатура сейчас откроется — сразу ставим «клавиатурную» раскладку, чтобы шторка не прыгала
-    setTimeout(() => amountEl.focus(), 280);
+    // фокус сразу, в том же тапе: клавиатура выезжает одновременно со шторкой, и шторка не пересчитывает высоту уже после остановки
+    amountEl.focus({ preventScroll: true });
     $('.close', S).addEventListener('click', () => closeSheet(sh));
     const getRepeat = rep.bind(S, (cb) => dateEl.addEventListener('change', () => cb(dateEl.value)));
 
