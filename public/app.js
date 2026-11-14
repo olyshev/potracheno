@@ -2385,7 +2385,7 @@
       <h3 class="pg-hist-h">${t('pgHist')}</h3>
       <div class="pg-hist" id="hHist"></div>
       <div class="pg-float"><button id="hEdit">${t('pgEdit')}</button></div>`);
-    const sh = reuse ? ((reuse.sheet.innerHTML = `<div class="sheet-grip"></div>${inner}`), reuse) : openSheet(inner);
+    const sh = reuse ? ((reuse.sheet.innerHTML = `<div class="sheet-grip"></div>${inner}`), reuse) : openSheet(inner, { cls: 'pg-card' });
     const evs = h.events || [];
     $('#hChart', sh.sheet).innerHTML = pgChart(evs, h);
     $('#hHist', sh.sheet).innerHTML = [...evs].reverse().map((e) => `<div class="pg-hrow"><span>${esc(pgDate(e.date))}</span><b>${esc(e.kind === 'open' ? money(e.amount, h.currency) : signed(e.amount, h.currency))}</b></div>`).join('');
