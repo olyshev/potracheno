@@ -315,7 +315,26 @@
       if (v.length > 24) return;
       input.value = v; haptic('select'); upd();
     };
-    S.querySelector('.kpad').addEventListener('click', (e) => { const b = e.target.closest('button[data-k]'); if (b) press(b.dataset.k); });
+    const kpad = S.querySelector('.kpad');
+    kpad.addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-k]'); if (!b) return;
+      if (b.dataset.k === 'bs' && bsCleared) { bsCleared = false; return; } // длинное нажатие уже стёрло всё — отпускание не должно стереть ещё и символ
+      press(b.dataset.k);
+    });
+    // удержание кнопки стирания очищает всё поле; порог 0,5 с — как длинное нажатие в системе iOS
+    let bsTimer = null, bsCleared = false;
+    const bsStop = () => { clearTimeout(bsTimer); bsTimer = null; };
+    kpad.addEventListener('pointerdown', (e) => {
+      if (!e.target.closest('button[data-k="bs"]')) return;
+      bsCleared = false; bsStop();
+      bsTimer = setTimeout(() => {
+        bsTimer = null;
+        if (!input.value) return;
+        bsCleared = true; input.value = ''; haptic('warning'); upd();
+      }, 500);
+    });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => kpad.addEventListener(ev, (e) => { if (ev === 'pointerleave' && !e.target.closest?.('button[data-k="bs"]')) return; bsStop(); }));
+    kpad.addEventListener('contextmenu', (e) => e.preventDefault());
     // при вводе названия открывается системная клавиатура — свою прячем, чтобы они не мешали друг другу
     S.addEventListener('focusin', (e) => { if (e.target.matches('input:not([readonly]), textarea')) S.classList.add('nokp'); });
     S.addEventListener('focusout', () => setTimeout(() => { if (!document.activeElement || !document.activeElement.matches('input:not([readonly]), textarea')) S.classList.remove('nokp'); }, 80));
