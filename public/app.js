@@ -2472,9 +2472,18 @@
   function pgChart(events, h) {
     if (!events.length) return '';
     const day = (d) => Date.parse(`${d}T00:00:00Z`) / 864e5;
-    const t0 = day(events[0].date), t1 = Math.max(day(state.today), t0 + 1), W = 342, H = 84, PL = 6, PR = 10, PT = 12, PB = 20;
-    let cum = 0;
-    const pts = events.map((e) => { cum += e.amount; return { x: day(e.date), v: Math.max(0, cum) }; });
+    const t0 = day(events[0].date), W = 342, H = 84, PL = 6, PR = 10, PT = 12, PB = 20;
+    // несколько операций за один день иначе слипаются в одну вертикаль: разводим их по горизонтали, чтобы были видны ступени
+    const gap = Math.max(day(state.today) - t0, 1) / 16;
+    let cum = 0, prevD = null, prevX = 0;
+    const pts = events.map((e) => {
+      cum += e.amount;
+      const d = day(e.date);
+      const x = prevD === null ? d : Math.max(d, prevX + (d <= prevD ? gap : gap * .6));
+      prevD = Math.max(d, prevD ?? d); prevX = x;
+      return { x, v: Math.max(0, cum) };
+    });
+    const t1 = Math.max(day(state.today), pts[pts.length - 1].x + gap, t0 + 1);
     const maxV = Math.max(h.invested, ...pts.map((p) => p.v), 1);
     const X = (d) => PL + (W - PL - PR) * (d - t0) / (t1 - t0), Y = (v) => PT + (H - PT - PB) * (1 - v / maxV);
     let line = `M${X(pts[0].x).toFixed(1)},${Y(pts[0].v).toFixed(1)}`;
@@ -2488,7 +2497,7 @@
       <svg viewBox="0 0 ${W} ${H}" width="100%" role="img"><defs><linearGradient id="pgG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="g0"/><stop offset="1" class="g1"/></linearGradient></defs>
         <line class="gl" x1="${PL}" x2="${W - PR}" y1="${PT}" y2="${PT}"/><line class="gl" x1="${PL}" x2="${W - PR}" y1="${(PT + H - PB) / 2}" y2="${(PT + H - PB) / 2}"/><line class="gl" x1="${PL}" x2="${W - PR}" y1="${H - PB}" y2="${H - PB}"/>
         <path d="${area}" fill="url(#pgG)"/><path class="ln" d="${line}" fill="none"/>
-        ${pts.map((p) => `<circle class="dot" cx="${X(p.x).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="5.5"/>`).join('')}
+        ${pts.map((p) => `<circle class="dot" cx="${X(p.x).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="4.5"/>`).join('')}
         <text x="${PL}" y="${H - 4}">${esc(short(events[0].date))}</text><text x="${W - PR}" y="${H - 4}" text-anchor="end">${t('pgToday')}</text></svg></div>`;
   }
   function openHolding(h, reuse = null) {
