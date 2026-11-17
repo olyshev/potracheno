@@ -845,7 +845,7 @@ button.h-chip { cursor: pointer; }
 /* кубышка */
 .tabbar { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 1fr; }
 .tab[hidden] { display: none; }
-.h-chip.piggy { background: #000; color: #fff957; border: 0; display: inline-flex; align-items: center; gap: 6px; font: inherit; }
+.h-chip.piggy { background: #000; color: #fff957; border: 0; display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 13px; font-weight: 600; line-height: normal; }
 .pg-hero { padding-bottom: 34px; }
 .pg-hero .top { padding-top: 14px; }
 .pg-hsec { position: relative; z-index: 2; padding: 8px 18px 0; }
