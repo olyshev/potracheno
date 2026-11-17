@@ -2320,9 +2320,12 @@
   // «1 месяц / 2 месяца / 5 месяцев», «год / года / лет»; для дробных — родительный падеж («2,2 месяца»)
   function ruPl(n, a, b, c) { const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? a : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? b : c; }
   const pgMonths = (n) => (state.lang === 'ru' ? (Number.isInteger(n) ? `${n} ${ruPl(n, 'месяц', 'месяца', 'месяцев')}` : `${String(n).replace('.', ',')} месяца`) : `${n} ${n === 1 ? 'month' : 'months'}`);
+  let piggyBoot = null; // загрузка кубышки при запуске — заставку не убираем, пока она не придёт (но недолго)
   async function loadPiggy() {
     if (!piggyOn()) return;
     try { state.piggy = await api('/piggy'); } catch { return; }
+    const tt = state.piggy.totals;
+    if (tt) store.set('pgChip', JSON.stringify({ total: tt.total, base: state.piggy.base })); // для мгновенного бабла при следующем запуске
     if (state.tab === 'piggy') renderPiggy();
     renderPiggyChip();
   }
@@ -2331,19 +2334,20 @@
     const tab = document.querySelector('.tab[data-tab="piggy"]');
     if (tab) tab.hidden = !on;
     if (!on && state.tab === 'piggy') switchTab('home');
-    if (on && !state.piggy) loadPiggy();
+    if (on && !state.piggy) piggyBoot = loadPiggy();
     renderPiggyChip();
   }
   // тёмный бабл с общей суммой в шапке главной
   function renderPiggyChip() {
     const old = document.getElementById('heroPiggy');
     if (old) old.remove();
-    const tt = state.piggy && state.piggy.totals;
+    let tt = state.piggy && state.piggy.totals, base = state.piggy && state.piggy.base;
+    if (!tt) { try { const c = JSON.parse(store.get('pgChip') || 'null'); if (c && c.total > 0) { tt = c; base = c.base; } } catch { /* */ } } // пока данные грузятся — последняя известная сумма, чтобы бабл не появлялся на глазах
     const chips = document.querySelector('#hero .h-chips');
     if (!piggyOn() || !tt || !(tt.total > 0) || !chips) return;
     const b = document.createElement('button');
     b.id = 'heroPiggy'; b.className = 'h-chip piggy';
-    b.innerHTML = `${ico('savings', 16, '#fff957')} ${esc(t('piggy'))} <b>${esc(money(tt.total, state.piggy.base, { round: true }))}</b>`;
+    b.innerHTML = `${ico('savings', 16, '#fff957')} ${esc(t('piggy'))} <b>${esc(money(tt.total, base, { round: true }))}</b>`;
     b.addEventListener('click', () => switchTab('piggy'));
     chips.append(b);
   }
@@ -3322,7 +3326,7 @@
     const storiesP = (me.hasEntries ? Promise.all([loadMonthStory(wantMonth), loadWeeklyStories()]) : Promise.resolve([null]))
       .then((r) => { loadMilestoneStory(); return r; }); // юбилей — первым в ленте
     // убираем заставку, когда загрузились и истории (но ждём их не дольше 1,5 с)
-    await Promise.race([storiesP, new Promise((r) => setTimeout(r, 500))]);
+    await Promise.race([Promise.all([storiesP, piggyBoot]), new Promise((r) => setTimeout(r, 700))]);
     await hideSplash();
     const [monthStory] = await storiesP;
     if (!me.hasEntries && !store.get('welcomed')) await openWelcome();
