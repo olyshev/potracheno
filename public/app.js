@@ -2414,8 +2414,7 @@
     const draw = () => {
       sh.sheet.querySelectorAll('#pgKind button').forEach((b) => b.classList.toggle('active', b.dataset.k === kind));
       $('#pgFields', sh.sheet).innerHTML = kind === 'saving' ? `
-        <div class="field"><label for="pgAmt">${t('pgAmount')}</label><input id="pgAmt" inputmode="decimal" autocomplete="off" placeholder="0"></div>
-        <div class="field"><label>${t('currency')}</label><button class="cur-btn pg-cur" id="pgCur">${cur}</button></div>
+        <div class="field pg-amtf"><label for="pgAmt">${t('pgAmount')}</label><div class="pg-amtrow"><input id="pgAmt" inputmode="decimal" autocomplete="off" placeholder="0"><button class="cur-btn" id="pgCur"><span>${cur}</span>${ico('chevdown', 14)}</button></div></div>
         <div class="pg-row2 rate">
           <div class="field"><label for="pgRate">${t('pgRate')}</label><input id="pgRate" inputmode="decimal" autocomplete="off" placeholder="0"></div>
           <div class="field pg-cmp"><label>${t('pgCompound')}</label><div class="pg-wheel" id="pgCmp"></div></div>
@@ -2549,11 +2548,10 @@
       ${h.ticker && h.updated ? `<div class="note" style="margin:2px 4px 10px;text-align:left">${esc(t('pgPriceFrom', pgDate(h.updated)))}</div>` : ''}
       <div id="hChart"></div>
       <div class="pg-facts ${h.kind === 'invest' ? 'three' : ''}">${facts}</div>
-      ${h.ticker ? `<button class="btn btn-invert btn-block" id="hRefresh" style="margin-bottom:10px">${t('pgRefresh')}</button>` : h.kind === 'invest' ? `<button class="btn btn-invert btn-block" id="hValue" style="margin-bottom:10px">${t('pgUpdValue')}</button>` : ''}
       <div class="pg-btns"><button class="btn btn-primary" id="hTopup">${t('pgTopup')}</button><button class="btn btn-primary" id="hReduce">${t('pgReduce')}</button></div>
       <button class="pg-hist-h" id="hHistBtn" aria-expanded="false"><span>${t('pgHist')}</span>${ico('chevdown', 18)}</button>
       <div class="pg-hist" id="hHist" hidden></div>
-      <div class="pg-float"><button id="hEdit">${t('pgEdit')}</button></div>`);
+      <button class="btn btn-secondary btn-block" id="hEdit" style="margin:14px 0 24px">${t('pgEdit')}</button>`);
     const sh = reuse ? ((reuse.sheet.innerHTML = `<div class="sheet-grip"></div>${inner}`), reuse) : openSheet(inner, { cls: 'pg-card' });
     const evs = h.events || [];
     $('#hChart', sh.sheet).innerHTML = h.kind === 'invest' ? pgValueChart(h) : pgChart(evs, h);
@@ -2570,18 +2568,6 @@
       if (!nh) { closeSheet(sh); return; }
       openHolding(nh, sh); sh.sheet.scrollTop = top;
     };
-    const rf = $('#hRefresh', sh.sheet);
-    if (rf) rf.addEventListener('click', async () => {
-      rf.disabled = true;
-      try { const r = await api('/piggy/refresh', { method: 'POST' }); state.piggy = r; haptic('success'); toast(r.failed ? t('pgPriceFail') : t('pgRefreshed')); closeSheet(sh); renderPiggy(); renderPiggyChip(); }
-      catch { toast(t('netError')); rf.disabled = false; }
-    });
-    const hv = $('#hValue', sh.sheet);
-    if (hv) hv.addEventListener('click', async () => {
-      const v = await pgAsk(t('pgUpdValue'), [{ id: 'v', label: `${t('pgValueNow')}, ${h.currency}` }]);
-      if (!v) return;
-      try { await api(`/piggy/${h.id}/value`, { method: 'POST', body: { value: v.v } }); haptic('success'); stay(); } catch { toast(t('netError')); }
-    });
     $('#hTopup', sh.sheet).addEventListener('click', async () => {
       const fields = (h.ticker ? [{ id: 'qty', label: t('pgTopupQty') }, { id: 'amount', label: `${t('pgTopupAmt')}, ${h.currency}` }] : [{ id: 'amount', label: `${t('pgAmount')}, ${h.currency}` }]).concat([{ id: 'date', label: t('pgOnDate'), date: true }]);
       const v = await pgAsk(t('pgTopup'), fields);
@@ -2595,6 +2581,12 @@
       try { await api(`/piggy/${h.id}/withdraw`, { method: 'POST', body: v }); haptic('success'); stay(); } catch (e) { toast(e.code === 'too_much' || e.code === 'bad_qty' ? t('pgTooMuch') : t('netError')); }
     });
     $('#hEdit', sh.sheet).addEventListener('click', () => { closeSheet(sh); setTimeout(() => openHoldingForm(h.kind, h), 220); });
+  }
+  // переключение вкладки кубышки с той же анимацией, что у месяцев
+  function pgGo(to) {
+    if ((state.pgTab || 'saving') === to) return;
+    haptic('select');
+    slideMonth([['#viewPiggy .pg-stats', 28], ['#viewPiggy .pg-list, #viewPiggy .empty', 28]], to === 'invest' ? 1 : -1, () => { state.pgTab = to; renderPiggy(); });
   }
   function renderPiggy() {
     const el = $('#viewPiggy');
@@ -2631,7 +2623,7 @@
         ${tab === 'invest' && list.some((x) => x.ticker) ? `<button class="btn btn-block btn-secondary" id="pgRefAll" style="margin-top:14px">${t('pgRefreshAll')}</button>` : ''}
         <button class="btn btn-block btn-invert" id="pgAdd" style="margin-top:${tab === 'invest' && list.some((x) => x.ticker) ? 10 : 14}px">${t('pgAddBtn')}</button>
       </div>`;
-    el.querySelectorAll('#pgSeg button').forEach((b) => b.addEventListener('click', () => { state.pgTab = b.dataset.k; haptic('select'); renderPiggy(); }));
+    el.querySelectorAll('#pgSeg button').forEach((b) => b.addEventListener('click', () => pgGo(b.dataset.k)));
     el.querySelectorAll('[data-h]').forEach((b) => b.addEventListener('click', () => openHolding(items.find((x) => x.id === b.dataset.h))));
     $('#pgAdd', el).addEventListener('click', () => openHoldingForm(tab));
     const ra = $('#pgRefAll', el);
@@ -3262,7 +3254,7 @@
     bindMonthSwipe($('#viewPiggy'), (dir) => {
       const to = dir > 0 ? 'invest' : 'saving';
       if ((state.pgTab || 'saving') === to) return;
-      state.pgTab = to; haptic('select'); renderPiggy();
+      pgGo(to);
     }, 'x-none');
     homeGo = (dir, target) => {
       const next = target || shiftMonth(state.month, dir);
