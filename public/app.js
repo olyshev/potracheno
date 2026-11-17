@@ -2609,6 +2609,8 @@
     haptic('select');
     slideMonth([['#viewPiggy .pg-stats', 28], ['#viewPiggy .pg-list, #viewPiggy .empty', 28]], to === 'invest' ? 1 : -1, () => { state.pgTab = to; renderPiggy(); });
   }
+  let pgSafeEl = null;
+  try { const pre = new Image(); pre.src = 'illus/safe.svg'; } catch { /* */ } // подгружаем заранее
   function renderPiggy() {
     const el = $('#viewPiggy');
     if (!el || state.tab !== 'piggy') return;
@@ -2644,6 +2646,9 @@
         ${tab === 'invest' && list.some((x) => x.ticker) ? `<button class="btn btn-block btn-secondary" id="pgRefAll" style="margin-top:14px">${t('pgRefreshAll')}</button>` : ''}
         <button class="btn btn-block btn-invert" id="pgAdd" style="margin-top:${tab === 'invest' && list.some((x) => x.ticker) ? 10 : 14}px">${t('pgAddBtn')}</button>
       </div>`;
+    // сейф в шапке — один и тот же элемент между перерисовками, иначе картинка каждый раз грузится заново и мерцает
+    const ph = $('.h-safe', el);
+    if (ph) { if (!pgSafeEl) { pgSafeEl = ph; pgSafeEl.decoding = 'sync'; } else ph.replaceWith(pgSafeEl); }
     el.querySelectorAll('#pgSeg button').forEach((b) => b.addEventListener('click', () => pgGo(b.dataset.k)));
     el.querySelectorAll('[data-h]').forEach((b) => b.addEventListener('click', () => openHolding(items.find((x) => x.id === b.dataset.h))));
     $('#pgAdd', el).addEventListener('click', () => openHoldingForm(tab));
