@@ -987,3 +987,8 @@ body.sheet-lock { position: fixed; left: 0; right: 0; width: 100%; overflow: hid
 .pg-row2.buy .pg-wband { width: 84px; }
 .pg-row2.buy .pg-wi { flex-basis: 84px; }
 .pg-row2.buy .pg-wtrack::before, .pg-row2.buy .pg-wtrack::after { flex-basis: calc(50% - 42px); }
+
+/* проценты: три кнопки, выбрана одна — жёлтая */
+.pg-cmp3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+.pg-cmp3 button { height: 40px; border-radius: 12px; background: var(--bg); color: var(--hint); font-weight: 700; font-size: 13.5px; white-space: nowrap; border: 1px solid color-mix(in srgb, var(--text) 8%, transparent); }
+.pg-cmp3 button.on { background: var(--accent); color: var(--accent-text); border-color: transparent; }
