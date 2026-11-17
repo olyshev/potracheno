@@ -979,3 +979,11 @@ body.sheet-lock { position: fixed; left: 0; right: 0; width: 100%; overflow: hid
 /* сейф: размер и положение считаются от ширины экрана и от верхнего отступа Telegram, чтобы он занимал правый верх шапки */
 .h-safe { --sw: clamp(110px, calc(215px - (430px - 100vw) * .9), 215px); width: var(--sw); right: calc(var(--sw) * -.05); top: calc(var(--inset-top, 0px) - var(--sw) * .33); transform: rotate(10deg); }
 .pg-hero { position: relative; }
+.pg-row2.buy { grid-template-columns: 1.1fr 1fr; }
+.pg-row2.buy .pg-amtf { min-width: 0; }
+.pg-row2.buy .pg-amtrow { gap: 6px; }
+.pg-row2.buy .pg-amtrow input { font-size: 20px; }
+.pg-row2.buy .cur-btn { padding: 7px 9px; gap: 4px; font-size: 14px; }
+.pg-row2.buy .pg-wband { width: 84px; }
+.pg-row2.buy .pg-wi { flex-basis: 84px; }
+.pg-row2.buy .pg-wtrack::before, .pg-row2.buy .pg-wtrack::after { flex-basis: calc(50% - 42px); }
