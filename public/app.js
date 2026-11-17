@@ -2421,9 +2421,7 @@
       tr.addEventListener('click', (e) => { const el = e.target.closest('.pg-wi'); if (el && el.dataset.k <= state.today) { cur = el.dataset.k; input.value = cur; to(el, true); paint(); } });
       requestAnimationFrame(() => { to(tr.querySelector(`[data-k="${cur0}"]`), false); paint(); });
     };
-    const draw = () => {
-      sh.sheet.querySelectorAll('#pgKind button').forEach((b) => b.classList.toggle('active', b.dataset.k === kind));
-      $('#pgFields', sh.sheet).innerHTML = kind === 'saving' ? `
+    const fieldsHtml = (k) => k === 'saving' ? `
         <div class="pg-row2 buy">
           <div class="field pg-amtf"><label for="pgAmt">${t('pgAmount')}</label><div class="pg-amtrow"><input id="pgAmt" inputmode="decimal" autocomplete="off" placeholder="0"><button class="cur-btn" id="pgCur"><span>${cur}</span>${ico('chevdown', 14)}</button></div></div>
           <div class="field"><label for="pgRate">${t('pgRate')}</label><input id="pgRate" inputmode="decimal" autocomplete="off" placeholder="0"></div>
@@ -2440,6 +2438,16 @@
           <div class="field pg-amtf"><label for="pgAmt">${t('pgPutAmt')}</label><div class="pg-amtrow"><input id="pgAmt" inputmode="decimal" autocomplete="off" placeholder="0"><button class="cur-btn" id="pgCur"><span>${cur}</span>${ico('chevdown', 14)}</button></div></div>
           <div class="field pg-cmp"><label>${t('pgBuyDate')}</label><div class="pg-wheel" id="pgBuyW"></div><input id="pgOpened" type="hidden" value="${openedC}"></div>
         </div>`;
+    // обе вкладки (сбережения и инвестиции) одной высоты, чтобы окно не прыгало при переключении
+    const lockHeight = () => {
+      const box = $('#pgFields', sh.sheet), keep = box.innerHTML;
+      let max = 0;
+      for (const k of ['saving', 'invest']) { box.style.minHeight = ''; box.innerHTML = fieldsHtml(k); box.querySelectorAll('[hidden]').forEach((e) => { e.hidden = false; }); max = Math.max(max, box.offsetHeight); }
+      box.innerHTML = keep; box.style.minHeight = `${max}px`;
+    };
+    const draw = () => {
+      sh.sheet.querySelectorAll('#pgKind button').forEach((b) => b.classList.toggle('active', b.dataset.k === kind));
+      $('#pgFields', sh.sheet).innerHTML = fieldsHtml(kind);
       $('#pgName', sh.sheet).placeholder = t(kind === 'invest' ? 'pgNamePhInv' : 'pgNamePh');
       if (kind === 'invest') bindBuyWheel();
       if (kind === 'saving') bindSavingFields();
@@ -2452,6 +2460,7 @@
       }
     };
     sh.sheet.querySelectorAll('#pgKind button').forEach((b) => b.addEventListener('click', () => { kind = b.dataset.k; haptic('select'); draw(); }));
+    lockHeight();
     draw();
     if (ex) {
       const set = (id, v) => { const e = $(id, sh.sheet); if (e && v !== null && v !== undefined) e.value = v; };
