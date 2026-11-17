@@ -904,7 +904,9 @@ body.sheet-lock { position: fixed; left: 0; right: 0; width: 100%; overflow: hid
 :root[data-theme="dark"] .pg-chart .g0 { stop-opacity: .35; }
 .pg-chart text { font-size: 11.5px; font-weight: 600; fill: var(--hint); }
 .pg-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.pg-hist-h { font-size: 20px; font-weight: 800; margin: 26px 2px 12px; }
+.pg-hist-h { display: flex; align-items: center; justify-content: space-between; width: 100%; font-size: 20px; font-weight: 800; margin: 22px 0 10px; padding: 4px 2px; text-align: left; color: var(--text); }
+.pg-hist-h .ic { transition: transform .2s; opacity: .6; } .pg-hist-h.open .ic { transform: rotate(180deg); }
+.pg-hist[hidden] { display: none; }
 .pg-hist { background: var(--card); border-radius: 24px; padding: 4px 18px; margin-bottom: 76px; }
 .pg-hist:empty { display: none; }
 .pg-hrow { display: flex; justify-content: space-between; padding: 12px 0; font-size: 15px; font-weight: 700; border-bottom: 1px solid var(--sep); }
@@ -963,3 +965,14 @@ body.sheet-lock { position: fixed; left: 0; right: 0; width: 100%; overflow: hid
 /* карточки итогов резервируют высоту, чтобы при подгрузке данных страница не прыгала */
 .pf-cd { min-height: 222px; }
 .pf-cd .pf-loading { flex: 1; min-height: 140px; }
+
+/* кубышка: воздух под переключателем, три факта в строку, поле суммы с валютой */
+#pgSeg + .pg-list, #pgSeg + .empty { margin-top: 16px; }
+.pg-facts.three { grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.pg-facts.three .pg-fact { padding: 10px; }
+.pg-facts.three .pg-fact b { font-size: 14px; letter-spacing: -.2px; }
+.pg-amtrow { display: flex; align-items: center; gap: 10px; }
+.pg-amtrow input { flex: 1; min-width: 0; font-size: 22px; font-weight: 700; }
+.pg-amtf .cur-btn { flex: none; }
+#pgRefAll.busy { opacity: .6; }
+.pg-facts.three .pg-fact span { font-size: 11.5px; white-space: nowrap; }

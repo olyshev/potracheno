@@ -40,6 +40,18 @@ export async function fetchQuote(ticker) {
   } catch { return null; }
 }
 
+// Снимок стоимости инвестиционных позиций на сегодня (для графика): по id позиции или по списку тикеров
+export async function snapValues(env, { id = null, tickers = null } = {}) {
+  const val = 'CASE WHEN h.ticker IS NOT NULL THEN h.qty * p.price ELSE h.value END';
+  let where = "h.kind = 'invest'", args = [];
+  if (id) { where += ' AND h.id = ?'; args = [id]; }
+  else if (tickers) { if (!tickers.length) return; where += ` AND h.ticker IN (${tickers.map(() => '?').join(',')})`; args = tickers; }
+  await env.DB.prepare(`INSERT INTO holding_values (holding_id, user_id, date, value)
+    SELECT h.id, h.user_id, date('now'), ${val} FROM holdings h LEFT JOIN prices p ON p.ticker = h.ticker
+    WHERE ${where} AND ${val} IS NOT NULL
+    ON CONFLICT(holding_id, date) DO UPDATE SET value = excluded.value`).bind(...args).run();
+}
+
 // Обновляем устаревшие цены (старше 20 часов); за запуск — не больше limit тикеров (лимит внешних запросов)
 export async function updatePrices(env, { limit = 30, tickers = null } = {}) {
   const stale = `(p.at IS NULL OR p.at < datetime('now', '-20 hours')) AND (p.tried IS NULL OR p.tried < datetime('now', '-3 hours'))`;
@@ -47,9 +59,11 @@ export async function updatePrices(env, { limit = 30, tickers = null } = {}) {
     ? { results: tickers.map((t) => ({ ticker: t })) }
     : await env.DB.prepare(`SELECT DISTINCT h.ticker FROM holdings h LEFT JOIN prices p ON p.ticker = h.ticker WHERE h.ticker IS NOT NULL AND ${stale} LIMIT ?`).bind(limit).all();
   let ok = 0, failed = 0;
+  const done = [];
   for (const { ticker } of results) {
     const q = await fetchQuote(ticker);
     if (q) {
+      done.push(ticker);
       await env.DB.prepare(`INSERT INTO prices (ticker, price, currency, source, at, tried) VALUES (?1, ?2, ?3, ?4, datetime('now'), datetime('now'))
         ON CONFLICT(ticker) DO UPDATE SET price = ?2, currency = COALESCE(?3, currency), source = ?4, at = datetime('now'), tried = datetime('now')`)
         .bind(ticker, q.price, q.currency, q.source).run();
@@ -59,6 +73,7 @@ export async function updatePrices(env, { limit = 30, tickers = null } = {}) {
       failed++;
     }
   }
+  await snapValues(env, { tickers: done }).catch(() => {});
   return { checked: results.length, ok, failed };
 }
 
@@ -120,13 +135,16 @@ async function build(env, user, rates, today) {
   ]);
   const prices = Object.fromEntries(pl.results.map((p) => [p.ticker, p]));
   const evl = await env.DB.prepare('SELECT holding_id, kind, date, amount, qty FROM holding_events WHERE user_id = ? ORDER BY date, id').bind(user.id).all();
+  const hv = await env.DB.prepare('SELECT holding_id, date, value FROM holding_values WHERE user_id = ? ORDER BY date').bind(user.id).all();
+  const hvBy = {};
+  for (const v of hv.results) (hvBy[v.holding_id] ||= []).push({ date: v.date, value: round2(v.value) });
   const evBy = {};
   for (const e of evl.results) (evBy[e.holding_id] ||= []).push({ kind: e.kind, date: e.date, amount: round2(e.amount), qty: e.qty });
   const items = hl.results.map((h) => {
     const c = compute(h, prices[h.ticker], today);
     const b = (v) => (v === null ? null : round2(norm(v, h.currency, base, rates)));
     return {
-      events: evBy[h.id] || [],
+      events: evBy[h.id] || [], values: hvBy[h.id] || [],
       id: h.id, kind: h.kind, name: h.name, currency: h.currency, ticker: h.ticker, qty: h.qty, rate: h.rate, compound: h.compound || 'm', ends: h.ends, opened: h.opened,
       invested: round2(h.invested), value: c.value === null ? null : round2(c.value), gain: c.gain === null ? null : round2(c.gain),
       pct: c.pct === null ? null : Math.round(c.pct * 10) / 10, yearly: c.yearly === null ? null : Math.round(c.yearly * 10) / 10,
@@ -226,6 +244,10 @@ export async function handlePiggy(env, user, path, method, body, { json, fail, r
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .bind(row.id, user.id, row.kind, row.name, row.currency, row.invested, row.principal, row.rate, row.compound, row.accr_from, row.ends, row.ticker, row.qty, row.value, row.value_at, row.opened).run();
     await env.DB.prepare("INSERT INTO holding_events (holding_id, user_id, kind, date, amount, qty) VALUES (?, ?, 'open', ?, ?, ?)").bind(row.id, user.id, row.opened, row.invested, row.qty).run();
+    if (row.kind === 'invest') {
+      await env.DB.prepare('INSERT OR REPLACE INTO holding_values (holding_id, user_id, date, value) VALUES (?, ?, ?, ?)').bind(row.id, user.id, row.opened, row.invested).run();
+      await snapValues(env, { id: row.id }).catch(() => {});
+    }
     return json({ ok: true, id: row.id });
   }
 
@@ -241,6 +263,7 @@ export async function handlePiggy(env, user, path, method, body, { json, fail, r
   if (!m[2] && method === 'DELETE') {
     await env.DB.batch([
       env.DB.prepare('DELETE FROM holding_events WHERE holding_id = ? AND user_id = ?').bind(h.id, user.id),
+      env.DB.prepare('DELETE FROM holding_values WHERE holding_id = ? AND user_id = ?').bind(h.id, user.id),
       env.DB.prepare('DELETE FROM holdings WHERE id = ? AND user_id = ?').bind(h.id, user.id),
     ]);
     return json({ ok: true });
@@ -252,6 +275,7 @@ export async function handlePiggy(env, user, path, method, body, { json, fail, r
     await env.DB.prepare(`UPDATE holdings SET name = ?, currency = ?, invested = ?, principal = ?, rate = ?, compound = ?, accr_from = ?, ends = ?, ticker = ?, qty = ?, value = ?, value_at = ?, opened = ? WHERE id = ? AND user_id = ?`)
       .bind(x.name, x.currency, x.invested, x.principal, x.rate, x.compound, x.accr_from, x.ends, x.ticker, x.qty, x.value, x.value_at, x.opened, h.id, user.id).run();
     if (x.opened !== h.opened) await env.DB.prepare("UPDATE holding_events SET date = ? WHERE holding_id = ? AND kind = 'open'").bind(x.opened, h.id).run();
+    if (x.kind === 'invest') await snapValues(env, { id: h.id }).catch(() => {});
     return json({ ok: true });
   }
   // пополнение: вклад — проценты до сегодня «закрепляются» и дальше идут уже с новой суммой; бумаги — докупили qty на amount.
@@ -273,6 +297,7 @@ export async function handlePiggy(env, user, path, method, body, { json, fail, r
       await env.DB.prepare("UPDATE holdings SET invested = invested + ?, value = COALESCE(value, 0) + ?, value_at = datetime('now') WHERE id = ?").bind(amount, amount, h.id).run();
     }
     await env.DB.prepare("INSERT INTO holding_events (holding_id, user_id, kind, date, amount, qty) VALUES (?, ?, 'topup', ?, ?, ?)").bind(h.id, user.id, date, amount, qty).run();
+    if (h.kind === 'invest') await snapValues(env, { id: h.id }).catch(() => {});
     return json({ ok: true });
   }
   // уменьшение: снимаем часть суммы (вклад — с учётом набежавших процентов, бумаги — продали qty на amount)
@@ -294,6 +319,7 @@ export async function handlePiggy(env, user, path, method, body, { json, fail, r
       await env.DB.prepare("UPDATE holdings SET invested = ?, value = ?, value_at = datetime('now') WHERE id = ?").bind(cut(h.invested), Math.max(0, (h.value || 0) - amount), h.id).run();
     }
     await env.DB.prepare("INSERT INTO holding_events (holding_id, user_id, kind, date, amount, qty) VALUES (?, ?, 'withdraw', ?, ?, ?)").bind(h.id, user.id, today, -amount, qty).run();
+    if (h.kind === 'invest') await snapValues(env, { id: h.id }).catch(() => {});
     return json({ ok: true });
   }
   // ручное обновление стоимости (для позиций без тикера)
@@ -302,6 +328,7 @@ export async function handlePiggy(env, user, path, method, body, { json, fail, r
     const value = num(body.value);
     if (!(value >= 0 && value < 1e12)) return fail(400, 'bad_amount');
     await env.DB.prepare("UPDATE holdings SET value = ?, value_at = datetime('now') WHERE id = ?").bind(value, h.id).run();
+    await snapValues(env, { id: h.id }).catch(() => {});
     return json({ ok: true });
   }
   return null;
