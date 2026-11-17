@@ -1213,7 +1213,14 @@
 
   // кэш месяцев: переключение показывает сохранённое сразу, а свежие данные подтягиваются в фоне
   const monthCache = new Map();
-  const fetchMonth = async (m) => { const d = await api(`/summary?month=${m}`); monthCache.set(m, JSON.stringify(d)); return d; };
+  // при запуске сводку за текущий месяц запрашиваем одновременно с /me, а не после него (месяц берём по часам телефона; если не совпал — просто запросим заново)
+  let bootMonth = null;
+  const fetchMonth = async (m) => {
+    let d;
+    if (bootMonth && bootMonth.m === m) { const b = bootMonth; bootMonth = null; d = await b.p.catch(() => api(`/summary?month=${m}`)); }
+    else d = await api(`/summary?month=${m}`);
+    monthCache.set(m, JSON.stringify(d)); return d;
+  };
   function prefetchAround() {
     const cur = state.today.slice(0, 7);
     [shiftMonth(state.month, -1), shiftMonth(state.month, 1)].forEach((m) => {
@@ -3213,7 +3220,7 @@
     if (!el || splashGone) return;
     splashGone = true;
     if (instant) { el.remove(); return; }
-    const wait = 1000 - (performance.now() - splashAt);
+    const wait = 800 - (performance.now() - splashAt);
     if (wait > 0) await new Promise((r) => setTimeout(r, wait));
     el.classList.add('done');
     $('#app').classList.add('app-in');
@@ -3234,6 +3241,7 @@
       document.body.innerHTML = `<div class="blocker"><div class="big">📱</div><p>${T.ru.openInTg}<br>${T.en.openInTg}</p></div>`;
       return;
     }
+    { const d = new Date(), m = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; bootMonth = { m, p: api(`/summary?month=${m}`) }; bootMonth.p.catch(() => {}); }
     let me;
     try { me = await api('/me'); } catch (e) {
       hideSplash(true);
@@ -3314,7 +3322,7 @@
     const storiesP = (me.hasEntries ? Promise.all([loadMonthStory(wantMonth), loadWeeklyStories()]) : Promise.resolve([null]))
       .then((r) => { loadMilestoneStory(); return r; }); // юбилей — первым в ленте
     // убираем заставку, когда загрузились и истории (но ждём их не дольше 1,5 с)
-    await Promise.race([storiesP, new Promise((r) => setTimeout(r, 1500))]);
+    await Promise.race([storiesP, new Promise((r) => setTimeout(r, 500))]);
     await hideSplash();
     const [monthStory] = await storiesP;
     if (!me.hasEntries && !store.get('welcomed')) await openWelcome();

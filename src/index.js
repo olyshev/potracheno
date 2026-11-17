@@ -259,26 +259,33 @@ async function handleApi(request, env, url) {
       env.DB.prepare('SELECT story_id, at FROM story_views WHERE user_id = ?').bind(user.id).all(),
       env.DB.prepare('SELECT COUNT(*) AS n FROM category_limits WHERE user_id = ?').bind(user.id).first(),
     ]);
+    // остальное тоже независимо — читаем параллельно, а не по очереди (каждый запрос к базе — отдельная задержка)
+    const [customCats, prefs, awards, trackDays, shares] = await Promise.all([
+      getCustom(), getPrefs(),
+      awardsOn(env, user.id) ? awardsSummary(env, user) : null,
+      trackingDays(env, user, now),
+      env.DB.prepare('SELECT milestone FROM milestone_shares WHERE user_id = ?').bind(user.id).all(),
+    ]);
     return json({
       user: { id: user.id, first_name: user.first_name, lang: user.lang, base_currency: user.base_currency, can_message: !!user.can_message, nudges: user.nudges !== 0, carry_over: user.carry_over !== 0 },
       categories: CATEGORIES,
       income_categories: INCOME_CATEGORIES,
-      custom_categories: await getCustom(),
-      category_prefs: await getPrefs(),
+      custom_categories: customCats,
+      category_prefs: prefs,
       custom_emoji: CUSTOM_EMOJI,
       currencies: CURRENCIES,
       limits: { scans: scanLimit(env, usage), scansUsed: usage.scans, shareBonus: SHARE_BONUS, sharedThisMonth: usage.shared },
       hasEntries: cnt.n > 0,
       limitsCount: limCnt ? limCnt.n : 0,
-      awards: awardsOn(env, user.id) ? await awardsSummary(env, user) : null,
+      awards,
       seenStories: views.results.map((v) => v.story_id),
       // когда историю открыли впервые (по местной дате) — некоторые висят в ленте N дней после первого просмотра
       storySeenAt: Object.fromEntries(views.results.map((v) => [v.story_id, localDate(v.at, user.tz)])),
       today: now,
       // сколько дней прошло с первого запуска — «С чего начать» показываем первую неделю
       // дней с первой записанной траты (по дате, когда её внесли, а не по дате самой траты) — для юбилеев и меню
-      daysTracking: await trackingDays(env, user, now),
-      milestonesShared: (await env.DB.prepare('SELECT milestone FROM milestone_shares WHERE user_id = ?').bind(user.id).all()).results.map((r) => r.milestone),
+      daysTracking: trackDays,
+      milestonesShared: shares.results.map((r) => r.milestone),
       daysSinceStart: Math.max(0, Math.floor((Date.parse(`${now}T00:00:00Z`) - Date.parse(`${localDate(user.created_at, user.tz)}T00:00:00Z`)) / 864e5)),
     });
   }
