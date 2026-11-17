@@ -81,9 +81,9 @@ try { wrangler(['secret', 'bulk', secretsFile]); } finally { unlinkSync(secretsF
 // 5. Бот: вебхук, кнопка меню, команды
 step('Подключение бота');
 let res;
-for (let i = 0; i < 8; i++) {
+for (let i = 0; i < 4; i++) { // каждый запрос — не дольше 15 с, чтобы публикация не зависала
   await new Promise((r) => setTimeout(r, 5000)); // новые ключи применяются за несколько секунд
-  res = await fetch(`${url}/admin/setup?key=${adminKey}`).then((r) => r.json()).catch((e) => ({ ok: false, error: e.message }));
+  res = await fetch(`${url}/admin/setup?key=${adminKey}`, { signal: AbortSignal.timeout(15000) }).then((r) => r.json()).catch((e) => ({ ok: false, error: e.message }));
   if (res.ok) break;
 }
 // Приложение уже опубликовано; сбой здесь обычно временный на стороне Telegram — предупреждаем, но не валим публикацию
@@ -91,7 +91,7 @@ if (!res.ok) console.log(`::warning::Бот не переподключился 
 
 // 6. Разовые задачи обслуживания (например, переименование старых записей)
 step('Обслуживание');
-const mt = await fetch(`${url}/admin/maintenance?key=${adminKey}`).then((r) => r.json()).catch((e) => ({ ok: false, error: e.message }));
+const mt = await fetch(`${url}/admin/maintenance?key=${adminKey}`, { signal: AbortSignal.timeout(15000) }).then((r) => r.json()).catch((e) => ({ ok: false, error: e.message }));
 console.log(JSON.stringify(mt));
 if (!mt.ok) console.log(`::warning::Задачи обслуживания не выполнились: ${JSON.stringify(mt).slice(0, 300)}`);
 else if (Object.keys(mt.done || {}).length) console.log(`::notice::Обслуживание: ${JSON.stringify(mt.done)}`);
