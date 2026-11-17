@@ -2609,7 +2609,7 @@
         <div class="row-amount num">${h.value === null ? '—' : esc(money(h.value, h.currency, { round: true }))}${small}</div></button>`;
     };
     el.innerHTML = `
-      <div class="hero2 pg-hero"><header class="top"><div class="month">${t('piggy')}</div></header>
+      <div class="hero2 pg-hero"><img class="h-ill h-safe" src="illus/safe.svg" alt=""><header class="top"><div class="month">${t('piggy')}</div></header>
         <section class="pg-hsec">
           <div class="h-num num">${bigMoney(tt.total, base)}</div>
           <div class="h-chips"><span class="h-chip">${t('pgSav')} <b>${esc(money(tt.savings, base, { round: true }))}</b></span><span class="h-chip">${t('pgInv')} <b>${esc(money(tt.invest, base, { round: true }))}</b></span>

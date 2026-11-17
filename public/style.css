@@ -976,3 +976,5 @@ body.sheet-lock { position: fixed; left: 0; right: 0; width: 100%; overflow: hid
 .pg-amtf .cur-btn { flex: none; }
 #pgRefAll.busy { opacity: .6; }
 .pg-facts.three .pg-fact span { font-size: 11.5px; white-space: nowrap; }
+.h-safe { width: clamp(64px, calc(108px - (430px - 100vw) * .6), 104px); right: clamp(2px, calc(14px - (430px - 100vw) * .15), 14px); top: 0; transform: rotate(10deg); }
+.pg-hero { position: relative; }
